@@ -35,7 +35,10 @@ use super::{absolute, find_price_in_subtree, parse_swiss_price};
 use crate::listing::{Condition, Listing, Region};
 use chrono::Utc;
 use scraper::{Html, Selector};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
+
+static LISTING_NODE_RE: OnceLock<regex::Regex> = OnceLock::new();
 
 /// Base64-msgpack state tokens for the `/de/q/suche/<token>` URL. Stable
 /// across Next.js builds as of Apr 2026 — the category slug is literally
@@ -62,7 +65,31 @@ pub struct Extracted {
     pub body: String,
 }
 
+/// Parse the Next.js SSR dehydrated state in the page. For each `"node":{…}`
+/// entry we pair the `listingID` with its `thumbnail.normalRendition.src`.
+/// This is the only reliable source of image URLs below the fold — the
+/// rendered `<img>` for most cards is a `data:image/gif…` placeholder that
+/// only gets swapped for the real URL after client-side hydration, and
+/// Anibis doesn't even emit a `<noscript>` fallback with the real URL.
+fn extract_image_map(html: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let re = LISTING_NODE_RE.get_or_init(|| {
+        regex::Regex::new(
+            r#""listingID":"(\d+)"[\s\S]{0,4000}?"normalRendition":\{"src":"([^"]+)""#,
+        )
+        .unwrap()
+    });
+    for cap in re.captures_iter(html) {
+        let id = cap[1].to_string();
+        let url = cap[2].to_string();
+        out.entry(id).or_insert(url);
+    }
+    out
+}
+
 pub fn parse_cards(html: &str, origin: &str) -> Vec<Extracted> {
+    let image_map = extract_image_map(html);
+
     let doc = Html::parse_document(html);
     let card_sel = Selector::parse("div[data-private-srp-listing-item-id]").unwrap();
     let link_sel = Selector::parse(r#"a[href*="/de/vi/"]"#).unwrap();
@@ -103,10 +130,23 @@ pub fn parse_cards(html: &str, origin: &str) -> Vec<Extracted> {
         }
 
         let price = find_price_in_subtree(card);
-        let image = card
-            .select(&img_sel)
-            .next()
-            .and_then(|i| i.value().attr("src").map(str::to_string));
+        // Image lookup order (see `extract_image_map` docstring):
+        //   1. Next.js dehydrated state blob, keyed by listingID.
+        //   2. DOM `<img src>` if it's a real URL (not a data: placeholder).
+        //   3. Give up (some listings genuinely have no image).
+        let card_id = card
+            .value()
+            .attr("data-private-srp-listing-item-id")
+            .unwrap_or("");
+        let image = image_map
+            .get(card_id)
+            .cloned()
+            .or_else(|| {
+                card.select(&img_sel)
+                    .filter_map(|i| i.value().attr("src"))
+                    .find(|s| !s.starts_with("data:"))
+                    .map(str::to_string)
+            });
 
         // Description snippet lives in a sibling span; collecting all card
         // text is noisy but fine for keyword matching (we don't store it).
