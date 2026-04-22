@@ -1,0 +1,30 @@
+[package]
+name = "crawl2pump"
+version = "0.1.0"
+edition = "2021"
+description = "Crawl the web for new and second-hand pumpfoil sets (Switzerland + worldwide)"
+license = "GPL-3.0"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive", "env"] }
+scraper = "0.20"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+async-trait = "0.1"
+url = "2"
+csv = "1"
+chromiumoxide = { version = "0.7", default-features = false, features = ["tokio-runtime"] }
+regex = "1"
+
+[[bin]]
+name = "crawl2pump"
+path = "src/main.rs"
+
+[lib]
+name = "crawl2pump"
+path = "src/lib.rs"
