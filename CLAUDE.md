@@ -92,6 +92,18 @@ adding the `[[bin]]` entry.
   ~130 recent listings per site instead of the old ~30 all-recent.
   Freetext tokens would still need reverse-engineering of the msgpack
   encoder — not done.
+- **Tutti/Anibis card images aren't in the DOM** — the rendered
+  `<img src>` is a `data:image/gif…` placeholder that only swaps for
+  the real CDN URL after client-side hydration. Tutti hides the real
+  URL inside a `<noscript>` fallback (which `html5ever`/`scraper`
+  treats as raw text when scripting is enabled, so DOM queries miss it);
+  Anibis doesn't even have the noscript fallback. Solution:
+  `tutti_anibis_cards::extract_image_map` regexes the Next.js
+  dehydrated-state JSON blob for `listingID → thumbnail.normalRendition.src`
+  pairs and looks each card up by its
+  `data-private-srp-listing-item-id` attribute. Hits ~99% of Tutti
+  cards and ~97% of Anibis cards; don't "simplify" it back to a
+  `card.select("img")` query.
 - **Ricardo** works via chromiumoxide but IP-throttles after ~5 rapid
   requests. If you see `<title>Forbidden</title>` in the debug dump,
   back off and retry after 10–15 min.
