@@ -100,6 +100,13 @@ Environment variables:
   Chrome — even in headful mode with manual clicks — because Chrome's
   automation banner is visible to the challenge. That's why we route these
   two through FlareSolverr.
+- **Tutti / Anibis freetext search is not possible** — the search URL carries
+  a base64url-msgpack filter token and silently drops `?query=` args. We
+  sidestep this by iterating a handful of **category tokens** (sport/outdoor,
+  other sports, boats, accessories, all-categories; the slug is plaintext-
+  base64 inside the blob) and applying the freetext filter client-side. Net
+  effect: ~130 recent listings per site instead of the ~30 you'd get from a
+  single all-categories page.
 - **IP throttling** on Ricardo can kick in after rapid repeat requests; wait
   10–15 minutes or use a VPN.
 - **Takuma's storefront URL is unverified** — the original `takumafoils.com`
@@ -136,11 +143,12 @@ src/
     │   ├── lift.rs
     │   └── takuma.rs
     └── classifieds/
-        ├── mod.rs        # shared helpers (price parser, card walk, CF detection)
-        ├── ricardo.rs    # via browser
-        ├── tutti.rs      # via FlareSolverr
-        ├── anibis.rs     # via FlareSolverr
-        └── facebook.rs   # via browser + persistent FB login
+        ├── mod.rs                  # shared helpers (price parser, card walk, CF detection)
+        ├── tutti_anibis_cards.rs   # shared Next.js card extractor + category tokens
+        ├── ricardo.rs              # via browser
+        ├── tutti.rs                # via FlareSolverr
+        ├── anibis.rs               # via FlareSolverr
+        └── facebook.rs             # via browser + persistent FB login
 ```
 
 Each source implements `sources::Source`:

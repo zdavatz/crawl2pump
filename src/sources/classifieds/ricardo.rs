@@ -2,8 +2,8 @@
 //!
 //! Search URL: `/de/s/{query}?sort=newest`. Each result is an anchor whose
 //! `href` contains `/de/a/` (the article detail path). Prices render as
-//! `CHF 1'499.-` inside the card container.
-use super::{absolute, encode_query, fetch_rendered, parse_swiss_price, walk_up};
+//! `CHF 1'499.-` inside a leaf `<span>`/`<p>` within the card.
+use super::{absolute, encode_query, fetch_rendered, find_price_in_subtree, walk_up};
 use crate::listing::{Condition, Listing, Region};
 use crate::sources::browser::SharedBrowser;
 use crate::sources::Source;
@@ -53,15 +53,26 @@ impl Source for Ricardo {
             if !seen.insert(abs.clone()) {
                 continue;
             }
-            let card = walk_up(a, 4);
-            let card_text = card.text().collect::<String>();
-            let title = first_nonempty_line(&a.text().collect::<String>())
-                .or_else(|| first_nonempty_line(&card_text))
+            // Walk up 2 levels — Ricardo's card is typically
+            // `<article><a>...</a><div>...price...</div></article>`. Walking
+            // 4 overshoots to the grid container, and `parse_swiss_price`
+            // then returns the first card's price for every subsequent
+            // anchor.
+            let card = walk_up(a, 2);
+            // Title: prefer the image `alt` (clean product name) over the
+            // card-aggregated text (which splices price + seller blurbs).
+            let title = card
+                .select(&img_sel)
+                .next()
+                .and_then(|i| i.value().attr("alt").map(str::to_string))
+                .or_else(|| first_nonempty_line(&a.text().collect::<String>()))
                 .unwrap_or_default();
             if title.is_empty() || title.len() > 200 {
                 continue;
             }
-            let price = parse_swiss_price(&card_text);
+            // Price: find a leaf element whose own text matches the Swiss
+            // price pattern, rather than regex-matching card-wide text.
+            let price = find_price_in_subtree(card);
             let image = card
                 .select(&img_sel)
                 .next()

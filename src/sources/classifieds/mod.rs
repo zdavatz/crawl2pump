@@ -1,18 +1,23 @@
 //! Swiss classifieds sources (all Cloudflare-protected, fetched via headless Chrome).
 //!
 //! The three sites share:
-//!   * ~identical DOM shape (cards with an anchor + title + image + price)
 //!   * Swiss price format (`CHF 1'499.-`, `Fr. 999.00`, `1'500.-`)
 //!   * always-used condition
 //!
-//! The scraping heuristic per site is intentionally loose (anchor href prefix
-//! + walk up to a card container + regex-match Swiss price) so a selector
-//! rename on one side doesn't kill everything. Tighten per-site once you've
-//! seen real HTML — set `CRAWL2PUMP_DEBUG_HTML=./debug` to dump pages.
+//! Tutti and Anibis are the same Next.js codebase (same owner) — their search
+//! URL uses an opaque binary-encoded token that we can't construct, so text
+//! queries submitted via `?query=` are silently dropped. For those two we
+//! load the "all recent listings" page and filter client-side against the
+//! query via `tutti_anibis_cards::extract`. Ricardo still supports text
+//! search directly via `/de/s/{query}`.
+//!
+//! Set `CRAWL2PUMP_DEBUG_HTML=./debug` to dump every fetched page before
+//! parsing — handy when site HTML shifts.
 pub mod anibis;
 pub mod facebook;
 pub mod ricardo;
 pub mod tutti;
+pub mod tutti_anibis_cards;
 
 use crate::sources::browser::SharedBrowser;
 use anyhow::{Context, Result};
@@ -146,6 +151,31 @@ pub fn walk_up<'a>(el: ElementRef<'a>, levels: usize) -> ElementRef<'a> {
     cur
 }
 
+/// Find the first descendant element whose own text (child text nodes only,
+/// not recursive grandchildren) parses as a Swiss price. Used to narrow price
+/// matching to the actual `<span>CHF 1'499.-</span>` leaf inside a card —
+/// matching on card-concatenated text picks up prices from neighboring cards
+/// when `walk_up` overshoots, or description text that happens to contain a
+/// number.
+pub fn find_price_in_subtree(el: ElementRef<'_>) -> Option<f64> {
+    for desc in el.descendants() {
+        if let Some(de) = ElementRef::wrap(desc) {
+            let own: String = de
+                .children()
+                .filter_map(|n| n.value().as_text().map(|t| t.to_string()))
+                .collect();
+            let trimmed = own.trim();
+            if trimmed.is_empty() || trimmed.len() > 60 {
+                continue;
+            }
+            if let Some(p) = parse_swiss_price(trimmed) {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
 /// Parse Swiss prices from free text. Handles:
 /// - `CHF 1'499.-`, `Fr. 999.00`, `1'500 CHF` (labelled)
 /// - `1'199.00`, `1'500.-` (bare Swiss format — Ricardo/Tutti cards)
@@ -264,6 +294,7 @@ pub fn encode_query(q: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scraper::Html;
 
     #[test]
     fn prices() {
@@ -279,5 +310,36 @@ mod tests {
         // US-style
         assert_eq!(parse_swiss_price("1,200.00 CHF"), Some(1200.0));
         assert_eq!(parse_swiss_price("no price here"), None);
+    }
+
+    #[test]
+    fn query_matches_compound_noun_variants() {
+        use super::tutti_anibis_cards::matches_query;
+        // Single-word query should match separated-word listing and vice versa.
+        assert!(matches_query("pumpfoil", "Pump Foil Board", ""));
+        assert!(matches_query("pumpfoil", "Pump-Foil Board", ""));
+        assert!(matches_query("pumpfoil", "Pumpfoil Board", ""));
+        assert!(matches_query("pump foil", "Pumpfoil Board", ""));
+        // Non-matches stay non-matches.
+        assert!(!matches_query("pumpfoil", "Coffee grinder", ""));
+        // Empty query matches anything.
+        assert!(matches_query("", "anything", ""));
+    }
+
+    #[test]
+    fn price_subtree_picks_leaf_not_aggregated() {
+        // Two sibling "cards" under the same parent: without leaf-text
+        // matching, a naive concat-then-regex would return the first card's
+        // price for every walk that overshoots to this parent.
+        let html = r#"
+          <div id="grid">
+            <article><a href="/a/1"><img/></a><div><span>CHF 100.-</span></div></article>
+            <article><a href="/a/2"><img/></a><div><span>CHF 250.-</span></div></article>
+          </div>
+        "#;
+        let doc = Html::parse_document(html);
+        let sel = scraper::Selector::parse("article").unwrap();
+        let prices: Vec<_> = doc.select(&sel).map(find_price_in_subtree).collect();
+        assert_eq!(prices, vec![Some(100.0), Some(250.0)]);
     }
 }

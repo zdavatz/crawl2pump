@@ -73,6 +73,16 @@ Sources run concurrently via `tokio::spawn` inside `lib.rs::run`.
   `/marketplace/item/{id}/` href pattern (stable) and walk up ~7 levels
   for the card container. Do not hardcode CSS class names; they'll
   break within weeks.
+- **Tutti/Anibis ignore `?query=`** — their URL path carries an opaque
+  base64url-msgpack filter token; query-string args are dropped
+  server-side. The **category** slug is plaintext-base64 inside the
+  blob though (e.g. `Ak8Cuc3BvcnRzT3V0ZG9vcnOUwMDAwA` → "sportsOutdoors"),
+  so we iterate a hand-picked list of foil-relevant category tokens
+  in `classifieds/tutti_anibis_cards.rs::CATEGORY_TOKENS` and filter
+  the free-text query client-side via `matches_query`. Net effect:
+  ~130 recent listings per site instead of the old ~30 all-recent.
+  Freetext tokens would still need reverse-engineering of the msgpack
+  encoder — not done.
 - **Ricardo** works via chromiumoxide but IP-throttles after ~5 rapid
   requests. If you see `<title>Forbidden</title>` in the debug dump,
   back off and retry after 10–15 min.

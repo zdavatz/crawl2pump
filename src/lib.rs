@@ -256,15 +256,20 @@ pub async fn run(cli: Cli) -> Result<()> {
     all_listings.sort_by(|a, b| a.url.cmp(&b.url));
     all_listings.dedup_by(|a, b| a.url == b.url);
 
-    // Optional keyword filter.
+    // Optional keyword filter. Matches as both a literal substring AND
+    // against a compacted (spaces+hyphens stripped) haystack so
+    // `--filter pumpfoil` catches titles like "Pump Foil Board".
     if let Some(kw) = &cli.filter {
         let kw_low = kw.to_lowercase();
+        let kw_compact: String = kw_low.chars().filter(|c| *c != ' ' && *c != '-').collect();
         all_listings.retain(|l| {
-            l.title.to_lowercase().contains(&kw_low)
-                || l.description
-                    .as_deref()
-                    .map(|d| d.to_lowercase().contains(&kw_low))
-                    .unwrap_or(false)
+            let hay = format!(
+                "{}\n{}",
+                l.title.to_lowercase(),
+                l.description.as_deref().unwrap_or("").to_lowercase()
+            );
+            let hay_compact: String = hay.chars().filter(|c| *c != ' ' && *c != '-').collect();
+            hay.contains(&kw_low) || hay_compact.contains(&kw_compact)
         });
     }
 

@@ -1,18 +1,16 @@
-//! Anibis.ch — Swiss classifieds, behind Cloudflare Turnstile. Fetched via
-//! FlareSolverr like Tutti.
-use super::{absolute, encode_query, parse_swiss_price, walk_up};
-use crate::listing::{Condition, Listing, Region};
+//! Anibis.ch — Swiss classifieds. Same Next.js codebase as Tutti (same
+//! owner) with identical card DOM, same base64url-msgpack URL-token
+//! encoding. See `tutti.rs` for the search strategy.
+use super::tutti_anibis_cards::{matches_query, parse_cards, to_listing, CATEGORY_TOKENS};
+use crate::listing::{Listing, Region};
 use crate::sources::flaresolverr::FlareSolverrClient;
 use crate::sources::Source;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use chrono::Utc;
-use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::sync::Arc;
 
 const ORIGIN: &str = "https://www.anibis.ch";
-const CARD_ANCHOR: &str = r#"a[href*="-a"]"#;
 
 pub struct Anibis {
     fs: Option<Arc<FlareSolverrClient>>,
@@ -40,68 +38,35 @@ impl Source for Anibis {
                  ghcr.io/flaresolverr/flaresolverr:latest"
             )
         })?;
-        let url = format!("{ORIGIN}/de/q/{}", encode_query(query));
-        let html = fs.get(&url).await?;
 
-        if let Ok(dir) = std::env::var("CRAWL2PUMP_DEBUG_HTML") {
-            if !dir.is_empty() {
-                let path = std::path::Path::new(&dir).join("anibis.html");
-                std::fs::create_dir_all(&dir).ok();
-                std::fs::write(&path, &html).ok();
-            }
-        }
-
-        let doc = Html::parse_document(&html);
-        let link_sel = Selector::parse(CARD_ANCHOR).unwrap();
-        let img_sel = Selector::parse("img").unwrap();
-        let article_id_re = regex::Regex::new(r"-a(\d{4,})").unwrap();
-
+        let debug_dir = std::env::var("CRAWL2PUMP_DEBUG_HTML")
+            .ok()
+            .filter(|s| !s.is_empty());
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        for a in doc.select(&link_sel) {
-            let Some(href) = a.value().attr("href") else {
-                continue;
+        for (slug, token) in CATEGORY_TOKENS {
+            let url = format!("{ORIGIN}/de/q/suche/{token}");
+            let html = match fs.get(&url).await {
+                Ok(h) => h,
+                Err(e) => {
+                    eprintln!("  anibis[{slug}]: {e}");
+                    continue;
+                }
             };
-            if !article_id_re.is_match(href) {
-                continue;
+            if let Some(dir) = &debug_dir {
+                let path = std::path::Path::new(dir).join(format!("anibis_{slug}.html"));
+                std::fs::create_dir_all(dir).ok();
+                std::fs::write(&path, &html).ok();
             }
-            let abs = absolute(href, ORIGIN);
-            if !seen.insert(abs.clone()) {
-                continue;
+            for card in parse_cards(&html, ORIGIN) {
+                if !matches_query(query, &card.title, &card.body) {
+                    continue;
+                }
+                if !seen.insert(card.url.clone()) {
+                    continue;
+                }
+                out.push(to_listing("anibis", card));
             }
-            let card = walk_up(a, 4);
-            let card_text = card.text().collect::<String>();
-            let title = a
-                .text()
-                .collect::<String>()
-                .lines()
-                .map(str::trim)
-                .find(|l| !l.is_empty())
-                .map(str::to_string)
-                .unwrap_or_default();
-            if title.is_empty() || title.len() > 200 {
-                continue;
-            }
-            let price = parse_swiss_price(&card_text);
-            let image = card
-                .select(&img_sel)
-                .next()
-                .and_then(|i| i.value().attr("src").map(str::to_string));
-            out.push(Listing {
-                source: "anibis".to_string(),
-                brand: None,
-                title,
-                url: abs,
-                price,
-                currency: Some("CHF".to_string()),
-                condition: Condition::Used,
-                available: Some(true),
-                location: None,
-                description: None,
-                image,
-                region: Region::Ch,
-                fetched_at: Utc::now(),
-            });
         }
         Ok(out)
     }
