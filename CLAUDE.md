@@ -66,6 +66,13 @@ Sources run concurrently via `tokio::spawn` inside `lib.rs::run`.
   sets is visible to the challenge. That's why those two sources
   route through FlareSolverr instead. Do not try to "fix" this by
   adding more stealth patches to `classifieds/mod.rs` — it won't work.
+- **Facebook Marketplace requires login cookies** in
+  `.chrome-profile/`. First-time setup: `--headful --sources facebook`,
+  user logs in manually. FB cookies live alongside CF ones in the same
+  profile dir, they don't collide. FB selectors rotate — we key on the
+  `/marketplace/item/{id}/` href pattern (stable) and walk up ~7 levels
+  for the card container. Do not hardcode CSS class names; they'll
+  break within weeks.
 - **Ricardo** works via chromiumoxide but IP-throttles after ~5 rapid
   requests. If you see `<title>Forbidden</title>` in the debug dump,
   back off and retry after 10–15 min.
@@ -85,3 +92,5 @@ Sources run concurrently via `tokio::spawn` inside `lib.rs::run`.
 - Don't run all three classifieds concurrently against the same IP —
   triggers rate limiting. Prefer running them one at a time when
   testing.
+- Don't commit the `.chrome-profile/` directory — it contains the user's
+  FB/CF session cookies. Already gitignored; keep it that way.

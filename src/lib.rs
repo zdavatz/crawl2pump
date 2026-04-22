@@ -70,6 +70,11 @@ pub struct Cli {
     /// then skip with an install hint.
     #[arg(long)]
     pub no_auto_flaresolverr: bool,
+
+    /// Facebook Marketplace city scope. Use "worldwide" for no city filter.
+    /// Common CH options: zurich, bern, basel, geneva, lausanne, luzern.
+    #[arg(long, default_value = "zurich")]
+    pub fb_location: String,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
@@ -97,6 +102,7 @@ pub fn build_sources(
     client: reqwest::Client,
     browser: Option<std::sync::Arc<sources::browser::SharedBrowser>>,
     flaresolverr: Option<std::sync::Arc<sources::flaresolverr::FlareSolverrClient>>,
+    fb_location: String,
 ) -> Vec<Box<dyn Source>> {
     let mut v: Vec<Box<dyn Source>> = vec![
         Box::new(sources::brands::axis::AxisFoils::new(client.clone())),
@@ -107,7 +113,11 @@ pub fn build_sources(
         Box::new(sources::brands::indiana::IndianaSup::new(client)),
     ];
     if let Some(b) = browser {
-        v.push(Box::new(sources::classifieds::ricardo::Ricardo::new(b)));
+        v.push(Box::new(sources::classifieds::ricardo::Ricardo::new(b.clone())));
+        v.push(Box::new(sources::classifieds::facebook::Facebook::new(
+            b,
+            fb_location,
+        )));
     }
     // Tutti / Anibis always go through FlareSolverr (headless Chrome can't
     // beat Turnstile). We always register them; if FlareSolverr isn't
@@ -168,7 +178,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
     };
 
-    let all_sources = build_sources(client, browser, flaresolverr);
+    let all_sources = build_sources(client, browser, flaresolverr, cli.fb_location.clone());
 
     let selected: Option<Vec<String>> = cli.sources.as_ref().map(|s| {
         s.split(',')

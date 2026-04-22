@@ -10,6 +10,7 @@
 //! rename on one side doesn't kill everything. Tighten per-site once you've
 //! seen real HTML — set `CRAWL2PUMP_DEBUG_HTML=./debug` to dump pages.
 pub mod anibis;
+pub mod facebook;
 pub mod ricardo;
 pub mod tutti;
 
@@ -147,34 +148,72 @@ pub fn walk_up<'a>(el: ElementRef<'a>, levels: usize) -> ElementRef<'a> {
 
 /// Parse Swiss prices from free text. Handles:
 /// - `CHF 1'499.-`, `Fr. 999.00`, `1'500 CHF` (labelled)
-/// - `1'199.00`, `1'500.-` (bare — common on Ricardo / Tutti cards where
-///   CHF is implicit). Bare numbers must use Swiss thousand apostrophes or
-///   end with `.-` / `.00` so we don't match plain integers like year/ID.
+/// - `1'199.00`, `1'500.-` (bare Swiss format — Ricardo/Tutti cards)
+/// - `1.200 CHF` (European `.` thousands separator — used by FB Marketplace
+///   when localized to DE/IT/CH-German)
+/// - `1,200.00` (US `,` thousands, `.` decimal)
+/// Bare numbers must use a thousands separator or end with `.-` / `.00` so
+/// we don't match plain integers like years or IDs.
 pub fn parse_swiss_price(text: &str) -> Option<f64> {
     static RE: OnceLock<Regex> = OnceLock::new();
     let re = RE.get_or_init(|| {
         Regex::new(
             r"(?ix)
-             (?:CHF|Fr\.?)\s*([0-9][0-9'\s.]*)           # CHF 1'499.-
-           | ([0-9][0-9'\s]*)(?:\.[-0-9]+)?\s*(?:CHF|Fr\.?)  # 1'499.- CHF
-           | ([0-9]{1,3}(?:'[0-9]{3})+(?:\.(?:-|[0-9]{2}))?)  # 1'499.00 / 1'499.-
-           | ([0-9]{1,6}\.-)                             # 499.-
-           | ([0-9]{2,6}\.[0-9]{2})                      # 499.00 (≥ 10.00)
+             (?:CHF|Fr\.?)\s*([0-9][0-9'.,\s]*(?:\.-)?)   # CHF 1'499.- / CHF 1.200
+           | ([0-9][0-9'.,\s]*(?:\.-)?)\s*(?:CHF|Fr\.?)   # 1'499.- CHF / 1.200 CHF
+           | ([0-9]{1,3}(?:'[0-9]{3})+(?:\.(?:-|[0-9]{2}))?)  # bare 1'499.00
+           | ([0-9]{1,6}\.-)                              # bare 499.-
+           | ([0-9]{2,6}\.[0-9]{2})                       # bare 499.00
            ",
         )
         .unwrap()
     });
     let caps = re.captures(text)?;
-    let raw = (1..=5)
-        .filter_map(|i| caps.get(i))
-        .next()?
-        .as_str();
-    let cleaned: String = raw.chars().filter(|c| c.is_ascii_digit() || *c == '.').collect();
-    let cleaned = cleaned.trim_end_matches('.');
+    let raw = (1..=5).filter_map(|i| caps.get(i)).next()?.as_str().trim();
+    normalize_price_number(raw)
+}
+
+/// Decide which of `.`, `,`, `'` are thousands separators vs. decimal
+/// separator, then produce an f64. The key rule: the *last* `.` or `,`
+/// is the decimal separator **only if** it's followed by exactly 2 digits;
+/// otherwise every `.` `,` `'` is a thousands separator.
+fn normalize_price_number(raw: &str) -> Option<f64> {
+    // Drop whitespace and the trailing ".-" (Swiss "whole francs" notation).
+    let cleaned: String = raw.chars().filter(|c| !c.is_whitespace()).collect();
+    let cleaned = cleaned.trim_end_matches(".-");
     if cleaned.is_empty() {
         return None;
     }
-    cleaned.parse::<f64>().ok()
+
+    // Find the candidate decimal point: rightmost `.` or `,` followed by
+    // exactly 2 trailing digits (i.e. ".99" or ",99" at the end).
+    let bytes = cleaned.as_bytes();
+    let mut decimal_pos: Option<usize> = None;
+    if bytes.len() >= 3 {
+        let tail3 = &cleaned[cleaned.len() - 3..];
+        let tail_bytes = tail3.as_bytes();
+        if (tail_bytes[0] == b'.' || tail_bytes[0] == b',')
+            && tail_bytes[1].is_ascii_digit()
+            && tail_bytes[2].is_ascii_digit()
+        {
+            decimal_pos = Some(cleaned.len() - 3);
+        }
+    }
+
+    let normalized: String = cleaned
+        .char_indices()
+        .filter_map(|(i, c)| match c {
+            '0'..='9' => Some(c),
+            '.' | ',' if Some(i) == decimal_pos => Some('.'),
+            '.' | ',' | '\'' => None, // thousands separator → drop
+            _ => None,
+        })
+        .collect();
+
+    if normalized.is_empty() {
+        return None;
+    }
+    normalized.parse::<f64>().ok()
 }
 
 fn is_cf_challenge(html: &str) -> bool {
@@ -234,6 +273,11 @@ mod tests {
         assert_eq!(parse_swiss_price("1'199.00"), Some(1199.0));
         assert_eq!(parse_swiss_price("1'600.-"), Some(1600.0));
         assert_eq!(parse_swiss_price("499.00"), Some(499.0));
+        // FB Marketplace uses European `.` thousands separator
+        assert_eq!(parse_swiss_price("1.200 CHF"), Some(1200.0));
+        assert_eq!(parse_swiss_price("CHF 2.500"), Some(2500.0));
+        // US-style
+        assert_eq!(parse_swiss_price("1,200.00 CHF"), Some(1200.0));
         assert_eq!(parse_swiss_price("no price here"), None);
     }
 }

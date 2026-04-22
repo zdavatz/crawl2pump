@@ -25,8 +25,7 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Ricardo.ch | Switzerland | headless Chrome (chromiumoxide) |
 | Tutti.ch | Switzerland | FlareSolverr (Cloudflare Turnstile) |
 | Anibis.ch | Switzerland | FlareSolverr (Cloudflare Turnstile) |
-
-Facebook Marketplace is planned but not yet implemented.
+| Facebook Marketplace | CH city or worldwide | headless Chrome + persistent FB login |
 
 ## Install
 
@@ -87,6 +86,7 @@ The release binary lands at `./target/release/crawl2pump`.
 | `--headful` | off | Show Chrome window (debug anti-bot) |
 | `--flaresolverr <url>` | `http://localhost:8191/v1` | FlareSolverr endpoint |
 | `--no-auto-flaresolverr` | off | Don't auto-start FlareSolverr |
+| `--fb-location <city>` | `zurich` | Facebook Marketplace city scope (or `worldwide`) |
 
 Environment variables:
 
@@ -105,7 +105,14 @@ Environment variables:
 - **Takuma's storefront URL is unverified** — the original `takumafoils.com`
   is NXDOMAIN. Update `BASE` in `src/sources/brands/takuma.rs` once known.
 - The `.chrome-profile/` directory persists Chrome state (cookies, CF
-  clearance) between runs — don't delete it unless you want to start fresh.
+  clearance, FB login) between runs — don't delete it unless you want to
+  start fresh.
+- **Facebook Marketplace requires a logged-in session.** First run:
+  `crawl2pump --headful --sources facebook` → log into `facebook.com` in
+  the window that opens → re-run (headless is fine from then on, until FB
+  expires the cookie in a few weeks/months). Using a **throwaway FB
+  account** is strongly recommended since scraping violates FB's ToS and
+  accounts can be flagged.
 
 ## Architecture
 
@@ -129,10 +136,11 @@ src/
     │   ├── lift.rs
     │   └── takuma.rs
     └── classifieds/
-        ├── mod.rs        # shared helpers (Swiss price regex, card walk)
+        ├── mod.rs        # shared helpers (price parser, card walk, CF detection)
         ├── ricardo.rs    # via browser
         ├── tutti.rs      # via FlareSolverr
-        └── anibis.rs     # via FlareSolverr
+        ├── anibis.rs     # via FlareSolverr
+        └── facebook.rs   # via browser + persistent FB login
 ```
 
 Each source implements `sources::Source`:
