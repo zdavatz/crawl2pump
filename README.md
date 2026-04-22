@@ -70,6 +70,13 @@ The release binary lands at `./target/release/crawl2pump`.
 ./target/release/crawl2pump --no-browser
 ```
 
+The `--format json` output is stable across runs (each item carries `source`,
+`title`, `url`, `price`, `currency`, `condition`, `image`, `region`,
+`fetched_at`, …) and is meant to be piped into downstream tools — e.g. a
+small local script that filters for "sets / packages / kits" and renders a
+printable catalog. Such scratch tooling belongs in `src/bin/` (gitignored)
+so it doesn't become part of the shipped crate.
+
 ### CLI flags
 
 | Flag | Default | Effect |

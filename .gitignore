@@ -3,3 +3,9 @@ Cargo.lock.*
 .chrome-profile/
 .flaresolverr/
 *.tmp.html
+# Scratch space for throwaway one-off binaries (e.g. ad-hoc report generators).
+# Keep them out of the published crate; real bins live at src/main.rs.
+/src/bin/
+# Generated PDF/HTML catalogs.
+/pumpfoil-sets.pdf
+/pumpfoil-sets.html

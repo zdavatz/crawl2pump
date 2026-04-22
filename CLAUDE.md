@@ -44,6 +44,15 @@ Tests: `cargo test --release` (currently one: Swiss-price regex).
 
 Sources run concurrently via `tokio::spawn` inside `lib.rs::run`.
 
+## `src/bin/` — scratch bins (gitignored)
+
+Throwaway one-off binaries (ad-hoc PDF/CSV/report generators,
+spelunking tools) can live in `src/bin/` and are excluded from git.
+Don't register them in `Cargo.toml` `[[bin]]` either — that would force
+everyone else to ship them. If a tool becomes useful enough to keep,
+promote it by moving the file out of `src/bin/`, checking it in, and
+adding the `[[bin]]` entry.
+
 ## Adding a new brand shop
 
 1. Check if the shop is Shopify: `curl -I https://DOMAIN/products.json`.
