@@ -49,7 +49,30 @@ The release binary lands at `./target/release/crawl2pump`.
     (`ghcr.io/flaresolverr/flaresolverr:latest`).
   - Else on Linux x64 / Windows x64 → downloads the standalone binary
     from GitHub releases into `.flaresolverr/`.
-  - Else (e.g. macOS without Docker) → clear install hint, Tutti/Anibis skip.
+  - Else (e.g. macOS without Docker) → Tutti/Anibis skip with an install
+    hint. On macOS you can still run FlareSolverr manually from source,
+    see ["Running FlareSolverr on macOS"](#running-flaresolverr-on-macos)
+    below.
+
+### Running FlareSolverr on macOS
+
+Upstream doesn't ship a macOS binary and Docker Desktop is a heavy
+install. The easiest path is to run FlareSolverr from source in a Python
+venv — it's a Python app and supports macOS officially:
+
+```bash
+git clone --depth 1 https://github.com/FlareSolverr/FlareSolverr.git .flaresolverr-src
+cd .flaresolverr-src
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+HEADLESS=false .venv/bin/python src/flaresolverr.py
+```
+
+`HEADLESS=false` is required on macOS — FlareSolverr's default headless
+mode spawns Xvfb (X11), which macOS doesn't have. With this setting,
+Chrome briefly pops up a small window while solving Cloudflare
+challenges, which is fine for a local tool. `.flaresolverr-src/` is in
+`.gitignore`.
 
 ## Usage
 

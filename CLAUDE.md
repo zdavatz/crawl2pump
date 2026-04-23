@@ -107,9 +107,13 @@ adding the `[[bin]]` entry.
 - **Ricardo** works via chromiumoxide but IP-throttles after ~5 rapid
   requests. If you see `<title>Forbidden</title>` in the debug dump,
   back off and retry after 10–15 min.
-- **macOS can't run the standalone FlareSolverr binary** — upstream
-  only ships Linux x64 / Windows x64 builds. macOS users need Docker
-  for Tutti/Anibis.
+- **macOS can't auto-start FlareSolverr** — upstream only ships Linux
+  x64 / Windows x64 PyInstaller binaries, and Docker isn't assumed to
+  be installed. But FlareSolverr itself is pure Python and officially
+  supports macOS, so running it from source works fine. The README
+  documents the venv recipe; the key trick is `HEADLESS=false` (macOS
+  has no Xvfb, which the default headless path tries to spawn). Clone
+  into `.flaresolverr-src/` — that path is in `.gitignore`.
 - **`.chrome-profile/`** persists Chrome state between runs (CF
   clearance cookies etc). It's in `.gitignore`. Don't nuke it lightly.
 
