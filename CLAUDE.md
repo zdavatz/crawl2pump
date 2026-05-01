@@ -119,6 +119,33 @@ Diff queries:
 The DB file is gitignored; the empty `sqlite/` directory is kept via
 `.gitkeep` so first-run users have somewhere obvious to point.
 
+### Front-wing rows in the DB
+
+Each front-wing **variant** lives in its own row — URLs include
+`?variant=<id>` for Shopify-expanded items so the primary key is
+unique per size. That means:
+
+- **Per-size price history.** Armstrong's S1 has four rows
+  (1250/1550/1850/2050 cm²) and `price_history` has one stream per
+  size — when Armstrong drops the 1550 from $539 to $499 only that
+  row's hash flips and a new `price_history` entry appends.
+- **Specs persist** even when extraction is partial. `area_cm2`
+  comes from the variant title for Onix/Armstrong/Takoon. `span_mm`
+  / `chord_mm` come from detail-page fetches and are NULL where the
+  shop doesn't publish them. `aspect_ratio` is computed from area +
+  span when both are present, even if the spec page only listed two
+  of the three.
+- **Content hash includes specs.** A scan that fixes a previously
+  missing area (because the detail-page fetch succeeded this time)
+  flips `content_hash`, marks the row **MOD** in the next PDF, and
+  bumps `last_modified_at`. That's expected — the buyer-visible
+  data improved.
+
+If you add a new brand source that yields front wings without size
+variants (single-SKU per wing, like Code Foils), the existing
+`product_to_listing` shim still works — variants of length 1 are a
+no-op for the explosion logic.
+
 ## Stale scratch bins (gitignored, but committed copies in older tags)
 
 For completeness, the bins still living in `src/bin/` (gitignored, may

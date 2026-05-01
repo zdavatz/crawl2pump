@@ -166,6 +166,40 @@ The SQLite path can be overridden with `--db <path>`. The database
 file itself is gitignored; only the schema (in `src/db.rs`) and the
 empty `sqlite/` directory are checked in.
 
+#### Front-wing tracking in the DB
+
+Every front-wing variant ends up as its own row in the `listings`
+table, indexed by URL. Each variant URL is unique (`?variant=<id>` on
+Shopify shops, full path elsewhere), so Armstrong's S1 1250 / 1550 /
+1850 / 2050 are four separate rows with four separate price-history
+streams. Spec columns (`area_cm2`, `span_mm`, `aspect_ratio`,
+`chord_mm`) are populated where extraction succeeded; `content_hash`
+covers all of them (so a corrected wing area on a later scan triggers
+the **MOD** badge).
+
+Useful queries:
+
+```bash
+# All front wings sorted by area (largest first)
+sqlite3 sqlite/crawl2pump.db \
+  "SELECT source, title, area_cm2, span_mm, aspect_ratio, price, currency
+   FROM listings WHERE category='Front Wings'
+   ORDER BY area_cm2 DESC NULLS LAST"
+
+# Front wings new in the last scan
+sqlite3 sqlite/crawl2pump.db \
+  "SELECT source, title, price FROM listings
+   WHERE category='Front Wings' AND first_seen = last_seen
+   ORDER BY first_seen DESC"
+
+# Price drops on any size variant
+sqlite3 sqlite/crawl2pump.db \
+  "SELECT l.title, h.price, h.currency, h.observed_at
+   FROM price_history h JOIN listings l ON l.url = h.url
+   WHERE l.category='Front Wings'
+   ORDER BY h.observed_at DESC LIMIT 20"
+```
+
 ### CLI flags
 
 | Flag | Default | Effect |
