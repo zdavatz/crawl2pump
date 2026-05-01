@@ -274,16 +274,19 @@ async fn main() -> Result<()> {
                 }
             }
             Category::Boards => {
-                // Boards sort by price ascending. We extract volume_l /
-                // length_cm into the spec block for display, but title-
-                // based extraction is too inconsistent across brands to
-                // be a reliable primary sort key (Indiana labels by cm,
-                // Axis by L, Ketos by cm, Onix doesn't label at all).
-                // Price is unambiguous and comparable across currencies
-                // when paired with the currency badge in the meta line.
-                a.1.price
-                    .partial_cmp(&b.1.price)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                // Boards sort by price ascending; no-price rows sink to
+                // the bottom (rather than Rust's default None < Some).
+                // We extract volume_l / length_cm into the spec block
+                // for display, but title-based extraction is too
+                // inconsistent across brands (Indiana labels by cm,
+                // Axis by L, Ketos by cm, Onix doesn't label at all)
+                // to be a reliable primary sort key.
+                match (a.1.price, b.1.price) {
+                    (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => std::cmp::Ordering::Equal,
+                }
             }
             _ => a
                 .1
@@ -373,7 +376,15 @@ fn classify(l: &Listing) -> Category {
         || t.contains("foilboard")
         || u.contains("/board/")
         || u.contains("-board-")
-        || u.contains("-board.");
+        || u.contains("-board.")
+        // Takoon's pump boards have no `board` token anywhere — naming
+        // convention is `Pump Wood 80` / `Pump Carbon` / `Pump Scoot
+        // Carbon`. Match `Pump <material>` at the START of the title
+        // and not "Pump <foil-component>" (Foil Pump..., Pump Backpack,
+        // Pump Hose Adapter — accessory_word check above handles those).
+        || Regex::new(r"^pump\s+(wood|carbon|scoot|aluminium|alu|foam|epoxy)\b")
+            .unwrap()
+            .is_match(&t);
     // Match `kit` only as a whole word — `" kit"` would otherwise match
     // "Eco Kite" (Mio's shop tagline) and misclassify every Mio board as
     // a foil-pack set. Same for the others where a stray substring

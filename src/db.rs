@@ -212,10 +212,17 @@ CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url);
                         )?;
                         modified_count += 1;
                     } else {
-                        // Touch only last_seen — leave last_modified_at alone.
+                        // Content unchanged from the buyer's POV (price,
+                        // title, image, specs all match) — touch
+                        // last_seen and bump scan_count, but DON'T
+                        // touch last_modified_at. Category, however,
+                        // refreshes — when classify() rules tighten
+                        // (e.g. Takoon's "Pump Wood 80" board moved
+                        // out of Accessories), older rows shouldn't
+                        // keep the stale bucket label.
                         tx.execute(
-                            "UPDATE listings SET last_seen=?1, scan_count = scan_count + 1 WHERE url=?2",
-                            params![scan_iso, row.url],
+                            "UPDATE listings SET last_seen=?1, scan_count = scan_count + 1, category=?2 WHERE url=?3",
+                            params![scan_iso, row.category, row.url],
                         )?;
                     }
                     let _ = modified_iso;
