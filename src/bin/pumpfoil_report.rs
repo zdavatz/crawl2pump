@@ -238,10 +238,13 @@ async fn main() -> Result<()> {
     categorized.sort_by(|a, b| {
         a.0.order().cmp(&b.0.order()).then_with(|| match a.0 {
             Category::FrontWings => {
+                // Sort by flat surface area DESCENDING — biggest wings
+                // (beginner / glide) first, smallest (high-performance /
+                // race) last. No-spec wings sink to the bottom.
                 let ka = a.2.as_ref().and_then(|s| s.area_cm2);
                 let kb = b.2.as_ref().and_then(|s| s.area_cm2);
                 match (ka, kb) {
-                    (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+                    (Some(x), Some(y)) => y.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal),
                     (Some(_), None) => std::cmp::Ordering::Less,
                     (None, Some(_)) => std::cmp::Ordering::Greater,
                     (None, None) => a.1.price.partial_cmp(&b.1.price).unwrap_or(std::cmp::Ordering::Equal),
