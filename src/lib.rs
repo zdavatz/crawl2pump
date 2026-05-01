@@ -110,7 +110,12 @@ pub fn build_sources(
         Box::new(sources::brands::gong::GongSurfboards::new(client.clone())),
         Box::new(sources::brands::lift::LiftFoils::new(client.clone())),
         Box::new(sources::brands::takuma::TakumaFoils::new(client.clone())),
-        Box::new(sources::brands::indiana::IndianaSup::new(client)),
+        Box::new(sources::brands::indiana::IndianaSup::new(client.clone())),
+        Box::new(sources::brands::alpinefoil::AlpineFoil::new(client.clone())),
+        Box::new(sources::brands::ketos::Ketos::new(client.clone())),
+        Box::new(sources::brands::onix::OnixFoils::new(client.clone())),
+        Box::new(sources::brands::takoon::Takoon::new(client.clone())),
+        Box::new(sources::brands::codefoils::CodeFoils::new(client)),
     ];
     if let Some(b) = browser {
         v.push(Box::new(sources::classifieds::ricardo::Ricardo::new(b.clone())));

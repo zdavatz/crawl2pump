@@ -50,10 +50,30 @@ pub async fn fetch_all_products(
     client: &Client,
     base_url: &str,
 ) -> Result<Vec<ShopifyProduct>> {
+    fetch_paginated(client, base_url, "/products.json").await
+}
+
+/// Fetch a single Shopify collection's products via `/collections/<handle>/products.json`.
+/// Useful when a brand has a curated pump-foil collection (Axis, e.g.) that
+/// classifies items the global /products.json doesn't tag in the title.
+pub async fn fetch_collection_products(
+    client: &Client,
+    base_url: &str,
+    collection_handle: &str,
+) -> Result<Vec<ShopifyProduct>> {
+    let path = format!("/collections/{collection_handle}/products.json");
+    fetch_paginated(client, base_url, &path).await
+}
+
+async fn fetch_paginated(
+    client: &Client,
+    base_url: &str,
+    path: &str,
+) -> Result<Vec<ShopifyProduct>> {
     let base = base_url.trim_end_matches('/');
     let mut all = Vec::new();
     for page in 1..=16 {
-        let url = format!("{base}/products.json?limit=250&page={page}");
+        let url = format!("{base}{path}?limit=250&page={page}");
         let resp = client
             .get(&url)
             .send()

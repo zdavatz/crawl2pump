@@ -1,6 +1,11 @@
+pub mod alpinefoil;
 pub mod armstrong;
 pub mod axis;
+pub mod codefoils;
 pub mod gong;
 pub mod indiana;
+pub mod ketos;
 pub mod lift;
+pub mod onix;
+pub mod takoon;
 pub mod takuma;

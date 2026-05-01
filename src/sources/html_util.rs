@@ -10,9 +10,33 @@ use scraper::{Html, Selector};
 use serde_json::Value;
 use std::collections::HashSet;
 
+/// One row from a sitemap: the canonical URL plus any sitemap-image
+/// titles associated with it. Magento-style sitemaps use SKU-only slugs
+/// (`/de_ch/3615sq-3615sq.html`) and stuff the human-readable product
+/// name into `<image:title>` instead, so we keep those for downstream
+/// keyword filtering.
+#[derive(Debug, Default, Clone)]
+pub struct SitemapEntry {
+    pub loc: String,
+    pub titles: Vec<String>,
+}
+
 /// Fetch every `<loc>` URL reachable from a sitemap, transparently
 /// following `<sitemapindex>` references one level deep.
 pub async fn fetch_sitemap_urls(client: &Client, entry: &str) -> Result<Vec<String>> {
+    Ok(fetch_sitemap_entries(client, entry)
+        .await?
+        .into_iter()
+        .map(|e| e.loc)
+        .collect())
+}
+
+/// Same traversal as [`fetch_sitemap_urls`] but also captures the
+/// `<image:title>` text inside each `<url>` block.
+pub async fn fetch_sitemap_entries(
+    client: &Client,
+    entry: &str,
+) -> Result<Vec<SitemapEntry>> {
     let mut collected = Vec::new();
     let mut queue = vec![entry.to_string()];
     let mut seen: HashSet<String> = HashSet::new();
@@ -34,16 +58,35 @@ pub async fn fetch_sitemap_urls(client: &Client, entry: &str) -> Result<Vec<Stri
             Ok(b) => b,
             Err(_) => continue,
         };
-        let is_index = body.contains("<sitemapindex");
-        for cap in body.split("<loc>").skip(1) {
-            if let Some(end) = cap.find("</loc>") {
-                let s = cap[..end].trim().to_string();
-                if is_index {
-                    queue.push(s);
-                } else {
-                    collected.push(s);
+        if body.contains("<sitemapindex") {
+            // Sitemap of sitemaps — only need the inner <loc>s for traversal.
+            for cap in body.split("<loc>").skip(1) {
+                if let Some(end) = cap.find("</loc>") {
+                    queue.push(cap[..end].trim().to_string());
                 }
             }
+            continue;
+        }
+        // Per-url sitemap: walk each <url>...</url> block so we can pair
+        // <loc> with its sibling <image:title> values.
+        for block in body.split("<url>").skip(1) {
+            let Some(end) = block.find("</url>") else {
+                continue;
+            };
+            let inner = &block[..end];
+            let loc = match inner.split_once("<loc>") {
+                Some((_, rest)) => match rest.split_once("</loc>") {
+                    Some((l, _)) => l.trim().to_string(),
+                    None => continue,
+                },
+                None => continue,
+            };
+            let titles = inner
+                .split("<image:title>")
+                .skip(1)
+                .filter_map(|c| c.split_once("</image:title>").map(|(t, _)| t.trim().to_string()))
+                .collect();
+            collected.push(SitemapEntry { loc, titles });
         }
     }
     Ok(collected)
@@ -79,17 +122,29 @@ pub fn parse_page_product(html_text: &str) -> PageProduct {
     let script_sel = Selector::parse(r#"script[type="application/ld+json"]"#).unwrap();
     for s in doc.select(&script_sel) {
         let text: String = s.text().collect();
-        if let Ok(v) = serde_json::from_str::<Value>(text.trim()) {
+        // Some shops (Alpinefoil, observed) ship JSON-LD with raw \r\n
+        // inside string values, which serde_json strict-rejects. Replace
+        // unescaped control chars with spaces — safe both inside strings
+        // (just collapses whitespace) and between tokens.
+        let sanitized: String = text
+            .trim()
+            .chars()
+            .map(|c| if c.is_control() && c != '\n' { ' ' } else { c })
+            .collect();
+        let sanitized = sanitized.replace('\n', " ");
+        if let Ok(v) = serde_json::from_str::<Value>(&sanitized) {
             extract_jsonld(&v, &mut pp);
         }
     }
 
     // OpenGraph / product meta fallback.
     if pp.title.is_none() {
-        pp.title = meta_content(&doc, "og:title");
+        pp.title = meta_content(&doc, "og:title").as_deref().map(clean_html_text);
     }
     if pp.description.is_none() {
-        pp.description = meta_content(&doc, "og:description");
+        pp.description = meta_content(&doc, "og:description")
+            .as_deref()
+            .map(clean_html_text);
     }
     if pp.image.is_none() {
         pp.image = meta_content(&doc, "og:image");
@@ -126,13 +181,16 @@ fn extract_jsonld(v: &Value, pp: &mut PageProduct) {
                 return;
             }
             if pp.title.is_none() {
-                pp.title = obj.get("name").and_then(|v| v.as_str()).map(str::to_string);
+                pp.title = obj
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(clean_html_text);
             }
             if pp.description.is_none() {
                 pp.description = obj
                     .get("description")
                     .and_then(|v| v.as_str())
-                    .map(str::to_string);
+                    .map(clean_html_text);
             }
             if pp.image.is_none() {
                 pp.image = match obj.get("image") {
@@ -149,11 +207,19 @@ fn extract_jsonld(v: &Value, pp: &mut PageProduct) {
                 };
                 if let Some(o) = offer.and_then(|v| v.as_object()) {
                     if pp.price.is_none() {
-                        pp.price = o.get("price").and_then(|p| match p {
-                            Value::String(s) => s.parse().ok(),
-                            Value::Number(n) => n.as_f64(),
-                            _ => None,
-                        });
+                        // schema.org/AggregateOffer carries `lowPrice`/
+                        // `highPrice` instead of `price` — fall back so
+                        // shops like Ketos / Alpinefoil that bundle
+                        // configurable pumpfoil packs still report a
+                        // number to sort by.
+                        pp.price = o
+                            .get("price")
+                            .or_else(|| o.get("lowPrice"))
+                            .and_then(|p| match p {
+                                Value::String(s) => s.parse().ok(),
+                                Value::Number(n) => n.as_f64(),
+                                _ => None,
+                            });
                     }
                     if pp.currency.is_none() {
                         pp.currency = o
@@ -197,4 +263,46 @@ pub fn looks_like_foil_product(url: &str) -> bool {
         "kit", "package", "set", "board",
     ];
     KW.iter().any(|k| u.contains(k))
+}
+
+/// Decode HTML entities and strip tags from a JSON-LD string by
+/// re-parsing it as HTML and taking the text content. Runs twice to
+/// undo double-encoding seen in the wild (Alpinefoil ships
+/// `&amp;ccedil;u` instead of `&ccedil;u` for `çu`; Indiana ships
+/// `&#039;` inside the JSON name field). The second pass is also what
+/// turns `&lt;p&gt;hello&lt;/p&gt;` into `hello` rather than the
+/// literal `<p>hello</p>`.
+pub fn clean_html_text(s: &str) -> String {
+    fn pass(s: &str) -> String {
+        Html::parse_fragment(s)
+            .root_element()
+            .text()
+            .collect::<String>()
+    }
+    pass(&pass(s))
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Strict pumpfoil keyword test — for narrowing brand-shop catalogs to
+/// the actual pumpfoil/dockstart discipline rather than wing/kite/wake
+/// adjacencies. Different brands spell it differently:
+/// - "pumpfoil" / "pump foil" / "pump-foil" (Indiana, Alpinefoil, Duotone)
+/// - "pumping" (Ketos, Alpinefoil category)
+/// - "foil pumping" / "foilpump" (Ketos category, marketing copy)
+/// - "dockstart" (Alpinefoil, Indiana — same discipline, different verb)
+pub fn looks_like_pump_foil(text: &str) -> bool {
+    let t = text.to_lowercase();
+    t.contains("pumpfoil")
+        || t.contains("pump foil")
+        || t.contains("pump-foil")
+        || t.contains("pump_foil")
+        || t.contains("foilpump")
+        || t.contains("foil pumping")
+        || t.contains("foil-pumping")
+        || t.contains("pumping")
+        || t.contains("dockstart")
+        || t.contains("dock start")
+        || t.contains("dock-start")
 }

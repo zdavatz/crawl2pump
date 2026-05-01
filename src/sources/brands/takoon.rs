@@ -1,12 +1,10 @@
-//! Armstrong Foils — armstrongfoils.com — Shopify storefront.
+//! Takoon — takoon.com — Shopify storefront, French foil & wing maker.
 //!
-//! Armstrong has no dedicated "pump foil" collection — they market across
-//! disciplines (surf/wing/wake/downwind) and let riders mix the A+ system.
-//! Their closest pump-foil package is the **Step One Collection** (S1
-//! beginner kit: board + mast + foil kit + front foil + stabilizer),
-//! which we fetch directly. Plus we keep the global product list so any
-//! item with "pump" in the title (e.g. Pump 202 Stabilizer) still surfaces
-//! through the downstream pump-foil filter.
+//! Their `foil-pump` and `pack-foil-pump` collections are surprisingly
+//! sparse (don't include the "Pack Pump One Carbon" / "Pack Pump
+//! Performance Aluminium" SKUs that are clearly pump-foil bundles).
+//! Belt-and-suspenders: pull both curated collections AND title-filter
+//! the global catalog for `pump` to catch their pack-pump-* SKUs.
 use crate::listing::{Listing, Region};
 use crate::sources::shopify::{
     fetch_all_products, fetch_collection_products, is_target_product, product_to_listing,
@@ -17,25 +15,25 @@ use async_trait::async_trait;
 use reqwest::Client;
 use std::collections::HashSet;
 
-const BASE: &str = "https://armstrongfoils.com";
-const BRAND: &str = "Armstrong";
-const CURRENCY: &str = "USD";
-const PUMP_RELEVANT_COLLECTIONS: &[&str] = &["step-one-collection"];
+const BASE: &str = "https://takoon.com";
+const BRAND: &str = "Takoon";
+const CURRENCY: &str = "EUR";
+const COLLECTIONS: &[&str] = &["pack-foil-pump", "foil-pump"];
 
-pub struct ArmstrongFoils {
+pub struct Takoon {
     client: Client,
 }
 
-impl ArmstrongFoils {
+impl Takoon {
     pub fn new(client: Client) -> Self {
         Self { client }
     }
 }
 
 #[async_trait]
-impl Source for ArmstrongFoils {
+impl Source for Takoon {
     fn name(&self) -> &'static str {
-        "armstrong"
+        "takoon"
     }
     fn region(&self) -> Region {
         Region::World
@@ -44,14 +42,14 @@ impl Source for ArmstrongFoils {
         let mut listings = Vec::new();
         let mut seen = HashSet::new();
 
-        for handle in PUMP_RELEVANT_COLLECTIONS {
+        for handle in COLLECTIONS {
             for p in fetch_collection_products(&self.client, BASE, handle).await? {
                 if !seen.insert(p.handle.clone()) {
                     continue;
                 }
                 listings.push(product_to_listing(
                     &p,
-                    "armstrong",
+                    "takoon",
                     BRAND,
                     BASE,
                     CURRENCY,
@@ -60,18 +58,12 @@ impl Source for ArmstrongFoils {
             }
         }
 
-        // From the global catalog: keep only items whose title literally
-        // says "pump" (Pump 202 Stabilizer etc.). Armstrong has no pump
-        // collection so we can't filter by category — and we don't want
-        // the full 106-item catalog leaking into a pump-foil report.
         for p in fetch_all_products(&self.client, BASE).await? {
             if !is_target_product(&p) {
                 continue;
             }
             let title_lc = p.title.to_lowercase();
-            let is_pump_titled = title_lc.contains("pump")
-                && !title_lc.contains("a-wing pump"); // inflation pump for wings, not foil
-            if !is_pump_titled {
+            if !title_lc.contains("pump") {
                 continue;
             }
             if !seen.insert(p.handle.clone()) {
@@ -79,7 +71,7 @@ impl Source for ArmstrongFoils {
             }
             listings.push(product_to_listing(
                 &p,
-                "armstrong",
+                "takoon",
                 BRAND,
                 BASE,
                 CURRENCY,

@@ -9,14 +9,19 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 
 ### Brand shops (new gear)
 
-| Source | Region | Platform |
-|---|---|---|
-| Axis Foils | World | Shopify |
-| Armstrong Foils | World | Shopify |
-| Gong (gong-galaxy.com) | World | Shopify |
-| Lift Foils | World | Shopify |
-| Takuma | World | **URL unverified — stub** |
-| Indiana (indiana-sup.ch) | Switzerland | Shopware (sitemap + JSON-LD) |
+| Source | Region | Platform | Discovery |
+|---|---|---|---|
+| Axis Foils | World | Shopify | `/collections/all-pump/products.json` (curated 128-item pump collection) |
+| Armstrong Foils | World | Shopify | step-one collection + global title-filter for `pump` |
+| Gong (gong-galaxy.com) | World | Shopify | `/products.json` (filter applied downstream) |
+| Lift Foils | World | Shopify | `/products.json` |
+| Takuma | World | **URL unverified — stub** | — |
+| Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap + `<image:title>` strict pumpfoil keyword |
+| AlpineFoil | France | Custom (sitemap + JSON-LD) | `/kitefoil-windfoil-shop/.../*.html` filtered for pumpfoil |
+| Ketos | France | WordPress / WooCommerce | English shop only, strict pumpfoil keyword |
+| Onix | France | Shopify | `combo-packs` + `foil-full-pack` collections |
+| Takoon | France | Shopify | `pack-foil-pump` + `foil-pump` collections + global `pump` title-filter |
+| Code Foils | USA | WordPress (no per-product sitemap) | scrape `/products/` index page; no retail prices (dealer-only) |
 
 ### Classifieds (second-hand)
 
@@ -166,11 +171,16 @@ src/
     ├── browser.rs        # lazy shared chromiumoxide Chrome
     ├── flaresolverr.rs   # FlareSolverr client + auto-start (Docker / standalone)
     ├── brands/           # one module per brand shop
-    │   ├── axis.rs
+    │   ├── alpinefoil.rs
     │   ├── armstrong.rs
+    │   ├── axis.rs
+    │   ├── codefoils.rs
     │   ├── gong.rs
     │   ├── indiana.rs
+    │   ├── ketos.rs
     │   ├── lift.rs
+    │   ├── onix.rs
+    │   ├── takoon.rs
     │   └── takuma.rs
     └── classifieds/
         ├── mod.rs                  # shared helpers (price parser, card walk, CF detection)

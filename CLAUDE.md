@@ -56,14 +56,90 @@ adding the `[[bin]]` entry.
 ## Adding a new brand shop
 
 1. Check if the shop is Shopify: `curl -I https://DOMAIN/products.json`.
-2. **If Shopify** — create `src/sources/brands/<brand>.rs` by copying
-   `axis.rs`. Update `BASE`, `BRAND`, `CURRENCY`. Register the module in
-   `brands/mod.rs` and construct it in `lib.rs::build_sources`.
-3. **If not Shopify** — try sitemap-based scraping via
-   `html_util::fetch_sitemap_urls` + `fetch_page_product` (see
-   `brands/indiana.rs` for a working example).
-4. Make sure the module's `region()` is accurate — Swiss brands shipping
+   If 200, it is.
+2. **If Shopify** — `curl https://DOMAIN/collections.json` and look for
+   a pump-foil-named collection (`all-pump`, `combo-packs`, `foil-pump`,
+   `pack-foil-pump`, `step-one-collection`, `pumping-packs`, etc.).
+   Strongly prefer fetching the curated collection via
+   `shopify::fetch_collection_products(client, BASE, "<handle>")` over
+   the global `/products.json`. Brands curate pump-foil items into
+   collections; the global list mixes wing/wake/SUP gear that uses no
+   "pump" in the title and would silently slip past any title-keyword
+   filter. See `brands/axis.rs` (single curated collection) and
+   `brands/onix.rs` / `brands/takoon.rs` (multiple collections).
+3. **If Shopify but no pump collection** — fall back to
+   `fetch_all_products` and apply a title-substring filter at the
+   source (see `brands/armstrong.rs` and `brands/takoon.rs` for the
+   `pump` keyword pattern). Don't push that filter downstream — keep
+   sources strict so the multi-source merge in `lib.rs::run` stays
+   pump-foil-only without per-caller knowledge.
+4. **If not Shopify** — try sitemap-based scraping via
+   `html_util::fetch_sitemap_entries` (returns `<loc>` + `<image:title>`
+   pairs) + `fetch_page_product` (see `brands/indiana.rs` for a Magento
+   example, `brands/alpinefoil.rs` for a custom-XML example,
+   `brands/ketos.rs` for WordPress/WooCommerce). Filter via
+   `looks_like_pump_foil` against both URL and image titles —
+   Magento-style SKU-only URLs (e.g. `3615sq-3615sq.html`) carry the
+   real product name in `<image:title>` only, so URL-keyword filters
+   would miss real sets like Indiana's Condor XL Complete.
+5. **If no sitemap** — last resort, scrape an index page for product
+   links (see `brands/codefoils.rs` — fetches `/products/` and pulls
+   `/product/*` hrefs).
+6. Make sure the module's `region()` is accurate — Swiss brands shipping
    from CH should return `Region::Ch`.
+
+## Pump-foil-specific filtering
+
+`html_util::looks_like_pump_foil(text)` is the canonical strict
+keyword test — accepts `pumpfoil`/`pump foil`/`pump-foil`/`pumping`/
+`dockstart`/`foilpump`/`foil pumping`. Use it instead of
+`looks_like_foil_product` (which is loose — matches `wing`/`mast`/
+`board`/`kit`/`set` and floods with non-pump items) when narrowing a
+brand catalog at the source.
+
+## JSON-LD parsing gotchas (seen in the wild)
+
+The shared parser at `html_util::parse_page_product` handles three
+real-world quirks; don't undo any of them:
+
+- **Raw control characters in JSON-LD strings** — Alpinefoil ships
+  `body_html` descriptions with literal `\r\n` inside JSON string
+  values, which strict `serde_json::from_str` rejects. We sanitize
+  control bytes to spaces before parsing.
+- **`AggregateOffer.lowPrice` instead of `Offer.price`** —
+  Alpinefoil and Ketos use AggregateOffer for variant-priced packs.
+  Our parser falls back to `lowPrice` when `price` is absent.
+- **Double-encoded HTML in `name`/`description`** — Indiana ships
+  `Indiana 3&#039;7 Pump Foil "Le Doigt"`, Alpinefoil ships
+  `&lt;p&gt;...&amp;ccedil;u...&lt;/p&gt;`. We pass titles and
+  descriptions through `html_util::clean_html_text`, which re-parses
+  as HTML twice (handles both single and double-encoding) and strips
+  tags. If a future shop needs another decode pass, do it in that
+  helper rather than at the call site.
+
+## Front-wing spec extraction
+
+`src/bin/enrich_frontwings.rs` is a scratch bin that reads a
+crawl2pump JSON dump, finds front-wing listings (using the same
+classifier rule as `listings_pdf.rs::classify`), and adds a `specs:
+{ area_cm2, span_mm, aspect_ratio, chord_mm }` field via three passes:
+
+1. **Title parse** — model name encodes the headline number for most
+   brands: Axis `PNG 1300` / `BSC 970` / `HPS 700` / `SP 660` /
+   `HA 900` / `ART 999` (area in cm²), Axis `820mm Carbon Front Wing`
+   (span in mm), Ketos `PUMPING 1570` / `Aile Avant 1450` / `Pump EVO
+   133` (area in cm²).
+2. **Description regex** — Shopify `body_html` is already in the
+   listing as `description`; regex for `area`, `wingspan`, `aspect
+   ratio` near a 3-4-digit number.
+3. **Detail-page fetch** — last resort for items still missing both
+   area and span. Walks `<table>` th/td pairs and looks for explicit
+   `Surface area: NNNN cm²` labels.
+
+Aspect ratio is computed from area + span when not explicit
+(`AR = (span_cm)² / area_cm²`); chord is computed similarly. Don't
+sort front wings by price — riders shop by area. `listings_pdf`
+sorts the FrontWings category ascending by `specs.area_cm2`.
 
 ## Known caveats (read before debugging)
 
@@ -104,9 +180,16 @@ adding the `[[bin]]` entry.
   `data-private-srp-listing-item-id` attribute. Hits ~99% of Tutti
   cards and ~97% of Anibis cards; don't "simplify" it back to a
   `card.select("img")` query.
-- **Ricardo** works via chromiumoxide but IP-throttles after ~5 rapid
-  requests. If you see `<title>Forbidden</title>` in the debug dump,
-  back off and retry after 10–15 min.
+- **Ricardo's 403 is Cloudflare, not IP throttling.** Plain curl /
+  chromiumoxide hit a CF challenge that returns 403; FlareSolverr
+  solves it cleanly. The historical "wait 10-15 min and retry"
+  advice was wrong — the block clears only when the same client
+  passes the challenge. The in-tree Ricardo source still uses
+  chromiumoxide and so will fail under CF; the workaround
+  is `src/bin/ricardo_via_fs.rs` (scratch) which routes search +
+  detail-page fetches through FlareSolverr. Promoting Ricardo to
+  FlareSolverr-by-default is a clear architectural improvement, not
+  yet done.
 - **macOS can't auto-start FlareSolverr** — upstream only ships Linux
   x64 / Windows x64 PyInstaller binaries, and Docker isn't assumed to
   be installed. But FlareSolverr itself is pure Python and officially
