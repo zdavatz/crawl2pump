@@ -242,6 +242,17 @@ pub fn looks_like_size_variant(title: &str) -> bool {
     if title.contains('/') {
         return false;
     }
+    // `$108` etc. is an upcharge marker for an add-on option (Axis
+    // foilboards have a "Foot Strap Holes" variant with `Yes ($108)`
+    // / `No` choices). Numbers next to a `$` are prices, not sizes.
+    if title.contains('$') {
+        return false;
+    }
+    // "Yes" / "No" / "Default" — option-toggle choices.
+    let lower = title.to_lowercase();
+    if matches!(lower.trim(), "yes" | "no" | "default" | "standard") {
+        return false;
+    }
     let re = regex::Regex::new(r"\d{3,4}").unwrap();
     re.find(title)
         .and_then(|m| m.as_str().parse::<u32>().ok())

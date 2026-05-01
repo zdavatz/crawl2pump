@@ -38,6 +38,10 @@ struct Args {
     /// Only emit Front Wings (with full spec rows) — skips sets/boards/packs/accessories.
     #[arg(long)]
     frontwings_only: bool,
+    /// Only emit Boards. Sorted by volume (litres) ascending, falling
+    /// back to price ascending where volume isn't published.
+    #[arg(long)]
+    boards_only: bool,
     /// SQLite path. Default: ./sqlite/crawl2pump.db
     #[arg(long, default_value = crawl2pump::db::DEFAULT_PATH)]
     db: PathBuf,
@@ -175,6 +179,21 @@ async fn main() -> Result<()> {
                 *specs = Some(s);
             }
         }
+
+        // Board-spec pass: volume_l + length_cm from the title (and
+        // body_html where the title doesn't carry a unit). No
+        // detail-page fetch — boards rarely have spec tables and the
+        // title regex is reliable enough.
+        for (c, l, specs) in categorized.iter_mut() {
+            if *c != Category::Boards {
+                continue;
+            }
+            let mut s = specs.clone().unwrap_or_default();
+            extract_board_specs(&l.title, l.description.as_deref(), &mut s);
+            if s.volume_l.is_some() || s.length_cm.is_some() {
+                *specs = Some(s);
+            }
+        }
     }
 
     // Persist the scan to SQLite. Diff before we render so we can show
@@ -224,9 +243,12 @@ async fn main() -> Result<()> {
         m
     };
 
-    // Optional `--frontwings-only` filter.
+    // Optional `--frontwings-only` / `--boards-only` filters.
     if args.frontwings_only {
         categorized.retain(|(c, _, _)| *c == Category::FrontWings);
+    }
+    if args.boards_only {
+        categorized.retain(|(c, _, _)| *c == Category::Boards);
     }
 
     // Sort within categories.
@@ -250,6 +272,18 @@ async fn main() -> Result<()> {
                     (None, None) => a.1.price.partial_cmp(&b.1.price).unwrap_or(std::cmp::Ordering::Equal),
                 }
             }
+            Category::Boards => {
+                // Boards sort by price ascending. We extract volume_l /
+                // length_cm into the spec block for display, but title-
+                // based extraction is too inconsistent across brands to
+                // be a reliable primary sort key (Indiana labels by cm,
+                // Axis by L, Ketos by cm, Onix doesn't label at all).
+                // Price is unambiguous and comparable across currencies
+                // when paired with the currency badge in the meta line.
+                a.1.price
+                    .partial_cmp(&b.1.price)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }
             _ => a
                 .1
                 .price
@@ -259,7 +293,19 @@ async fn main() -> Result<()> {
     });
 
     // Render HTML → PDF.
-    let html = render_html(&categorized, &freshness, &summary, scan_at, args.frontwings_only);
+    let html = render_html(
+        &categorized,
+        &freshness,
+        &summary,
+        scan_at,
+        if args.frontwings_only {
+            Some("front-wings")
+        } else if args.boards_only {
+            Some("boards")
+        } else {
+            None
+        },
+    );
     let html_path = output.with_extension("html");
     std::fs::write(&html_path, html)?;
     let chrome = std::env::var("CHROME").unwrap_or_else(|_| CHROME_MAC.into());
@@ -362,6 +408,13 @@ struct WingSpecs {
     span_mm: Option<f64>,
     aspect_ratio: Option<f64>,
     chord_mm: Option<f64>,
+    /// Board volume in litres (Axis Pump Foilboard 24L, etc.). Only
+    /// extracted for items classified as `Boards`; meaningless for
+    /// front wings.
+    volume_l: Option<f64>,
+    /// Board length in cm — Indiana labels boards by length not
+    /// volume ("Indiana 95 Pump Foil" → 95cm long).
+    length_cm: Option<f64>,
 }
 
 fn extract_from_title(title: &str, s: &mut WingSpecs) {
@@ -475,6 +528,62 @@ fn extract_from_text(text: &str, s: &mut WingSpecs) {
     }
 }
 
+/// Pull volume (litres) and length (cm) from a board's title /
+/// description. Patterns:
+/// - `Pump Foilboard 24L`, `Froth Carbon Foilboard 45L` (Axis)
+/// - `24 litres`, `90 liter` (description prose)
+/// - `Indiana 95 Pump Foil`, `Indiana 105 Pump Foil` — bare 2-3 digit
+///   number = length in cm (no L suffix)
+/// - `Pocket Pro carbone 78 x 42` (Alpinefoil) — first number = length
+fn extract_board_specs(title: &str, description: Option<&str>, s: &mut WingSpecs) {
+    let texts: Vec<&str> = std::iter::once(title)
+        .chain(description.into_iter())
+        .collect();
+
+    if s.volume_l.is_none() {
+        for t in &texts {
+            // Direct N{2,3}L / N{2,3} L (e.g. "24L", "45 L")
+            let re = Regex::new(r"\b(\d{2,3})\s?[Ll](?:itres?|iters?)?\b").unwrap();
+            if let Some(c) = re.captures(t) {
+                if let Ok(v) = c[1].parse::<f64>() {
+                    if (10.0..=300.0).contains(&v) {
+                        s.volume_l = Some(v);
+                        break;
+                    }
+                }
+            }
+            // "Volume: 24" / "volume 24" (no unit)
+            let re2 = Regex::new(r"(?i)volume\s*[:=]?\s*(\d{2,3})\b").unwrap();
+            if let Some(c) = re2.captures(t) {
+                if let Ok(v) = c[1].parse::<f64>() {
+                    if (10.0..=300.0).contains(&v) {
+                        s.volume_l = Some(v);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if s.length_cm.is_none() {
+        // Indiana "Indiana 95 Pump Foil" / Ketos "Board Pumping
+        // Dockstart 90". Match a bare 2-3 digit number followed by
+        // `pump`, `foil`, or end-of-token. Avoid matching a 4-digit
+        // wing area we may have left in the title.
+        for t in &texts {
+            let re = Regex::new(r"\b(\d{2,3})\s+(?:pump|foil|dockstart|carbon|board)").unwrap();
+            if let Some(c) = re.captures(&t.to_lowercase()) {
+                if let Ok(v) = c[1].parse::<f64>() {
+                    if (40.0..=200.0).contains(&v) {
+                        s.length_cm = Some(v);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn extract_from_html_table(html_text: &str, s: &mut WingSpecs) {
     let doc = scraper::Html::parse_document(html_text);
     let row_sel = Selector::parse("tr").unwrap();
@@ -521,7 +630,7 @@ fn render_html(
     freshness: &std::collections::HashMap<String, Freshness>,
     summary: &crawl2pump::db::UpsertSummary,
     scan_at: DateTime<Utc>,
-    frontwings_only: bool,
+    only: Option<&str>,
 ) -> String {
     let today = scan_at.format("%Y-%m-%d %H:%M UTC").to_string();
     // Group cards by category for the section structure.
@@ -552,8 +661,16 @@ fn render_html(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let title = if frontwings_only { "Pumpfoil Front Wings" } else { "Pumpfoil Catalog" };
-    let mode = if frontwings_only { " · front wings only" } else { "" };
+    let title = match only {
+        Some("front-wings") => "Pumpfoil Front Wings",
+        Some("boards") => "Pumpfoil Boards",
+        _ => "Pumpfoil Catalog",
+    };
+    let mode = match only {
+        Some("front-wings") => " · front wings only",
+        Some("boards") => " · boards only",
+        _ => "",
+    };
     format!(
         r#"<!doctype html>
 <html lang="de">
@@ -676,6 +793,8 @@ fn format_specs(s: &WingSpecs) -> Option<String> {
     if let Some(span) = s.span_mm { bits.push(format!("{} mm span", span as i64)); }
     if let Some(ar) = s.aspect_ratio { bits.push(format!("AR {:.1}", ar)); }
     if let Some(c) = s.chord_mm { bits.push(format!("chord {} mm", c as i64)); }
+    if let Some(v) = s.volume_l { bits.push(format!("{} L", v as i64)); }
+    if let Some(l) = s.length_cm { bits.push(format!("{} cm", l as i64)); }
     if bits.is_empty() { None } else { Some(bits.join(" · ")) }
 }
 
