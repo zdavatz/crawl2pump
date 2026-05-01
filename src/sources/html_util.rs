@@ -285,6 +285,26 @@ pub fn clean_html_text(s: &str) -> String {
         .join(" ")
 }
 
+/// True if text mentions a foil **front wing** in any of the spellings
+/// brand shops use. Front wings are the most-shopped pump-foil
+/// component, so we accept them across all brand sources even when the
+/// item title doesn't otherwise carry "pump".
+pub fn looks_like_front_wing(text: &str) -> bool {
+    let t = text.to_lowercase();
+    // Avoid "rear wing" / "tail wing" / "stab" — those are stabilizers,
+    // not front wings.
+    if t.contains("rear wing") || t.contains("tail wing") {
+        return false;
+    }
+    t.contains("front wing")
+        || t.contains("front-wing")
+        || t.contains("frontwing")
+        || t.contains("front foil")
+        || t.contains("front-foil")
+        || t.contains("aile avant")
+        || t.contains("ailes avant")
+}
+
 /// Strict pumpfoil keyword test — for narrowing brand-shop catalogs to
 /// the actual pumpfoil/dockstart discipline rather than wing/kite/wake
 /// adjacencies. Different brands spell it differently:

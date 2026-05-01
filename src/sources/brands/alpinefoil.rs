@@ -5,7 +5,9 @@
 //! JSON-LD Product. We narrow with `looks_like_pump_foil` and skip
 //! the `album-kitefoil/` photo gallery noise.
 use crate::listing::{Condition, Listing, Region};
-use crate::sources::html_util::{fetch_page_product, fetch_sitemap_urls, looks_like_pump_foil};
+use crate::sources::html_util::{
+    fetch_page_product, fetch_sitemap_urls, looks_like_front_wing, looks_like_pump_foil,
+};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -46,7 +48,10 @@ impl Source for AlpineFoil {
             // pages that also match the pumpfoil keyword.
             .filter(|u| u.contains("/kitefoil-windfoil-shop/"))
             .filter(|u| u.ends_with(".html"))
-            .filter(|u| looks_like_pump_foil(u))
+            // Pump-foil packs/boards/foils as before, plus standalone
+            // front wings (`/ailes-foils/aile-pumpfoil-pierra-manta.html`
+            // etc.) and the Annecy `/ailes-foils/` family.
+            .filter(|u| looks_like_pump_foil(u) || looks_like_front_wing(u))
             .take(MAX_PRODUCTS)
             .collect();
 

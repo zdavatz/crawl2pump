@@ -94,6 +94,7 @@ async fn main() -> Result<()> {
         "armstrong",
         "takoon",
         "code",
+        "north",
     ]
     .into_iter()
     .collect();

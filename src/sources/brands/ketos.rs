@@ -5,7 +5,9 @@
 //! `pumping-packs`. We restrict to `/en/` to keep titles in English and
 //! narrow with `looks_like_pump_foil`.
 use crate::listing::{Condition, Listing, Region};
-use crate::sources::html_util::{fetch_page_product, fetch_sitemap_urls, looks_like_pump_foil};
+use crate::sources::html_util::{
+    fetch_page_product, fetch_sitemap_urls, looks_like_front_wing, looks_like_pump_foil,
+};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -44,7 +46,7 @@ impl Source for Ketos {
             // Skip t-shirts, screws, and the FR mirror — keep English shop only.
             .filter(|u| u.contains("/en/"))
             .filter(|u| !u.contains("t-shirt") && !u.contains("/screws-"))
-            .filter(|u| looks_like_pump_foil(u))
+            .filter(|u| looks_like_pump_foil(u) || looks_like_front_wing(u))
             .take(MAX_PRODUCTS)
             .collect();
 

@@ -7,7 +7,9 @@
 //! miss real sets like the Condor XL Complete — the human name only
 //! lives in `<image:title>`.
 use crate::listing::{Condition, Listing, Region};
-use crate::sources::html_util::{fetch_page_product, fetch_sitemap_entries, looks_like_pump_foil};
+use crate::sources::html_util::{
+    fetch_page_product, fetch_sitemap_entries, looks_like_front_wing, looks_like_pump_foil,
+};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -39,20 +41,34 @@ impl Source for IndianaSup {
         Region::Ch
     }
     async fn search(&self, _query: &str) -> Result<Vec<Listing>> {
-        // Strict: the SLUG or any <image:title> for the URL must mention
-        // pumpfoil / pumping / dockstart. This narrow filter loses
-        // unrelated foil components (mast/wing alone) but keeps every
-        // real pumpfoil set even when the URL is just an SKU.
+        // Indiana sells foil components (front wings, stabilizers, masts)
+        // that are pump-foil-capable but don't carry "pump" in the title
+        // — e.g. their HP line `Indiana Foil HP Front Wing 920 H-AR`,
+        // and the regular line `Indiana Foil Front Wing 820P` /
+        // `1150DWR`. We want them in the catalog. So accept any of:
+        //   1. SLUG or image-title mentions pumpfoil / pumping / dockstart
+        //   2. SLUG contains "front-wing" / "frontwing" / "stabilizer"
+        //      (Indiana foil components — pump-relevant by line)
+        // The category page entries (`shop/foils/.../front-wings.html`)
+        // are caught here too, but get filtered out later when their
+        // detail-fetch yields no JSON-LD Product price.
         let entries = fetch_sitemap_entries(&self.client, SITEMAP).await?;
         let candidates: Vec<String> = entries
             .into_iter()
             .filter(|e| !e.loc.ends_with(".xml"))
-            // /news/ posts and /album-...  pages match the keyword too —
-            // skip the editorial side, we want SKUs.
             .filter(|e| !e.loc.contains("/news/") && !e.loc.contains("/blog/"))
+            // Skip category landing pages (they end with .html but have
+            // /shop/.../<category>.html paths — they yield no Product).
+            .filter(|e| !e.loc.contains("/shop/"))
             .filter(|e| {
                 looks_like_pump_foil(&e.loc)
                     || e.titles.iter().any(|t| looks_like_pump_foil(t))
+                    || looks_like_front_wing(&e.loc)
+                    || e.titles.iter().any(|t| looks_like_front_wing(t))
+                    // Indiana sells stabilizers across the same HP /
+                    // monobloc lines — keep them as components alongside
+                    // the front wings.
+                    || e.loc.contains("stabilizer")
             })
             .map(|e| e.loc)
             .take(MAX_PRODUCTS)

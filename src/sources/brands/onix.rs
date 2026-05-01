@@ -14,7 +14,7 @@ use reqwest::Client;
 const BASE: &str = "https://www.onix-foils.com";
 const BRAND: &str = "Onix";
 const CURRENCY: &str = "EUR";
-const COLLECTIONS: &[&str] = &["combo-packs", "foil-full-pack"];
+const COLLECTIONS: &[&str] = &["combo-packs", "foil-full-pack", "front-wings"];
 
 pub struct OnixFoils {
     client: Client,
