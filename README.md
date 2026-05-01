@@ -23,6 +23,7 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Onix | France | Shopify | `combo-packs` + `foil-full-pack` + `front-wings` collections |
 | Takoon | France | Shopify | `pack-foil-pump` + `foil-pump` collections + global `pump` title-filter |
 | Code Foils | USA | WordPress (no per-product sitemap) | scrape `/products/` index page; no retail prices (dealer-only) |
+| Mio (mioboards.com) | Switzerland | Custom (Store29 platform) | scrape `/c/shop/boards/foil` for `/p/*` product URLs; OG meta tags for price |
 
 ### Classifieds (second-hand)
 
@@ -113,7 +114,8 @@ A second binary wraps the full pipeline so you don't have to chain
 
 ```bash
 ./target/release/pumpfoil_report                       # all categories → ~/Downloads/pumpfoil.pdf
-./target/release/pumpfoil_report --frontwings-only     # front wings only PDF
+./target/release/pumpfoil_report --frontwings-only     # front wings only PDF (sorted by area, descending)
+./target/release/pumpfoil_report --boards-only         # boards only PDF (sorted by price, ascending; no-price rows last)
 ./target/release/pumpfoil_report --output /tmp/x.pdf   # custom output
 ./target/release/pumpfoil_report --from-db             # re-render from DB without re-crawling
 ./target/release/pumpfoil_report --no-spec-fetch       # skip detail-page spec enrichment
@@ -121,8 +123,8 @@ A second binary wraps the full pipeline so you don't have to chain
 
 Each run does five things:
 
-1. Crawls all brand shops (Axis, Armstrong, Gong, Lift, North, Indiana,
-   AlpineFoil, Ketos, Onix, Takoon, Code Foils).
+1. Crawls all brand shops (Axis, Armstrong, Gong, Lift, North, Mio,
+   Indiana, AlpineFoil, Ketos, Onix, Takoon, Code Foils).
 2. Filters down to pump-foil-relevant gear (curated brand modules are
    trusted; Gong/Lift get a title-keyword filter).
 3. Categorizes into **Sets · Boards · Foil Packs · Front Wings ·
@@ -139,8 +141,12 @@ Each run does five things:
 
 The Front Wings section sorts by `area_cm2` **descending** — biggest
 wings first (beginner / glide), smallest last (high-performance /
-race). No-spec wings sink to the bottom of the section. Within each
-other category, items sort by price ascending.
+race). No-spec wings sink to the bottom of the section. The Boards
+section sorts by **price ascending**, with no-price rows pushed to
+the bottom (Rust's default `Option::partial_cmp` puts None first;
+we want None last so real prices ascend cleanly without a wedge of
+"—" at the top). Within each other category, items sort by price
+ascending.
 
 Front-wing coverage is broad: the strict pump-foil keyword filter is
 augmented with a `looks_like_front_wing` test (`html_util.rs`) that

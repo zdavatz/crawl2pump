@@ -73,11 +73,21 @@ PDF render in one process. Invariants worth knowing before editing it:
   debugging only and may drift. A future cleanup is to lift these
   into `src/categorize.rs` + `src/specs.rs` library modules.
 - The "trusted curated sources" set
-  (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code}`)
-  encodes which brand modules already filter to pump-foil gear at the
-  source, so we skip the title-keyword filter for them. If you add a
-  new pump-curated brand source, add it here too — otherwise its
-  components will silently get dropped by the keyword filter.
+  (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code,
+  north, mio}`) encodes which brand modules already filter to pump-
+  foil gear at the source, so we skip the title-keyword filter for
+  them. If you add a new pump-curated brand source, add it here too
+  — otherwise its components will silently get dropped by the
+  keyword filter.
+- `--frontwings-only` and `--boards-only` are mutually-exclusive
+  filters applied AFTER classification, AFTER spec enrichment, AFTER
+  the DB upsert. So the DB always reflects the full curated catalog
+  — only the rendered PDF is narrowed. That's intentional: subsequent
+  `--from-db` runs can re-render any subset without re-crawling.
+- Boards sort = price ascending, with no-price rows pushed to the
+  bottom (override of Rust's default `Option::partial_cmp` which puts
+  None first). Front-wing sort = `area_cm2` descending. Other
+  categories = price ascending.
 - The DB write happens **before** the PDF render. The render queries
   the DB (`new_in_scan` / `modified_in_scan`) for freshness badges, so
   the order matters. `--from-db` skips the crawl but still re-runs the
@@ -107,6 +117,15 @@ The hash deliberately excludes `description` because Shopify's
 `body_html` round-trips with shifting whitespace, which would mint
 spurious "modified" diffs every run. Specs (area, span) are *included*
 because a corrected wing spec is a real change a buyer cares about.
+
+`category` is **not** part of the content hash — it's our internal
+bucket label, not buyer-visible. But the unchanged-content branch of
+`upsert_scan` still refreshes it on every scan, so when classify()
+rules tighten (e.g. recognising Takoon's `Pump Wood 80` as a board
+instead of an accessory) older rows pick up the new bucket without
+needing the hash to bump. `last_modified_at` stays put on those
+purely-classification refreshes — the buyer-visible content actually
+hasn't changed.
 
 Diff queries:
 
@@ -197,7 +216,10 @@ the whitelist.
    would miss real sets like Indiana's Condor XL Complete.
 5. **If no sitemap** — last resort, scrape an index page for product
    links (see `brands/codefoils.rs` — fetches `/products/` and pulls
-   `/product/*` hrefs).
+   `/product/*` hrefs; or `brands/mio.rs` — fetches `/c/shop/boards/foil`
+   and pulls `/p/*` hrefs from a Store29 webshop with no usable sitemap,
+   relying on `og:price:amount` / `og:price:currency` meta tags as
+   `parse_page_product`'s price-extraction fallback path).
 6. Make sure the module's `region()` is accurate — Swiss brands shipping
    from CH should return `Region::Ch`.
 
@@ -209,6 +231,27 @@ keyword test — accepts `pumpfoil`/`pump foil`/`pump-foil`/`pumping`/
 `looks_like_foil_product` (which is loose — matches `wing`/`mast`/
 `board`/`kit`/`set` and floods with non-pump items) when narrowing a
 brand catalog at the source.
+
+## Classifier word-boundary trap
+
+`pumpfoil_report::classify` checks for pack/set/kit/complete keywords
+in the lowercased title. **Always use word-boundary regex (`\bkit\b`
+etc.), never `t.contains(" kit")`.** Mio's site tagline is
+`Eco Kite und Surfshop`, which appears in every product title; the
+substring ` kit` matched the leading space + first three letters of
+`Kite` and silently routed every Mio board into the foil-pack "Sets"
+bucket. Same shape would hit any future shop with `Kite` in the brand
+line. The classifier now uses compiled regexes for `pack`/`set`/`kit`/
+`complete` and falls back to plain substring only for words that
+can't have inflections (`combo`, `bundle`).
+
+Brand-pattern board-detection: Takoon labels their pump boards as
+`Pump Wood 80` / `Pump Carbon` / `Pump Scoot Carbon` — neither title
+nor URL has `board`, so we added a regex
+`^pump\s+(wood|carbon|scoot|aluminium|alu|foam|epoxy)\b` to the
+`has_board` check. The accessory_word check still routes `Pump
+Backpack` / `Pump Hose Adapter` / `Pump Tips` to Accessories before
+the pump-material rule fires.
 
 ## Shopify variant explosion
 
