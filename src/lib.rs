@@ -120,7 +120,8 @@ pub fn build_sources(
         Box::new(sources::brands::onix::OnixFoils::new(client.clone())),
         Box::new(sources::brands::takoon::Takoon::new(client.clone())),
         Box::new(sources::brands::codefoils::CodeFoils::new(client.clone())),
-        Box::new(sources::brands::north::North::new(client)),
+        Box::new(sources::brands::north::North::new(client.clone())),
+        Box::new(sources::brands::mio::Mio::new(client)),
     ];
     if let Some(b) = browser {
         v.push(Box::new(sources::classifieds::ricardo::Ricardo::new(b.clone())));

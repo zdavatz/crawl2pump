@@ -150,10 +150,13 @@ pub fn parse_page_product(html_text: &str) -> PageProduct {
         pp.image = meta_content(&doc, "og:image");
     }
     if pp.price.is_none() {
-        pp.price = meta_content(&doc, "product:price:amount").and_then(|s| s.parse().ok());
+        pp.price = meta_content(&doc, "product:price:amount")
+            .or_else(|| meta_content(&doc, "og:price:amount"))
+            .and_then(|s| s.parse().ok());
     }
     if pp.currency.is_none() {
-        pp.currency = meta_content(&doc, "product:price:currency");
+        pp.currency = meta_content(&doc, "product:price:currency")
+            .or_else(|| meta_content(&doc, "og:price:currency"));
     }
     pp
 }

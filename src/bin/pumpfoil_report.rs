@@ -99,6 +99,7 @@ async fn main() -> Result<()> {
         "takoon",
         "code",
         "north",
+        "mio",
     ]
     .into_iter()
     .collect();
@@ -373,13 +374,19 @@ fn classify(l: &Listing) -> Category {
         || u.contains("/board/")
         || u.contains("-board-")
         || u.contains("-board.");
-    let has_pack = t.contains("pack")
-        || t.contains(" set ")
-        || t.contains(" set,")
-        || t.ends_with(" set")
-        || t.contains("package")
-        || t.contains(" kit")
-        || t.contains("complete")
+    // Match `kit` only as a whole word — `" kit"` would otherwise match
+    // "Eco Kite" (Mio's shop tagline) and misclassify every Mio board as
+    // a foil-pack set. Same for the others where a stray substring
+    // could collide with a real word ("packing", "setting", "completed
+    // freestyle").
+    let kit_re = Regex::new(r"\b(?:kit|kits)\b").unwrap();
+    let pack_re = Regex::new(r"\b(?:pack|packs|package)\b").unwrap();
+    let set_re = Regex::new(r"\b(?:set|sets)\b").unwrap();
+    let complete_re = Regex::new(r"\bcomplete\b").unwrap();
+    let has_pack = pack_re.is_match(&t)
+        || set_re.is_match(&t)
+        || complete_re.is_match(&t)
+        || kit_re.is_match(&t)
         || t.contains("combo")
         || t.contains("bundle");
     let is_accessory = ["backpack","bag","cover","leash","traction","pad","screw","anode","repair","valve","strap","wetsuit","hardware","t-shirt","sticker","hood","shim","spacer","antiseize","lubricant","bolt"]

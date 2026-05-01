@@ -6,6 +6,7 @@ pub mod gong;
 pub mod indiana;
 pub mod ketos;
 pub mod lift;
+pub mod mio;
 pub mod north;
 pub mod onix;
 pub mod takoon;
