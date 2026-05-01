@@ -44,14 +44,100 @@ Tests: `cargo test --release` (currently one: Swiss-price regex).
 
 Sources run concurrently via `tokio::spawn` inside `lib.rs::run`.
 
-## `src/bin/` — scratch bins (gitignored)
+## `src/bin/` — scratch bins (gitignored, with one whitelisted exception)
 
 Throwaway one-off binaries (ad-hoc PDF/CSV/report generators,
-spelunking tools) can live in `src/bin/` and are excluded from git.
-Don't register them in `Cargo.toml` `[[bin]]` either — that would force
-everyone else to ship them. If a tool becomes useful enough to keep,
-promote it by moving the file out of `src/bin/`, checking it in, and
-adding the `[[bin]]` entry.
+spelunking tools) live in `src/bin/` and are excluded from git via
+`/src/bin/*` in `.gitignore`. Don't register them in `Cargo.toml`
+`[[bin]]` either — that would force everyone else to ship them. If a
+tool becomes useful enough to keep, promote it by adding the file to
+the gitignore whitelist (`!/src/bin/<file>.rs`), registering it in
+`Cargo.toml`, and committing.
+
+The single whitelisted promotion so far is `pumpfoil_report.rs` (the
+end-to-end "scan all brands, persist to SQLite, render categorized
+PDF with new/modified badges" tool — see "Convenience binary" below).
+
+## Convenience binary `pumpfoil_report`
+
+`src/bin/pumpfoil_report.rs` is the single end-to-end tool — it wraps
+crawl → curated filter → front-wing spec enrichment → SQLite upsert →
+PDF render in one process. Invariants worth knowing before editing it:
+
+- The classifier (`Category::{Sets,Boards,FoilPacks,FrontWings,
+  Accessories}`) and front-wing spec extractor (`extract_from_title`,
+  `extract_from_text`, `extract_from_html_table`) are **duplicated**
+  between this binary and the older scratch bins
+  (`listings_pdf.rs`, `enrich_frontwings.rs`). When you change rules,
+  change them here — the scratch bins are kept around for one-off
+  debugging only and may drift. A future cleanup is to lift these
+  into `src/categorize.rs` + `src/specs.rs` library modules.
+- The "trusted curated sources" set
+  (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code}`)
+  encodes which brand modules already filter to pump-foil gear at the
+  source, so we skip the title-keyword filter for them. If you add a
+  new pump-curated brand source, add it here too — otherwise its
+  components will silently get dropped by the keyword filter.
+- The DB write happens **before** the PDF render. The render queries
+  the DB (`new_in_scan` / `modified_in_scan`) for freshness badges, so
+  the order matters. `--from-db` skips the crawl but still re-runs the
+  upsert with an empty list (so freshness is empty on that path) and
+  re-renders.
+
+## SQLite persistence (`src/db.rs`)
+
+Schema is created on first open at `sqlite/crawl2pump.db` (overridable
+via `--db`). Two tables:
+
+- `listings(url PK, ...listing fields..., area_cm2/span_mm/aspect_ratio/chord_mm,
+  category, content_hash, first_seen, last_seen, last_modified_at, scan_count)`
+- `price_history(url FK, price, currency, observed_at)` — appended on
+  every price change.
+
+`Db::upsert_scan(scan_at, &rows)` is the single write entry point. It
+returns `(new_count, updated_count, modified_count, price_changes)`:
+
+- **new** = first time this URL is seen.
+- **updated** = touched in this scan (touches `last_seen`); a row can
+  be "updated" without being "modified".
+- **modified** = `content_hash` differs from previous scan
+  (touches `last_modified_at`).
+
+The hash deliberately excludes `description` because Shopify's
+`body_html` round-trips with shifting whitespace, which would mint
+spurious "modified" diffs every run. Specs (area, span) are *included*
+because a corrected wing spec is a real change a buyer cares about.
+
+Diff queries:
+
+- `Db::new_in_scan(scan_at)` — newly-seen URLs.
+- `Db::modified_in_scan(scan_at)` — content changed in this scan.
+- `Db::stale_since_scan(scan_at)` — present in previous scans but
+  missing now (delisted, sold out, etc).
+- `Db::current(scan_at)` — everything that survived this scan.
+
+The DB file is gitignored; the empty `sqlite/` directory is kept via
+`.gitkeep` so first-run users have somewhere obvious to point.
+
+## Stale scratch bins (gitignored, but committed copies in older tags)
+
+For completeness, the bins still living in `src/bin/` (gitignored, may
+drift):
+
+- `listings_pdf.rs` — earlier categorized PDF generator. Superseded by
+  `pumpfoil_report` (which does crawl + DB + render in one step).
+- `enrich_frontwings.rs` — standalone spec enricher. Superseded by the
+  inline enrichment loop in `pumpfoil_report`.
+- `ricardo_pdf.rs` — Ricardo-only used-gear PDF (fetches detail pages
+  via FlareSolverr).
+- `ricardo_via_fs.rs` — Ricardo search via FlareSolverr workaround
+  (the in-tree Ricardo source still uses chromiumoxide and so fails
+  under Cloudflare).
+- `ricardo_probe.rs` — one-off "dump rendered HTML" probe.
+
+If you find yourself running any of these regularly, that's the cue to
+either fold the logic into `pumpfoil_report` or promote that bin into
+the whitelist.
 
 ## Adding a new brand shop
 

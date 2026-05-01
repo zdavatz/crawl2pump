@@ -5,8 +5,14 @@ Cargo.lock.*
 .flaresolverr-src/
 *.tmp.html
 # Scratch space for throwaway one-off binaries (e.g. ad-hoc report generators).
-# Keep them out of the published crate; real bins live at src/main.rs.
-/src/bin/
+# Keep them out of the published crate; real bins are explicitly whitelisted.
+/src/bin/*
+!/src/bin/pumpfoil_report.rs
 # Generated PDF/HTML catalogs.
 /pumpfoil-sets.pdf
 /pumpfoil-sets.html
+
+# SQLite database files (the schema is in src/db.rs; data is local)
+sqlite/*.db
+sqlite/*.db-shm
+sqlite/*.db-wal

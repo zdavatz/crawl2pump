@@ -1,3 +1,4 @@
+pub mod db;
 pub mod listing;
 pub mod output;
 pub mod sources;
@@ -7,7 +8,7 @@ use clap::{Parser, ValueEnum};
 use listing::{Condition, Region};
 use sources::Source;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 #[command(
     name = "crawl2pump",
     about = "Crawl the web for new and second-hand pumpfoil sets (Switzerland + worldwide)"
@@ -77,22 +78,25 @@ pub struct Cli {
     pub fb_location: String,
 }
 
-#[derive(Copy, Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, ValueEnum, Default)]
 pub enum RegionFilter {
     Ch,
     World,
+    #[default]
     All,
 }
 
-#[derive(Copy, Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, ValueEnum, Default)]
 pub enum ConditionFilter {
     New,
     Used,
+    #[default]
     All,
 }
 
-#[derive(Copy, Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, ValueEnum, Default)]
 pub enum Format {
+    #[default]
     Table,
     Json,
     Csv,
@@ -137,6 +141,18 @@ pub fn build_sources(
 }
 
 pub async fn run(cli: Cli) -> Result<()> {
+    let format = cli.format;
+    let output_path = cli.output.clone();
+    let listings = crawl_listings(cli).await?;
+    output::write(&listings, format, output_path.as_deref())?;
+    Ok(())
+}
+
+/// The crawl pipeline without output formatting. Returns the deduped,
+/// filtered, sorted listings — exactly what `run` would have written
+/// to stdout. New binaries (e.g. `pumpfoil_report`) compose on top of
+/// this.
+pub async fn crawl_listings(cli: Cli) -> Result<Vec<listing::Listing>> {
     let client = reqwest::Client::builder()
         .user_agent(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
@@ -211,7 +227,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
     if filtered.is_empty() {
         eprintln!("no sources selected");
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     eprintln!(
@@ -297,6 +313,5 @@ pub async fn run(cli: Cli) -> Result<()> {
         })
     });
 
-    output::write(&all_listings, cli.format, cli.output.as_deref())?;
-    Ok(())
+    Ok(all_listings)
 }

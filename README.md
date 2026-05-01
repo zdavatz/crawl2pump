@@ -105,6 +105,45 @@ small local script that filters for "sets / packages / kits" and renders a
 printable catalog. Such scratch tooling belongs in `src/bin/` (gitignored)
 so it doesn't become part of the shipped crate.
 
+### `pumpfoil_report` — one-shot brand scan + PDF + SQLite history
+
+A second binary wraps the full pipeline so you don't have to chain
+`crawl2pump | jq | enrich | listings_pdf` by hand:
+
+```bash
+./target/release/pumpfoil_report                       # all categories → ~/Downloads/pumpfoil.pdf
+./target/release/pumpfoil_report --frontwings-only     # front wings only PDF
+./target/release/pumpfoil_report --output /tmp/x.pdf   # custom output
+./target/release/pumpfoil_report --from-db             # re-render from DB without re-crawling
+./target/release/pumpfoil_report --no-spec-fetch       # skip detail-page spec enrichment
+```
+
+Each run does five things:
+
+1. Crawls all brand shops (Axis, Armstrong, Gong, Lift, Indiana,
+   AlpineFoil, Ketos, Onix, Takoon, Code Foils).
+2. Filters down to pump-foil-relevant gear (curated brand modules are
+   trusted; Gong/Lift get a title-keyword filter).
+3. Categorizes into **Sets · Boards · Foil Packs · Front Wings ·
+   Components/Accessories**. Front Wings get spec extraction
+   (area, span, AR, chord) from title patterns + JSON-LD
+   `body_html` + a detail-page fallback fetch.
+4. Persists to `sqlite/crawl2pump.db` (created on first run) with
+   per-URL `first_seen` / `last_seen` / `last_modified_at` columns and
+   a SHA-256 content hash for fast change detection. Price changes are
+   appended to `price_history`.
+5. Renders the PDF with **NEW** / **MOD** badges on listings that
+   appeared or changed since the previous scan, plus a header strip
+   summarising counts.
+
+The Front Wings section sorts by `area_cm2` ascending — the spec
+riders actually shop on. Within each other category, items sort by
+price ascending.
+
+The SQLite path can be overridden with `--db <path>`. The database
+file itself is gitignored; only the schema (in `src/db.rs`) and the
+empty `sqlite/` directory are checked in.
+
 ### CLI flags
 
 | Flag | Default | Effect |
