@@ -183,6 +183,46 @@ keyword test — accepts `pumpfoil`/`pump foil`/`pump-foil`/`pumping`/
 `board`/`kit`/`set` and floods with non-pump items) when narrowing a
 brand catalog at the source.
 
+## Shopify variant explosion
+
+`shopify::product_to_listings(p, ...)` returns one `Listing` per
+*size* variant for products like Armstrong S1 Front Foil
+(1250/1550/1850/2050 cm²) or Onix Osprey (550-2250 cm²) — each
+variant gets its own URL (`?variant=<id>`), title (with the variant
+name appended), price, and DB row, so the SQLite layer can price-
+track per size.
+
+The single-Listing helper `product_to_listing` is kept as a
+backwards-compat shim — new brand sources should use
+`product_to_listings` and `flat_map`/`extend` the result.
+
+The "is this a size variant" check (`looks_like_size_variant`):
+- Default-Title and titles >24 chars fail (the latter knocks out
+  combos like `Carbon / Black / 220mm`).
+- Titles containing `/` fail — multi-axis option combos for packs
+  (`1850 / 220 carve / 71` is front-wing×stab×mast, not a size).
+  This was the bug that exploded Onix's pack catalog into 600+ rows.
+- Otherwise, the first 3-4 digit run in the title must be in
+  `[100, 2500]` — i.e. plausibly a wing area in cm² or span in mm.
+
+If you add a new Shopify brand with size variants, run a smoke test
+on its `/products.json` and confirm only foil-component products
+explode (front wings, sometimes stabilizers and masts) — packs and
+boards should stay collapsed.
+
+`html_util::looks_like_front_wing(text)` is the companion test for
+front-wing components. It matches `front wing`/`front-wing`/
+`frontwing`/`front foil`/`front-foil`/`aile avant`/`ailes avant`
+while explicitly excluding `rear wing` / `tail wing` (those are
+stabilizers). All sitemap-based brand sources accept items matching
+EITHER `looks_like_pump_foil` OR `looks_like_front_wing`, because
+front wings are pump-foil-relevant components even when the SKU title
+omits `pump` (Indiana's `Foil HP Front Wing 920 H-AR`, Ketos's
+`Aile Avant 1450`, etc.). For Shopify brands without a pump-curated
+collection, prefer pulling the brand's own `front-wings` / `front-foils`
+collection (Onix, North, Armstrong) on top of the pump-pack
+collection.
+
 ## JSON-LD parsing gotchas (seen in the wild)
 
 The shared parser at `html_util::parse_page_product` handles three
@@ -224,8 +264,10 @@ classifier rule as `listings_pdf.rs::classify`), and adds a `specs:
 
 Aspect ratio is computed from area + span when not explicit
 (`AR = (span_cm)² / area_cm²`); chord is computed similarly. Don't
-sort front wings by price — riders shop by area. `listings_pdf`
-sorts the FrontWings category ascending by `specs.area_cm2`.
+sort front wings by price — riders shop by area. `pumpfoil_report`
+sorts the FrontWings category **descending** by `specs.area_cm2`
+(largest beginner / glide wings first; smallest race / high-aspect
+wings last). No-spec wings sink to the bottom of the section.
 
 ## Known caveats (read before debugging)
 

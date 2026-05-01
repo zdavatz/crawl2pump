@@ -32,6 +32,10 @@ pub struct ShopifyProduct {
 #[derive(Debug, Deserialize)]
 pub struct ShopifyVariant {
     #[serde(default)]
+    pub id: Option<i64>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
     pub price: Option<String>,
     #[serde(default)]
     pub available: bool,
@@ -95,7 +99,109 @@ async fn fetch_paginated(
     Ok(all)
 }
 
-/// Convert a Shopify product into our neutral `Listing` shape.
+/// Convert a Shopify product into one or more `Listing`s — one per
+/// variant whose title looks like a *size*. Used for items where the
+/// variants are different sizes (Onix Osprey 550/750/950/1250/1450/
+/// 1850/2250 cm², Armstrong HA 480/580/680/770 cm², Takoon Foil Pump
+/// Front Wing 1500/1700/1900). Each variant gets its own URL
+/// (`?variant=<id>`) so the SQLite layer can dedupe and price-track
+/// per size.
+///
+/// Single-variant products and products whose variants are clearly
+/// non-size (just "Default Title" or a single name like "Black /
+/// Carbon") collapse to one Listing with the min price across
+/// variants — same shape as before.
+pub fn product_to_listings(
+    p: &ShopifyProduct,
+    source: &str,
+    brand: &str,
+    base_url: &str,
+    currency: &str,
+    region: Region,
+) -> Vec<Listing> {
+    let base = base_url.trim_end_matches('/');
+    let image = p.images.first().map(|i| i.src.clone());
+    let description = p.body_html.as_deref().map(strip_html);
+    let mut explode = p.variants.len() > 1
+        && p.variants
+            .iter()
+            .any(|v| v.title.as_deref().is_some_and(looks_like_size_variant));
+    // Defensive: collapse if every variant has the same `Default Title`
+    // (Shopify's placeholder when the seller didn't set one).
+    if explode
+        && p.variants
+            .iter()
+            .all(|v| v.title.as_deref() == Some("Default Title"))
+    {
+        explode = false;
+    }
+    if !explode {
+        let (price, any_available) =
+            p.variants.iter().fold((None::<f64>, false), |acc, v| {
+                let parsed = v.price.as_ref().and_then(|s| s.parse::<f64>().ok());
+                let min = match (acc.0, parsed) {
+                    (Some(a), Some(b)) => Some(a.min(b)),
+                    (Some(a), None) => Some(a),
+                    (None, Some(b)) => Some(b),
+                    (None, None) => None,
+                };
+                (min, acc.1 || v.available)
+            });
+        return vec![Listing {
+            source: source.to_string(),
+            brand: Some(brand.to_string()),
+            title: p.title.clone(),
+            url: format!("{base}/products/{}", p.handle),
+            price,
+            currency: Some(currency.to_string()),
+            condition: Condition::New,
+            available: Some(any_available),
+            location: None,
+            description,
+            image,
+            region,
+            fetched_at: Utc::now(),
+        }];
+    }
+    p.variants
+        .iter()
+        .map(|v| {
+            let suffix = v.title.as_deref().unwrap_or("");
+            let title = if suffix.is_empty() {
+                p.title.clone()
+            } else {
+                format!("{} {}", p.title, suffix)
+            };
+            // URL fragment `?variant=<id>` ensures uniqueness per size
+            // even when the storefront pushes them onto the same product
+            // page. Falls back to a synthetic `#size=<title>` when the
+            // variant has no id.
+            let url = match v.id {
+                Some(id) => format!("{base}/products/{}?variant={}", p.handle, id),
+                None => format!("{base}/products/{}#size={}", p.handle, suffix),
+            };
+            let price = v.price.as_ref().and_then(|s| s.parse::<f64>().ok());
+            Listing {
+                source: source.to_string(),
+                brand: Some(brand.to_string()),
+                title,
+                url,
+                price,
+                currency: Some(currency.to_string()),
+                condition: Condition::New,
+                available: Some(v.available),
+                location: None,
+                description: description.clone(),
+                image: image.clone(),
+                region,
+                fetched_at: Utc::now(),
+            }
+        })
+        .collect()
+}
+
+/// Backwards-compatible single-listing shim. New code should call
+/// `product_to_listings` and consume the resulting Vec.
 pub fn product_to_listing(
     p: &ShopifyProduct,
     source: &str,
@@ -104,34 +210,42 @@ pub fn product_to_listing(
     currency: &str,
     region: Region,
 ) -> Listing {
-    let (price, any_available) = p.variants.iter().fold((None::<f64>, false), |acc, v| {
-        let parsed = v.price.as_ref().and_then(|s| s.parse::<f64>().ok());
-        let min = match (acc.0, parsed) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (Some(a), None) => Some(a),
-            (None, Some(b)) => Some(b),
-            (None, None) => None,
-        };
-        (min, acc.1 || v.available)
-    });
-    let image = p.images.first().map(|i| i.src.clone());
-    let base = base_url.trim_end_matches('/');
-    let url = format!("{base}/products/{}", p.handle);
-    Listing {
-        source: source.to_string(),
-        brand: Some(brand.to_string()),
-        title: p.title.clone(),
-        url,
-        price,
-        currency: Some(currency.to_string()),
-        condition: Condition::New,
-        available: Some(any_available),
-        location: None,
-        description: p.body_html.as_deref().map(strip_html),
-        image,
-        region,
-        fetched_at: Utc::now(),
+    // Take the first listing; for size-varianted products this loses
+    // information (the caller should switch to product_to_listings).
+    product_to_listings(p, source, brand, base_url, currency, region)
+        .into_iter()
+        .next()
+        .expect("product_to_listings always returns at least one listing")
+}
+
+/// True if a Shopify variant title looks like a foil-gear size token
+/// rather than a colour/material/option ("OSPREY 1850", "HA570",
+/// "S1 1250", "490cm2", "1500", "1700"). Heuristic:
+///
+/// - Contains a 3-4 digit number that's plausibly a wing area (cm²)
+///   or span (mm) — i.e. between 100 and 2500.
+/// - The title is short (< 24 chars) so we don't false-positive on
+///   long combo strings.
+///
+/// "Default Title" / "Black" / "Carbon" / "Standard" return false.
+pub fn looks_like_size_variant(title: &str) -> bool {
+    if title.eq_ignore_ascii_case("default title") {
+        return false;
     }
+    if title.chars().count() > 24 {
+        return false;
+    }
+    // Variant titles like `2250 / 180 carve / 71` are multi-axis option
+    // combos (front-wing size / stabilizer / mast length) — exploding
+    // them produces hundreds of pack permutations. Only explode pure
+    // size tokens.
+    if title.contains('/') {
+        return false;
+    }
+    let re = regex::Regex::new(r"\d{3,4}").unwrap();
+    re.find(title)
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .is_some_and(|n| (100..=2500).contains(&n))
 }
 
 /// Exclusion-list filter: drop obvious merch/accessories so the catalog is

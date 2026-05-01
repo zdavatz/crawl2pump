@@ -12,14 +12,15 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Source | Region | Platform | Discovery |
 |---|---|---|---|
 | Axis Foils | World | Shopify | `/collections/all-pump/products.json` (curated 128-item pump collection) |
-| Armstrong Foils | World | Shopify | step-one collection + global title-filter for `pump` |
+| Armstrong Foils | World | Shopify | `step-one-collection` + `front-foils` collection + global title-filter for `pump` |
 | Gong (gong-galaxy.com) | World | Shopify | `/products.json` (filter applied downstream) |
 | Lift Foils | World | Shopify | `/products.json` |
+| North (northactionsports.com) | World | Shopify | `front-wings` + `foilboards` collections + global pump title-filter |
 | Takuma | World | **URL unverified — stub** | — |
-| Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap + `<image:title>` strict pumpfoil keyword |
-| AlpineFoil | France | Custom (sitemap + JSON-LD) | `/kitefoil-windfoil-shop/.../*.html` filtered for pumpfoil |
-| Ketos | France | WordPress / WooCommerce | English shop only, strict pumpfoil keyword |
-| Onix | France | Shopify | `combo-packs` + `foil-full-pack` collections |
+| Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap + `<image:title>` for pumpfoil/front-wing/stabilizer |
+| AlpineFoil | France | Custom (sitemap + JSON-LD) | `/kitefoil-windfoil-shop/.../*.html` for pumpfoil + front-wing keywords |
+| Ketos | France | WordPress / WooCommerce | English shop only, pumpfoil + front-wing keywords |
+| Onix | France | Shopify | `combo-packs` + `foil-full-pack` + `front-wings` collections |
 | Takoon | France | Shopify | `pack-foil-pump` + `foil-pump` collections + global `pump` title-filter |
 | Code Foils | USA | WordPress (no per-product sitemap) | scrape `/products/` index page; no retail prices (dealer-only) |
 
@@ -120,7 +121,7 @@ A second binary wraps the full pipeline so you don't have to chain
 
 Each run does five things:
 
-1. Crawls all brand shops (Axis, Armstrong, Gong, Lift, Indiana,
+1. Crawls all brand shops (Axis, Armstrong, Gong, Lift, North, Indiana,
    AlpineFoil, Ketos, Onix, Takoon, Code Foils).
 2. Filters down to pump-foil-relevant gear (curated brand modules are
    trusted; Gong/Lift get a title-keyword filter).
@@ -136,9 +137,30 @@ Each run does five things:
    appeared or changed since the previous scan, plus a header strip
    summarising counts.
 
-The Front Wings section sorts by `area_cm2` ascending — the spec
-riders actually shop on. Within each other category, items sort by
-price ascending.
+The Front Wings section sorts by `area_cm2` **descending** — biggest
+wings first (beginner / glide), smallest last (high-performance /
+race). No-spec wings sink to the bottom of the section. Within each
+other category, items sort by price ascending.
+
+Front-wing coverage is broad: the strict pump-foil keyword filter is
+augmented with a `looks_like_front_wing` test (`html_util.rs`) that
+matches `front wing` / `front-wing` / `frontwing` / `front foil` /
+`aile avant` while excluding rear/tail/stab spellings. Sitemap-based
+brands (Indiana, AlpineFoil, Ketos) accept any URL or `<image:title>`
+matching either filter; Shopify brands (Onix, Armstrong, North) pull
+their dedicated `front-wings` / `front-foils` collection on top of
+their pump-pack collections.
+
+For Shopify brands where one product carries multiple **size variants**
+(Armstrong S1 1250/1550/1850/2050, Onix Osprey 550/750/950/.../2250,
+Takoon Foil Pump 1500/1700/1900) the `product_to_listings` helper
+emits one Listing per size variant — each gets its own URL
+(`?variant=<id>`) and price, so the SQLite layer dedupes correctly
+and price-tracks per size. Variant titles that look like multi-axis
+option combos (slash-separated like `1850 / 220 carve / 71`) are
+left collapsed to avoid exploding pack permutations into hundreds of
+rows. Latest scan: **173 front wings** across eight brands,
+ranging 480 cm² → 2'450 cm².
 
 The SQLite path can be overridden with `--db <path>`. The database
 file itself is gitignored; only the schema (in `src/db.rs`) and the

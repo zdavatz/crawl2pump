@@ -7,7 +7,7 @@
 //! the global catalog for `pump` to catch their pack-pump-* SKUs.
 use crate::listing::{Listing, Region};
 use crate::sources::shopify::{
-    fetch_all_products, fetch_collection_products, is_target_product, product_to_listing,
+    fetch_all_products, fetch_collection_products, is_target_product, product_to_listings,
 };
 use crate::sources::Source;
 use anyhow::Result;
@@ -47,7 +47,7 @@ impl Source for Takoon {
                 if !seen.insert(p.handle.clone()) {
                     continue;
                 }
-                listings.push(product_to_listing(
+                listings.extend(product_to_listings(
                     &p,
                     "takoon",
                     BRAND,
@@ -69,7 +69,7 @@ impl Source for Takoon {
             if !seen.insert(p.handle.clone()) {
                 continue;
             }
-            listings.push(product_to_listing(
+            listings.extend(product_to_listings(
                 &p,
                 "takoon",
                 BRAND,

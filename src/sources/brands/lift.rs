@@ -2,7 +2,7 @@
 //!
 //! Lift's catalog is pump-heavy; includes complete foil packages. USD.
 use crate::listing::{Listing, Region};
-use crate::sources::shopify::{fetch_all_products, is_target_product, product_to_listing};
+use crate::sources::shopify::{fetch_all_products, is_target_product, product_to_listings};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -35,7 +35,7 @@ impl Source for LiftFoils {
         Ok(products
             .iter()
             .filter(|p| is_target_product(p))
-            .map(|p| product_to_listing(p, "lift", BRAND, BASE, CURRENCY, Region::World))
+            .flat_map(|p| product_to_listings(p, "lift", BRAND, BASE, CURRENCY, Region::World))
             .collect())
     }
 }

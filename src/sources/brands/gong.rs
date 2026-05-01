@@ -4,7 +4,7 @@
 //! at `gong-galaxy.com` (Shopify, EUR pricing). Gong runs a permanent
 //! OUTLET/discount program that surfaces here alongside the full catalog.
 use crate::listing::{Listing, Region};
-use crate::sources::shopify::{fetch_all_products, is_target_product, product_to_listing};
+use crate::sources::shopify::{fetch_all_products, is_target_product, product_to_listings};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -37,7 +37,7 @@ impl Source for GongSurfboards {
         Ok(products
             .iter()
             .filter(|p| is_target_product(p))
-            .map(|p| product_to_listing(p, "gong", BRAND, BASE, CURRENCY, Region::World))
+            .flat_map(|p| product_to_listings(p, "gong", BRAND, BASE, CURRENCY, Region::World))
             .collect())
     }
 }

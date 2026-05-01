@@ -5,7 +5,7 @@
 //! and `foil-full-pack` (Osprey/Stingray/Albatros packs) directly and
 //! merge.
 use crate::listing::{Listing, Region};
-use crate::sources::shopify::{fetch_collection_products, product_to_listing};
+use crate::sources::shopify::{fetch_collection_products, product_to_listings};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -43,7 +43,7 @@ impl Source for OnixFoils {
                 if !seen.insert(p.handle.clone()) {
                     continue;
                 }
-                listings.push(product_to_listing(
+                listings.extend(product_to_listings(
                     &p,
                     "onix",
                     BRAND,

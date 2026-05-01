@@ -8,7 +8,7 @@
 //! If Takuma has moved to a non-Shopify platform, rewrite this module
 //! against `crate::sources::html_util` (see gong.rs history for a template).
 use crate::listing::{Listing, Region};
-use crate::sources::shopify::{fetch_all_products, is_target_product, product_to_listing};
+use crate::sources::shopify::{fetch_all_products, is_target_product, product_to_listings};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -41,7 +41,7 @@ impl Source for TakumaFoils {
         Ok(products
             .iter()
             .filter(|p| is_target_product(p))
-            .map(|p| product_to_listing(p, "takuma", BRAND, BASE, CURRENCY, Region::World))
+            .flat_map(|p| product_to_listings(p, "takuma", BRAND, BASE, CURRENCY, Region::World))
             .collect())
     }
 }

@@ -376,10 +376,29 @@ fn extract_from_title(title: &str, s: &mut WingSpecs) {
         }
     }
     if s.area_cm2.is_none() {
+        // Brand-prefix series whose number is the cm² area:
+        //   Axis: PNG / BSC / HPS / SP / HA / ART
+        //   Ketos: PUMPING / Aile Avant / EVO / UHM / HM
+        //   North: MA, HA, SF, P, DW, UHA (Sonar series, sometimes
+        //         followed by `v2`: "MA950v2")
+        //   Armstrong: HA, MA, UHA, S1, CF, MK
         let re = Regex::new(
-            r"(?i)\b(?:PNG|BSC|HPS|SP|HA|ART|PUMPING|Pumping|Aile\s+Avant|EVO|UHM|HM|F-One|FONE)\s*(\d{3,4})\b",
+            r"(?i)\b(?:PNG|BSC|HPS|SP|HA|UHA|ART|MA|SF|P|DW|S1|CF|MK|PUMPING|Pumping|Aile\s+Avant|EVO|UHM|HM|F-One|FONE)\s*(\d{3,4})\b",
         )
         .unwrap();
+        if let Some(c) = re.captures(title.trim()) {
+            if let Ok(v) = c[1].parse::<f64>() {
+                if (200.0..=2500.0).contains(&v) {
+                    s.area_cm2 = Some(v);
+                }
+            }
+        }
+    }
+    // Variant-suffix pattern: when our Shopify expander appended a
+    // bare numeric variant title to the product name (e.g. "OSPREY -
+    // front wing 1850"), the trailing 3-4 digit token IS the area.
+    if s.area_cm2.is_none() {
+        let re = Regex::new(r"\b(\d{3,4})(?:v\d)?\s*$").unwrap();
         if let Some(c) = re.captures(title.trim()) {
             if let Ok(v) = c[1].parse::<f64>() {
                 if (200.0..=2500.0).contains(&v) {

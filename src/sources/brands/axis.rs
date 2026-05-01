@@ -7,7 +7,7 @@
 //! carry "pump" in their product titles, so a global fetch +
 //! title-keyword filter would miss most of them.
 use crate::listing::{Listing, Region};
-use crate::sources::shopify::{fetch_collection_products, is_target_product, product_to_listing};
+use crate::sources::shopify::{fetch_collection_products, is_target_product, product_to_listings};
 use crate::sources::Source;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -41,7 +41,7 @@ impl Source for AxisFoils {
         Ok(products
             .iter()
             .filter(|p| is_target_product(p))
-            .map(|p| product_to_listing(p, "axis", BRAND, BASE, CURRENCY, Region::World))
+            .flat_map(|p| product_to_listings(p, "axis", BRAND, BASE, CURRENCY, Region::World))
             .collect())
     }
 }
