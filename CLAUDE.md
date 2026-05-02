@@ -248,6 +248,24 @@ drift):
   (the in-tree Ricardo source still uses chromiumoxide and so fails
   under Cloudflare).
 - `ricardo_probe.rs` — one-off "dump rendered HTML" probe.
+- `sets_pdf.rs` — render a "foil bundles only" PDF from a
+  `crawl2pump --format json` dump. Title-keyword filter for
+  packs/kits/complete sets; same SharedBrowser → printToPdf path that
+  `pumpfoil_report` uses. Useful when you want a *new+used* sets-only
+  catalog (Tutti/Anibis/Ricardo merged in) without touching the SQLite
+  pipeline.
+- `surfari_rentals_pdf.rs` — fetches surfari.ch's
+  `/collections/mietboards` (Shopify), filters to pumpfoil rentals via
+  `looks_like_pump_foil`, prints a small PDF catalog. Surfari is a
+  Zürich rental shop — not part of the new/used product crawl, so it
+  lives here rather than as a brand source. Daily-rate prices land in
+  `Listing.price` as-is; the renderer appends "/ Tag" in the price
+  cell. Each rental entry's variants collapse to one Listing
+  (rentals don't have size variants worth exploding). If Surfari ever
+  adds wingfoil rentals you'd want, widen the filter to also accept
+  `looks_like_front_wing` matches — the collection has 27 boards
+  total, so the filter shoulder is wide enough to take a few extras
+  without flooding.
 
 If you find yourself running any of these regularly, that's the cue to
 either fold the logic into `pumpfoil_report` or promote that bin into

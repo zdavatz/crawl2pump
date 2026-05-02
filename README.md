@@ -108,7 +108,11 @@ The `--format json` output is stable across runs (each item carries `source`,
 `fetched_at`, …) and is meant to be piped into downstream tools — e.g. a
 small local script that filters for "sets / packages / kits" and renders a
 printable catalog. Such scratch tooling belongs in `src/bin/` (gitignored)
-so it doesn't become part of the shipped crate.
+so it doesn't become part of the shipped crate. Examples that have lived
+there: `sets_pdf.rs` (foil-bundle PDF from a JSON dump),
+`surfari_rentals_pdf.rs` (pumpfoil rentals from surfari.ch's Shopify
+`mietboards` collection — Zürich rental shop, not part of the brand crawl).
+See `CLAUDE.md` for the full catalogue.
 
 ### `pumpfoil_report` — one-shot brand scan + PDF + SQLite history
 
