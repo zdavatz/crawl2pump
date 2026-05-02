@@ -13,6 +13,7 @@
 //!   ./target/release/pumpfoil_report --frontwings-only     # front wings only PDF
 //!   ./target/release/pumpfoil_report --output /tmp/x.pdf
 use anyhow::{anyhow, Context, Result};
+use base64::Engine;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use crawl2pump::db::{Db, ListingRow, StoredListing};
@@ -369,6 +370,8 @@ async fn sort_filter_render(
         })
     });
 
+    optimize_thumbnails(&mut categorized).await;
+
     let html = render_html(
         &categorized,
         &freshness,
@@ -401,6 +404,134 @@ async fn sort_filter_render(
     eprintln!("wrote {}", output.display());
     eprintln!("wrote {}", html_path.display());
     Ok(())
+}
+
+/// Thumbnails render at 44 mm × 34 mm (~520 × 400 px at 300 DPI). The
+/// CDN originals are routinely 1500-2500 px, so embedding them as-is
+/// pushes the PDF past 200 MB. Two strategies, one render pass:
+///
+/// 1. Shopify CDN (`cdn.shopify.com`) supports server-side resize via a
+///    `width=` query param — we rewrite the URL in place. Chrome then
+///    fetches a small JPEG instead of the original.
+/// 2. For the brands that don't (Indiana, Ketos, AlpineFoil, Code, Mio,
+///    Ensis), we fetch + resize + re-encode locally and inline the
+///    result as a `data:image/jpeg;base64,…` URL. Fetches run through
+///    `buffer_unordered(8)`, same pattern as front-wing enrichment.
+///
+/// On fetch / decode failure we leave the original URL in place — Chrome
+/// falls back to fetching the full-size original, so the PDF is no
+/// worse than it was before this step existed.
+const THUMBNAIL_WIDTH: u32 = 600;
+
+async fn optimize_thumbnails(categorized: &mut [(Category, Listing, Option<WingSpecs>)]) {
+    let mut shopify_count = 0u32;
+    for (_, l, _) in categorized.iter_mut() {
+        if let Some(img) = l.image.as_deref() {
+            if is_shopify_cdn(img) {
+                l.image = Some(shopify_resize_url(img, THUMBNAIL_WIDTH));
+                shopify_count += 1;
+            }
+        }
+    }
+
+    let to_fetch: Vec<(usize, String)> = categorized
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (_, l, _))| {
+            l.image.as_ref().and_then(|u| {
+                if u.is_empty() || is_shopify_cdn(u) || u.starts_with("data:") {
+                    None
+                } else {
+                    Some((i, u.clone()))
+                }
+            })
+        })
+        .collect();
+
+    eprintln!(
+        "optimizing thumbnails: {} via Shopify URL transform, {} via local resize…",
+        shopify_count,
+        to_fetch.len()
+    );
+    if to_fetch.is_empty() {
+        return;
+    }
+
+    let client = match reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15")
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("warn: thumbnail client build failed: {e}");
+            return;
+        }
+    };
+
+    use futures::stream::{self, StreamExt};
+    let results: Vec<(usize, Option<String>)> = stream::iter(to_fetch.into_iter())
+        .map(|(i, url)| {
+            let client = client.clone();
+            async move {
+                let res = fetch_and_resize_jpeg(&client, &url, THUMBNAIL_WIDTH).await;
+                (i, res.ok())
+            }
+        })
+        .buffer_unordered(8)
+        .collect()
+        .await;
+
+    let mut ok = 0u32;
+    let mut fail = 0u32;
+    for (i, opt) in results {
+        if let Some(data_url) = opt {
+            categorized[i].1.image = Some(data_url);
+            ok += 1;
+        } else {
+            fail += 1;
+        }
+    }
+    eprintln!("  resized {ok} thumbnails, {fail} fallback to original URL");
+}
+
+fn is_shopify_cdn(url: &str) -> bool {
+    url.contains("cdn.shopify.com")
+}
+
+fn shopify_resize_url(url: &str, width: u32) -> String {
+    if Regex::new(r"[?&]width=\d+").unwrap().is_match(url) {
+        return url.to_string();
+    }
+    let sep = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{sep}width={width}")
+}
+
+async fn fetch_and_resize_jpeg(
+    client: &reqwest::Client,
+    url: &str,
+    width: u32,
+) -> Result<String> {
+    let bytes = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
+    let img = image::load_from_memory(&bytes)
+        .with_context(|| format!("decode {url}"))?;
+    let resized = img.resize(width, u32::MAX, image::imageops::FilterType::Lanczos3);
+    let rgb = resized.to_rgb8();
+    let mut buf = Vec::new();
+    let mut cursor = std::io::Cursor::new(&mut buf);
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 82)
+        .encode(rgb.as_raw(), rgb.width(), rgb.height(), image::ExtendedColorType::Rgb8)
+        .with_context(|| format!("encode {url}"))?;
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&buf)
+    ))
 }
 
 /// Rebuild a categorized list from the most recent scan in the DB. Used
@@ -1016,7 +1147,7 @@ fn render_card(
     let img_html = if img.is_empty() {
         String::new()
     } else {
-        format!(r#"<a class="thumb-link" href="{url}"><img class="thumb" src="{img}" loading="lazy"/></a>"#)
+        format!(r#"<a class="thumb-link" href="{url}" target="_blank" rel="noopener"><img class="thumb" src="{img}" loading="lazy"/></a>"#)
     };
     let badge = match freshness {
         Some(Freshness::New) => r#"<span class="badge new">NEW</span>"#,
@@ -1028,10 +1159,10 @@ fn render_card(
   {badge}
   {img_html}
   <div class="body">
-    <a class="title" href="{url}">{title}</a>
+    <a class="title" href="{url}" target="_blank" rel="noopener">{title}</a>
     <div class="meta">{meta}</div>
     <p class="desc">{desc}</p>
-    <a class="url" href="{url}">{url}</a>
+    <a class="url" href="{url}" target="_blank" rel="noopener">{url}</a>
   </div>
   <div class="price">{price}</div>
 </section>"#,

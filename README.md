@@ -142,9 +142,24 @@ Each run does five things:
    per-URL `first_seen` / `last_seen` / `last_modified_at` columns and
    a SHA-256 content hash for fast change detection. Price changes are
    appended to `price_history`.
-5. Renders the PDF with **NEW** / **MOD** badges on listings that
-   appeared or changed since the previous scan, plus a header strip
-   summarising counts.
+5. Renders both an HTML file (next to the PDF, same basename) and a
+   PDF with **NEW** / **MOD** badges on listings that appeared or
+   changed since the previous scan, plus a header strip summarising
+   counts. All product links in the HTML open in a new browser tab
+   (`target="_blank" rel="noopener"`) so you can fan rows out into
+   tabs without losing your place in the catalog. Chrome ignores
+   the attribute when printing the PDF, so the PDF behaviour is
+   unchanged.
+
+   Thumbnails are optimised before rendering: Shopify CDN URLs get a
+   `width=600` query param appended (server-side resize, ~75% of the
+   catalog), and non-Shopify thumbnails (Indiana, Ketos, AlpineFoil,
+   Code Foils, Mio, Ensis) are fetched + resized + re-encoded as 600 px
+   JPEGs and inlined as `data:` URLs. Resize fetches run in parallel
+   via `buffer_unordered(8)`, same pattern as front-wing enrichment.
+   Net effect: PDF dropped from ~244 MB to ~35 MB with no visible
+   quality loss at normal zoom (thumbnails render at 44 mm × 34 mm,
+   so 600 px is already 1.15× oversampled at 300 DPI).
 
 `--from-db` short-circuits steps 1–4 and rebuilds the categorized
 list directly from the most recent scan in `sqlite/crawl2pump.db`,

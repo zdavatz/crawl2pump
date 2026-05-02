@@ -105,6 +105,34 @@ PDF render in one process. Invariants worth knowing before editing it:
 - The DB write happens **before** the PDF render. The render queries
   the DB (`new_in_scan` / `modified_in_scan`) for freshness badges, so
   the order matters.
+- **Two output files per run, one render pass.** `render_html` builds
+  one HTML string and `std::fs::write`s it to `<output>.html`; the same
+  string is then printed to PDF via headless Chrome. There is no
+  separate HTML-vs-PDF templating path. Anything you change in the
+  card markup affects both. All product `<a>` tags carry
+  `target="_blank" rel="noopener"` so links in the HTML open in new
+  browser tabs; Chrome's print path ignores the attribute, so PDF
+  behaviour is unchanged.
+- **Thumbnail optimisation runs before render.** `optimize_thumbnails`
+  rewrites every `Listing.image` URL in two passes:
+  1. **Shopify CDN URLs** (host contains `cdn.shopify.com`) get
+     `width=600` appended as a query param. Shopify resizes server-side
+     before Chrome fetches, so this is free at our end — no decode, no
+     re-encode. Covers ~75% of the catalog.
+  2. **Everything else** (Indiana, Ketos, AlpineFoil, Code Foils, Mio,
+     Ensis) gets fetched through `buffer_unordered(8)`, resized to
+     600 px wide via the `image` crate (Lanczos3 + JPEG q=82), and
+     embedded as `data:image/jpeg;base64,…`. On any HTTP/decode failure
+     we leave the original URL so Chrome falls back to the full-size
+     fetch — never blocks the render. Cost: ~3-5 s wall-clock for ~140
+     non-Shopify thumbnails on a fresh `--from-db`.
+
+  Net effect on the PDF: 244 MB → ~35 MB. Chrome's printToPDF time also
+  drops because the embedded JPEGs are smaller. The 600 px target is
+  derived from the card thumb size (44 mm × 34 mm at 300 DPI ≈ 520 ×
+  400 px) — going lower (e.g. 400 px) is visible at zoom; going higher
+  saves nothing. Don't push it past 600 without checking print quality
+  on a representative card first.
 - `--from-db` short-circuits the crawl + enrichment + upsert entirely
   and rebuilds `categorized` from `Db::latest_snapshot()` — the rows
   whose `last_seen` matches the most recent scan. `freshness` is empty
