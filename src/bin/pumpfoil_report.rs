@@ -115,6 +115,7 @@ async fn main() -> Result<()> {
         "starboard",
         "naish",
         "ensis",
+        "pumpzuerich",
     ]
     .into_iter()
     .collect();
@@ -673,7 +674,14 @@ fn classify(l: &Listing) -> Category {
         // Pump Hose Adapter — accessory_word check above handles those).
         || Regex::new(r"^pump\s+(wood|carbon|scoot|aluminium|alu|foam|epoxy)\b")
             .unwrap()
-            .is_match(&t);
+            .is_match(&t)
+        // `skate` covers pump-skates (foil-pumping land trainers) — Pump
+        // Zürich's "Pump Tsüri Skate", Indiana's "Hydroskate" line, and
+        // any future pump-skate from another brand. The accessory_word
+        // check fires first for things like the "Hydroskate Backpack",
+        // so this only catches the actual board.
+        || Regex::new(r"\bskate\b").unwrap().is_match(&t)
+        || t.contains("hydroskate");
     // Match `kit` only as a whole word — `" kit"` would otherwise match
     // "Eco Kite" (Mio's shop tagline) and misclassify every Mio board as
     // a foil-pack set. Same for the others where a stray substring

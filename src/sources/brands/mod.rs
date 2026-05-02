@@ -11,6 +11,7 @@ pub mod mio;
 pub mod naish;
 pub mod north;
 pub mod onix;
+pub mod pumpzuerich;
 pub mod starboard;
 pub mod takoon;
 pub mod takuma;

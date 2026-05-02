@@ -124,7 +124,8 @@ pub fn build_sources(
         Box::new(sources::brands::mio::Mio::new(client.clone())),
         Box::new(sources::brands::starboard::Starboard::new(client.clone())),
         Box::new(sources::brands::naish::Naish::new(client.clone())),
-        Box::new(sources::brands::ensis::Ensis::new(client)),
+        Box::new(sources::brands::ensis::Ensis::new(client.clone())),
+        Box::new(sources::brands::pumpzuerich::PumpZuerich::new(client)),
     ];
     if let Some(b) = browser {
         v.push(Box::new(sources::classifieds::ricardo::Ricardo::new(b.clone())));

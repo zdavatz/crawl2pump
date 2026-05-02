@@ -325,6 +325,18 @@ the whitelist.
    because Ensis's slugs are model names (Pacer / Stride / Maniac)
    rather than category words. Pattern is fine; just expect price
    columns to be empty across these rows.
+9. **Single-product brands with no Product JSON-LD** — Pump Zürich
+   (`pump.zuerich/skate/`) is one product hosted on WordPress.com /
+   Atomic. No JSON-LD `Product`, no `og:price:*` meta — price lives in
+   free-text inside the description ("Price without shipping is EUR
+   660.-"). `brands/pumpzuerich.rs` hardcodes the single URL, calls
+   `fetch_page_product` for OG metadata, then runs a small
+   `EUR|CHF|USD <number>` regex over the description to recover the
+   price. The `og:title` is just "Skate" (too generic) so we override
+   the listing's title to "Pump Tsüri Skate" for display. Copy this
+   pattern for any other one-product micro-brand we want to surface
+   in the catalog — keep the regex permissive on currency so a future
+   CHF/USD price would still trigger.
 
 ## Pump-foil-specific filtering
 
@@ -355,6 +367,17 @@ nor URL has `board`, so we added a regex
 `has_board` check. The accessory_word check still routes `Pump
 Backpack` / `Pump Hose Adapter` / `Pump Tips` to Accessories before
 the pump-material rule fires.
+
+Pump-skate detection: `\bskate\b` and the literal `hydroskate` are
+both in the `has_board` test. Pump skates are foil-pumping land
+trainers (you stand on a deck on wheels, pump for technique). Pump
+Zürich's "Pump Tsüri Skate" is the current example, Indiana's
+"Hydroskate" line is another. The accessory_word check absorbs the
+`Hydroskate Backpack` collision before the skate rule fires, so this
+widening is safe. Don't read this as a license to add per-brand
+overrides though — the rule still stands: only widen the keyword set
+when the new word is genuinely generic (any brand selling that kind
+of product would benefit), never as a per-product hack.
 
 ## Shopify variant explosion
 
