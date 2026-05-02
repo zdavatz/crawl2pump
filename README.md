@@ -151,6 +151,14 @@ list directly from the most recent scan in `sqlite/crawl2pump.db`,
 including stored area / span / AR / chord. Useful for fast PDF
 iteration after a real scan.
 
+The categorization is a *navigation hint*, not a filter — every
+crawled row is in the PDF regardless of which bucket it landed in.
+Some brand-specific names don't match the generic `pack`/`set`/`kit`/
+`complete` keywords (Ensis "Maniac Stride", for example, lands in
+Accessories rather than Foil Packs). When you can't find a known
+product where you expect it, **just Cmd-F the PDF for the brand or
+model name** — search is the universal escape hatch.
+
 The Front Wings section sorts by `area_cm2` **descending** — biggest
 wings first (beginner / glide), smallest last (high-performance /
 race). No-spec wings sink to the bottom of the section. The Boards

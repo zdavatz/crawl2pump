@@ -72,6 +72,20 @@ PDF render in one process. Invariants worth knowing before editing it:
   change them here — the scratch bins are kept around for one-off
   debugging only and may drift. A future cleanup is to lift these
   into `src/categorize.rs` + `src/specs.rs` library modules.
+- **The classifier is intentionally brand-agnostic.** It runs a small
+  set of generic keyword tests (`pack`/`set`/`kit`/`complete` for
+  packs; `board`/`foilboard` + the Takoon "Pump <material>" pattern
+  for boards) against every brand's titles. Some brand-specific names
+  fall through the cracks — Ensis labels their foil systems "Maniac
+  Stride" / "Maniac Pacer" with no generic keyword, so they land in
+  Accessories rather than Foil Packs. **Don't add per-brand override
+  rules to fix this** (e.g. `if source == "ensis" && title.contains
+  ("maniac")`). The categorization is a navigation hint, not a filter
+  — every row is in the PDF regardless of bucket, and a Cmd-F search
+  on brand or model finds it instantly. Per-brand overrides drift the
+  moment a brand renames a product line and aren't worth the
+  maintenance tax. Only widen the generic keyword set if a *new* word
+  is genuinely common across multiple brands.
 - The "trusted curated sources" set
   (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code,
   north, mio, starboard, naish, ensis}`) encodes which brand modules
