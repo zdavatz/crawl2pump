@@ -15,8 +15,8 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use crawl2pump::db::{Db, ListingRow};
-use crawl2pump::listing::{Condition, Listing};
+use crawl2pump::db::{Db, ListingRow, StoredListing};
+use crawl2pump::listing::{Condition, Listing, Region};
 use crawl2pump::Cli as CrawlCli;
 use regex::Regex;
 use reqwest::Client;
@@ -71,10 +71,21 @@ async fn main() -> Result<()> {
     let db = Db::open(&args.db).context("open sqlite db")?;
     drop(db); // re-open mutable below; this is just an early "does it work" check
 
-    let listings = if args.from_db {
-        eprintln!("--from-db: skipping crawl, re-rendering from {}", args.db.display());
-        Vec::new()
-    } else {
+    // `--from-db` short-circuits the crawl + enrichment + upsert — we
+    // rebuild the categorized list directly from the most recent scan's
+    // rows in the DB. The render path below treats it the same as a
+    // freshly-crawled list.
+    if args.from_db {
+        eprintln!(
+            "--from-db: skipping crawl, re-rendering from {}",
+            args.db.display()
+        );
+        let categorized = load_categorized_from_db(&args.db)?;
+        eprintln!("  {} listings loaded from DB", categorized.len());
+        return render_from_categorized(&args, &output, scan_at, categorized).await;
+    }
+
+    let listings = {
         let crawl_cli = CrawlCli {
             sources: args.sources.clone(),
             no_browser: true,
@@ -100,6 +111,9 @@ async fn main() -> Result<()> {
         "code",
         "north",
         "mio",
+        "starboard",
+        "naish",
+        "ensis",
     ]
     .into_iter()
     .collect();
@@ -127,57 +141,116 @@ async fn main() -> Result<()> {
         })
         .collect();
 
-    // Front-wing spec enrichment (title parse, description regex, then
-    // optional detail-page fetch).
+    // Front-wing spec enrichment runs in three passes. Pass 1 is cheap
+    // and in-place (title parse + description regex). Pass 2 fetches
+    // detail pages for wings still missing area/span — that's the slow
+    // part, ~10 s per wing × 213 wings serially. We collect them into a
+    // `buffer_unordered(8)` stream so 8 fetches are in-flight at any
+    // moment; brings real runs from ~25 min to ~3 min. Pass 3 computes
+    // AR / chord from area + span.
     {
+        // Use the same UA the crawler does — Naish (and likely others)
+        // serve a stripped-down page to a `(compatible; ...)` UA that
+        // hides the per-variant spec block (`Aspect_ratio:` / `Front
+        // wing span cm:` / `Projected surface area cm2:`). A regular
+        // Safari UA gets the full page.
         let client = Client::builder()
             .timeout(Duration::from_secs(20))
-            .user_agent("Mozilla/5.0 (compatible; pumpfoil-report)")
+            .user_agent(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+                 AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+            )
             .build()?;
-        let total_fw = categorized
-            .iter()
-            .filter(|(c, _, _)| *c == Category::FrontWings)
-            .count();
-        let mut done = 0;
+
+        // Pass 1: cheap title + description regex.
         for (c, l, specs) in categorized.iter_mut() {
             if *c != Category::FrontWings {
                 continue;
             }
-            done += 1;
             let mut s = WingSpecs::default();
             extract_from_title(&l.title, &mut s);
             if let Some(d) = &l.description {
                 extract_from_text(d, &mut s);
             }
-            if !args.no_spec_fetch && (s.area_cm2.is_none() || s.span_mm.is_none()) {
-                eprintln!("  fw [{done}/{total_fw}] fetch {}", l.url);
-                if let Ok(r) = client.get(&l.url).send().await {
-                    if r.status().is_success() {
-                        if let Ok(html) = r.text().await {
-                            extract_from_text(&html, &mut s);
-                            extract_from_html_table(&html, &mut s);
+            *specs = Some(s);
+        }
+
+        // Pass 2: parallel detail-page fetch for wings still missing
+        // area or span.
+        if !args.no_spec_fetch {
+            let to_fetch: Vec<(usize, String)> = categorized
+                .iter()
+                .enumerate()
+                .filter(|(_, (c, _, specs))| {
+                    *c == Category::FrontWings
+                        && specs
+                            .as_ref()
+                            .map(|s| s.area_cm2.is_none() || s.span_mm.is_none())
+                            .unwrap_or(true)
+                })
+                .map(|(i, (_, l, _))| (i, l.url.clone()))
+                .collect();
+            let total = to_fetch.len();
+            eprintln!("  enriching {total} front wing(s) in parallel (concurrency=8)…");
+            use futures::stream::{self, StreamExt};
+            let fetched: Vec<(usize, WingSpecs)> = stream::iter(to_fetch)
+                .map(|(idx, url)| {
+                    let client = client.clone();
+                    async move {
+                        let mut s = WingSpecs::default();
+                        if let Ok(r) = client.get(&url).send().await {
+                            if r.status().is_success() {
+                                if let Ok(html) = r.text().await {
+                                    extract_from_text(&html, &mut s);
+                                    extract_from_html_table(&html, &mut s);
+                                }
+                            }
+                        }
+                        (idx, s)
+                    }
+                })
+                .buffer_unordered(8)
+                .collect()
+                .await;
+            for (idx, fetched_s) in fetched {
+                if let Some(existing) = categorized[idx].2.as_mut() {
+                    existing.area_cm2 = existing.area_cm2.or(fetched_s.area_cm2);
+                    existing.span_mm = existing.span_mm.or(fetched_s.span_mm);
+                    existing.aspect_ratio = existing.aspect_ratio.or(fetched_s.aspect_ratio);
+                    existing.chord_mm = existing.chord_mm.or(fetched_s.chord_mm);
+                }
+            }
+        }
+
+        // Pass 3: compute AR + chord from area + span; drop empty specs
+        // so the renderer sees `None` for wings with no useful data.
+        for (c, _, specs) in categorized.iter_mut() {
+            if *c != Category::FrontWings {
+                continue;
+            }
+            if let Some(s) = specs.as_mut() {
+                if s.aspect_ratio.is_none() {
+                    if let (Some(a), Some(sp)) = (s.area_cm2, s.span_mm) {
+                        let span_cm = sp / 10.0;
+                        if a > 0.0 {
+                            s.aspect_ratio = Some((span_cm * span_cm) / a);
+                        }
+                    }
+                }
+                if s.chord_mm.is_none() {
+                    if let (Some(a), Some(sp)) = (s.area_cm2, s.span_mm) {
+                        if sp > 0.0 {
+                            s.chord_mm = Some((a * 100.0) / sp);
                         }
                     }
                 }
             }
-            // AR / chord computed from area + span when not explicit.
-            if s.aspect_ratio.is_none() {
-                if let (Some(a), Some(sp)) = (s.area_cm2, s.span_mm) {
-                    let span_cm = sp / 10.0;
-                    if a > 0.0 {
-                        s.aspect_ratio = Some((span_cm * span_cm) / a);
-                    }
-                }
-            }
-            if s.chord_mm.is_none() {
-                if let (Some(a), Some(sp)) = (s.area_cm2, s.span_mm) {
-                    if sp > 0.0 {
-                        s.chord_mm = Some((a * 100.0) / sp);
-                    }
-                }
-            }
-            if s.area_cm2.is_some() || s.span_mm.is_some() {
-                *specs = Some(s);
+            let drop_specs = specs
+                .as_ref()
+                .map(|s| s.area_cm2.is_none() && s.span_mm.is_none())
+                .unwrap_or(false);
+            if drop_specs {
+                *specs = None;
             }
         }
 
@@ -244,7 +317,21 @@ async fn main() -> Result<()> {
         m
     };
 
-    // Optional `--frontwings-only` / `--boards-only` filters.
+    sort_filter_render(&args, &output, scan_at, categorized, freshness, summary).await
+}
+
+/// Apply the `--frontwings-only` / `--boards-only` filter, sort within
+/// each category by the canonical key (front wings = area DESC, boards
+/// = price ASC with None last, others = price ASC), and render HTML →
+/// PDF. Shared between the live-crawl path and `--from-db`.
+async fn sort_filter_render(
+    args: &Args,
+    output: &PathBuf,
+    scan_at: DateTime<Utc>,
+    mut categorized: Vec<(Category, Listing, Option<WingSpecs>)>,
+    freshness: std::collections::HashMap<String, Freshness>,
+    summary: crawl2pump::db::UpsertSummary,
+) -> Result<()> {
     if args.frontwings_only {
         categorized.retain(|(c, _, _)| *c == Category::FrontWings);
     }
@@ -252,42 +339,28 @@ async fn main() -> Result<()> {
         categorized.retain(|(c, _, _)| *c == Category::Boards);
     }
 
-    // Sort within categories.
-    categorized.sort_by(|a, b| match a.0 {
-        // Rank for category, then domain-specific intra-category sort.
-        _ => a.0.order().cmp(&b.0.order()),
-    });
-    // Stable second pass for intra-group order.
     categorized.sort_by(|a, b| {
         a.0.order().cmp(&b.0.order()).then_with(|| match a.0 {
             Category::FrontWings => {
-                // Sort by flat surface area DESCENDING — biggest wings
-                // (beginner / glide) first, smallest (high-performance /
-                // race) last. No-spec wings sink to the bottom.
                 let ka = a.2.as_ref().and_then(|s| s.area_cm2);
                 let kb = b.2.as_ref().and_then(|s| s.area_cm2);
                 match (ka, kb) {
                     (Some(x), Some(y)) => y.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal),
                     (Some(_), None) => std::cmp::Ordering::Less,
                     (None, Some(_)) => std::cmp::Ordering::Greater,
-                    (None, None) => a.1.price.partial_cmp(&b.1.price).unwrap_or(std::cmp::Ordering::Equal),
+                    (None, None) => a
+                        .1
+                        .price
+                        .partial_cmp(&b.1.price)
+                        .unwrap_or(std::cmp::Ordering::Equal),
                 }
             }
-            Category::Boards => {
-                // Boards sort by price ascending; no-price rows sink to
-                // the bottom (rather than Rust's default None < Some).
-                // We extract volume_l / length_cm into the spec block
-                // for display, but title-based extraction is too
-                // inconsistent across brands (Indiana labels by cm,
-                // Axis by L, Ketos by cm, Onix doesn't label at all)
-                // to be a reliable primary sort key.
-                match (a.1.price, b.1.price) {
-                    (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
-                    (Some(_), None) => std::cmp::Ordering::Less,
-                    (None, Some(_)) => std::cmp::Ordering::Greater,
-                    (None, None) => std::cmp::Ordering::Equal,
-                }
-            }
+            Category::Boards => match (a.1.price, b.1.price) {
+                (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            },
             _ => a
                 .1
                 .price
@@ -296,7 +369,6 @@ async fn main() -> Result<()> {
         })
     });
 
-    // Render HTML → PDF.
     let html = render_html(
         &categorized,
         &freshness,
@@ -331,6 +403,82 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// Rebuild a categorized list from the most recent scan in the DB. Used
+/// by `--from-db` to render the latest snapshot without re-crawling.
+/// Spec columns (area / span / AR / chord) come straight from the DB so
+/// no enrichment fetch is needed.
+fn load_categorized_from_db(
+    path: &std::path::Path,
+) -> Result<Vec<(Category, Listing, Option<WingSpecs>)>> {
+    let db = Db::open(path)?;
+    let rows = db.latest_snapshot()?;
+    Ok(rows.into_iter().map(stored_to_categorized).collect())
+}
+
+fn stored_to_categorized(s: StoredListing) -> (Category, Listing, Option<WingSpecs>) {
+    let cat = s
+        .category
+        .as_deref()
+        .and_then(Category::from_label)
+        .unwrap_or(Category::Accessories);
+    let region = match s.region.as_deref() {
+        Some("ch") => Region::Ch,
+        _ => Region::World,
+    };
+    let condition = match s.condition.as_deref() {
+        Some("used") => Condition::Used,
+        _ => Condition::New,
+    };
+    let listing = Listing {
+        source: s.source,
+        brand: s.brand,
+        title: s.title,
+        url: s.url,
+        price: s.price,
+        currency: s.currency,
+        condition,
+        available: s.available,
+        location: s.location,
+        description: s.description,
+        image: s.image,
+        region,
+        fetched_at: s.last_seen,
+    };
+    let specs = if s.area_cm2.is_some()
+        || s.span_mm.is_some()
+        || s.aspect_ratio.is_some()
+        || s.chord_mm.is_some()
+    {
+        Some(WingSpecs {
+            area_cm2: s.area_cm2,
+            span_mm: s.span_mm,
+            aspect_ratio: s.aspect_ratio,
+            chord_mm: s.chord_mm,
+            volume_l: None,
+            length_cm: None,
+        })
+    } else {
+        None
+    };
+    (cat, listing, specs)
+}
+
+async fn render_from_categorized(
+    args: &Args,
+    output: &PathBuf,
+    scan_at: DateTime<Utc>,
+    categorized: Vec<(Category, Listing, Option<WingSpecs>)>,
+) -> Result<()> {
+    let summary = crawl2pump::db::UpsertSummary {
+        new_count: 0,
+        updated_count: 0,
+        modified_count: 0,
+        price_changes: 0,
+    };
+    let freshness = std::collections::HashMap::new();
+    sort_filter_render(args, output, scan_at, categorized, freshness, summary).await
+}
+
 fn dirs_downloads() -> PathBuf {
     std::env::var("HOME")
         .map(|h| PathBuf::from(h).join("Downloads"))
@@ -353,6 +501,16 @@ impl Category {
             Category::FoilPacks => "Foil Packs (no Board)",
             Category::FrontWings => "Front Wings",
             Category::Accessories => "Other Components & Accessories",
+        }
+    }
+    fn from_label(s: &str) -> Option<Self> {
+        match s {
+            "Sets (Foil + Board)" => Some(Category::Sets),
+            "Boards only" => Some(Category::Boards),
+            "Foil Packs (no Board)" => Some(Category::FoilPacks),
+            "Front Wings" => Some(Category::FrontWings),
+            "Other Components & Accessories" => Some(Category::Accessories),
+            _ => None,
         }
     }
     fn order(&self) -> u8 {
@@ -481,29 +639,84 @@ fn extract_from_title(title: &str, s: &mut WingSpecs) {
 }
 
 fn extract_from_text(text: &str, s: &mut WingSpecs) {
+    // Strip HTML tags first so labels embedded in markup
+    // (`<strong>Front wing span cm:</strong> 83.5`) reduce to plain
+    // "Front wing span cm: 83.5" text. JSON state blobs that ship
+    // values like `"aspect_ratio":1` survive stripping, so the per-
+    // pattern loop iterates matches and prefers values inside the
+    // expected sanity range.
+    let cleaned: String = {
+        let no_tags = Regex::new(r"<[^>]+>").unwrap().replace_all(text, " ");
+        // Collapse whitespace runs introduced by tag removal so `]{0,8}`
+        // gaps still match `</strong> ` → ` `.
+        Regex::new(r"\s+")
+            .unwrap()
+            .replace_all(&no_tags, " ")
+            .to_string()
+    };
+    let text = cleaned.as_str();
+
     if s.area_cm2.is_none() {
         for re in [
-            Regex::new(r"(?i)(?:surface(?:\s+area)?|area|aire)[\s:=]*(\d{3,4})\s*(?:cm[²2]|sq\s*cm)?")
-                .unwrap(),
+            // Labelled (English / French / German). Allow up to 15
+            // non-digit chars between label and number so connectives
+            // like "von " / "of " / ": " all work. Naish prints
+            // "Projected surface area cm2:" — matches via `projected`
+            // prefix + `surface area`.
+            Regex::new(
+                r"(?i)(?:projected\s+|projizierte\s+)?(?:fl[aä]che|surface(?:\s+area)?|area|aire)[^0-9\n]{0,20}(\d{3,4})\s*(?:cm[²2]|sq\s*cm)?",
+            )
+            .unwrap(),
+            // Bare "NNN cm²" — used as a last-resort heuristic.
             Regex::new(r"(\d{3,4})\s*cm[²2]").unwrap(),
         ] {
-            if let Some(c) = re.captures(text) {
+            for c in re.captures_iter(text) {
                 if let Ok(v) = c[1].parse::<f64>() {
-                    if (200.0..=2500.0).contains(&v) {
+                    if (200.0..=2700.0).contains(&v) {
                         s.area_cm2 = Some(v);
                         break;
                     }
+                }
+            }
+            if s.area_cm2.is_some() {
+                break;
+            }
+        }
+    }
+    if s.span_mm.is_none() {
+        // First try: explicit "span cm" or "Front wing span cm" — Naish
+        // prints span in centimetres (e.g. `Front wing span cm: 83.5`),
+        // so we capture the float, convert to mm.
+        let span_cm_re = Regex::new(
+            r"(?i)(?:front\s+wing\s+)?(?:wing\s*)?span\s*cm[^0-9\n]{0,15}(\d{2,3}(?:\.\d{1,2})?)",
+        )
+        .unwrap();
+        for c in span_cm_re.captures_iter(text) {
+            if let Ok(v) = c[1].parse::<f64>() {
+                if (30.0..=250.0).contains(&v) {
+                    s.span_mm = Some(v * 10.0);
+                    break;
                 }
             }
         }
     }
     if s.span_mm.is_none() {
         for re in [
-            Regex::new(r"(?i)(?:wingspan|span|envergure)[\s:=]*(\d{3,4})\s*mm").unwrap(),
-            Regex::new(r"(?i)(?:wingspan|span|envergure)[\s:=]*(\d{3,4})\b").unwrap(),
-            Regex::new(r"\b(\d{3,4})\s*mm\s*(?:wingspan|span)").unwrap(),
+            // Labelled with mm explicit — most reliable signal.
+            Regex::new(
+                r"(?i)(?:wingspan|spannweite|envergure|span)[^0-9\n]{0,20}(\d{3,4})\s*mm",
+            )
+            .unwrap(),
+            // Labelled without mm — slightly riskier (could match a
+            // chord) but bounded to 300–2500.
+            Regex::new(
+                r"(?i)(?:wingspan|spannweite|envergure)[^0-9\n]{0,20}(\d{3,4})\b",
+            )
+            .unwrap(),
+            // Reverse form: "1696 mm wingspan".
+            Regex::new(r"\b(\d{3,4})\s*mm\s*(?:wingspan|span|spannweite)").unwrap(),
         ] {
-            if let Some(c) = re.captures(text) {
+            for c in re.captures_iter(text) {
                 if let Ok(v) = c[1].parse::<f64>() {
                     if (300.0..=2500.0).contains(&v) {
                         s.span_mm = Some(v);
@@ -511,15 +724,27 @@ fn extract_from_text(text: &str, s: &mut WingSpecs) {
                     }
                 }
             }
+            if s.span_mm.is_some() {
+                break;
+            }
         }
     }
     if s.aspect_ratio.is_none() {
         for re in [
-            Regex::new(r"(?i)aspect\s+ratio[^0-9]{0,20}(\d{1,2}(?:\.\d{1,2})?)").unwrap(),
+            // Naish prints `Aspect_ratio: 5.6` with an underscore — the
+            // `[\s_]+` clause catches both that and the regular "aspect
+            // ratio" with a space. Require a colon (or end-of-label
+            // whitespace then digit) immediately after `ratio` so we
+            // don't latch onto Naish's JSON state blob `"aspect_ratio":
+            // true, "img_aspect_ratio": 3.698` — that form has a `"`
+            // between `ratio` and the colon, which the `\s*:` clause
+            // rejects.
+            Regex::new(r"(?i)\baspect[\s_]+ratio\s*:[^0-9\n]{0,10}(\d{1,2}(?:\.\d{1,2})?)").unwrap(),
+            Regex::new(r"(?i)\baspect[\s_]+ratio\s+of\s+(\d{1,2}(?:\.\d{1,2})?)").unwrap(),
             Regex::new(r"(?i)\bAR[\s:=]+(\d{1,2}(?:\.\d{1,2})?)").unwrap(),
-            Regex::new(r"(?i)(\d{1,2}(?:\.\d{1,2})?)\s*aspect\s+ratio").unwrap(),
+            Regex::new(r"(?i)(\d{1,2}(?:\.\d{1,2})?)\s*aspect[\s_]+ratio").unwrap(),
         ] {
-            if let Some(c) = re.captures(text) {
+            for c in re.captures_iter(text) {
                 if let Ok(v) = c[1].parse::<f64>() {
                     if (3.0..=15.0).contains(&v) {
                         s.aspect_ratio = Some(v);
@@ -527,20 +752,28 @@ fn extract_from_text(text: &str, s: &mut WingSpecs) {
                     }
                 }
             }
+            if s.aspect_ratio.is_some() {
+                break;
+            }
         }
     }
     if s.chord_mm.is_none() {
         for re in [
-            Regex::new(r"(?i)chord[\s:=]*(\d{2,4})\s*mm").unwrap(),
-            Regex::new(r"(?i)chord[\s:=]*(\d{2,4})\b").unwrap(),
+            // Indiana: "Chord von 173 mm". The 0–20 char gap absorbs
+            // "von "/"of "/": "/etc.
+            Regex::new(r"(?i)chord[^0-9\n]{0,20}(\d{2,4})\s*mm").unwrap(),
+            Regex::new(r"(?i)chord[^0-9\n]{0,20}(\d{2,4})\b").unwrap(),
         ] {
-            if let Some(c) = re.captures(text) {
+            for c in re.captures_iter(text) {
                 if let Ok(v) = c[1].parse::<f64>() {
                     if (50.0..=400.0).contains(&v) {
                         s.chord_mm = Some(v);
                         break;
                     }
                 }
+            }
+            if s.chord_mm.is_some() {
+                break;
             }
         }
     }

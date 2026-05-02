@@ -24,6 +24,9 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Takoon | France | Shopify | `pack-foil-pump` + `foil-pump` collections + global `pump` title-filter |
 | Code Foils | USA | WordPress (no per-product sitemap) | scrape `/products/` index page; no retail prices (dealer-only) |
 | Mio (mioboards.com) | Switzerland | Custom (Store29 platform) | scrape `/c/shop/boards/foil` for `/p/*` product URLs; OG meta tags for price |
+| Starboard (star-board.com) | World | Shopify | `foilboards` collection + strict pump-keyword filter (only the dedicated Pump Foilboard survives) |
+| Naish (naish.com) | World | Shopify | `foil-collection` + `foil-completes` + `foil-boards` + `front-wings-a-la-cart`, filtered by `product_type` allowlist (front wings / masts / stabs / fuselages / semi-completes / DW + SUP foil boards) — drops wing-foil-only and kite-foil boards |
+| Ensis (ensis.surf) | Switzerland | WordPress (no e-commerce, info only) | sitemap-based; URL allowlist for Pacer / Stride / Maniac line + `pumpfoil` slugs. **No prices** (Ensis pages have no Product schema). |
 
 ### Classifieds (second-hand)
 
@@ -124,13 +127,17 @@ A second binary wraps the full pipeline so you don't have to chain
 Each run does five things:
 
 1. Crawls all brand shops (Axis, Armstrong, Gong, Lift, North, Mio,
-   Indiana, AlpineFoil, Ketos, Onix, Takoon, Code Foils).
+   Indiana, AlpineFoil, Ketos, Onix, Takoon, Code Foils, Starboard,
+   Naish, Ensis) — sources fire concurrently via `tokio::spawn` so the
+   18-source crawl finishes in ~30 s.
 2. Filters down to pump-foil-relevant gear (curated brand modules are
    trusted; Gong/Lift get a title-keyword filter).
 3. Categorizes into **Sets · Boards · Foil Packs · Front Wings ·
    Components/Accessories**. Front Wings get spec extraction
    (area, span, AR, chord) from title patterns + JSON-LD
-   `body_html` + a detail-page fallback fetch.
+   `body_html` + a detail-page fallback fetch. The fallback runs in
+   parallel via `buffer_unordered(8)` — 200+ wings enrich in ~3 min
+   instead of ~25 min serial.
 4. Persists to `sqlite/crawl2pump.db` (created on first run) with
    per-URL `first_seen` / `last_seen` / `last_modified_at` columns and
    a SHA-256 content hash for fast change detection. Price changes are
@@ -138,6 +145,11 @@ Each run does five things:
 5. Renders the PDF with **NEW** / **MOD** badges on listings that
    appeared or changed since the previous scan, plus a header strip
    summarising counts.
+
+`--from-db` short-circuits steps 1–4 and rebuilds the categorized
+list directly from the most recent scan in `sqlite/crawl2pump.db`,
+including stored area / span / AR / chord. Useful for fast PDF
+iteration after a real scan.
 
 The Front Wings section sorts by `area_cm2` **descending** — biggest
 wings first (beginner / glide), smallest last (high-performance /
@@ -165,8 +177,37 @@ emits one Listing per size variant — each gets its own URL
 and price-tracks per size. Variant titles that look like multi-axis
 option combos (slash-separated like `1850 / 220 carve / 71`) are
 left collapsed to avoid exploding pack permutations into hundreds of
-rows. Latest scan: **173 front wings** across eight brands,
-ranging 480 cm² → 2'450 cm².
+rows. Latest scan: **213 front wings** across nine brands,
+ranging 480 cm² → 2'700 cm².
+
+Spec extraction handles the various ways brands present wing data:
+
+- **Title patterns** — Axis `PNG 1300` / `BSC 970`, North `MA 950v2`,
+  Naish `Jet HA 1840`, Armstrong `S1 2450` / `HA 580` (area in cm²)
+  + Axis `820mm Carbon Front Wing` (span in mm).
+- **English / French / German prose** — Indiana ships specs in their
+  product description as "Spannweite von 1696 mm, einen Chord von
+  173 mm, eine projizierte Fläche von 2274 cm², eine Aspect Ratio
+  von 12.0". The extractor tolerates `von` / `of` / `:` connectives
+  between label and number across all four metrics.
+- **Naish per-variant spec block** — Naish detail pages carry an HTML
+  `<p><strong>Aspect_ratio:</strong> 5.6</p>` / `<p><strong>Front
+  wing span cm:</strong> 83.5</p>` / `<p><strong>Projected surface
+  area cm2:</strong> 1250</p>` block per size variant. The extractor
+  strips HTML tags before regex (so labels embedded in `<strong>`
+  match), accepts the underscore-form `Aspect_ratio:` (Naish's
+  spelling) alongside the regular `Aspect Ratio`, and converts the
+  `span cm` value to mm. The AR regex requires a colon directly
+  after `ratio` to avoid latching onto JSON state blobs like
+  `"img_aspect_ratio":3.698`.
+- **Computed fallbacks** — when area + span are present but AR /
+  chord aren't explicit, AR = (span_cm)² / area_cm² and chord =
+  (area × 100) / span_mm.
+
+The 213 front wing rows split: 197 with area, 79 with span, 76 with
+chord, 87 with AR. Coverage gaps are mostly North / Onix / Takoon
+which only publish area on detail pages, and Armstrong (JS-rendered
+shell with no spec text in HTML).
 
 The SQLite path can be overridden with `--db <path>`. The database
 file itself is gitignored; only the schema (in `src/db.rs`) and the

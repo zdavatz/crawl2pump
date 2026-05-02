@@ -121,7 +121,10 @@ pub fn build_sources(
         Box::new(sources::brands::takoon::Takoon::new(client.clone())),
         Box::new(sources::brands::codefoils::CodeFoils::new(client.clone())),
         Box::new(sources::brands::north::North::new(client.clone())),
-        Box::new(sources::brands::mio::Mio::new(client)),
+        Box::new(sources::brands::mio::Mio::new(client.clone())),
+        Box::new(sources::brands::starboard::Starboard::new(client.clone())),
+        Box::new(sources::brands::naish::Naish::new(client.clone())),
+        Box::new(sources::brands::ensis::Ensis::new(client)),
     ];
     if let Some(b) = browser {
         v.push(Box::new(sources::classifieds::ricardo::Ricardo::new(b.clone())));

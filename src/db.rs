@@ -272,6 +272,18 @@ CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url);
         )
     }
 
+    /// Listings from the most recent scan in the DB. Used by
+    /// `pumpfoil_report --from-db` to re-render without re-crawling. The
+    /// "most recent scan" is the maximum `last_seen` value across all
+    /// listings; we return everything that matches it.
+    pub fn latest_snapshot(&self) -> Result<Vec<StoredListing>> {
+        self.query_listings(
+            "SELECT * FROM listings WHERE last_seen = (SELECT MAX(last_seen) FROM listings) \
+             ORDER BY source, title",
+            params![],
+        )
+    }
+
     /// Listings missing from this scan but seen in the past.
     pub fn stale_since_scan(&self, scan_at: DateTime<Utc>) -> Result<Vec<StoredListing>> {
         self.query_listings(

@@ -74,11 +74,11 @@ PDF render in one process. Invariants worth knowing before editing it:
   into `src/categorize.rs` + `src/specs.rs` library modules.
 - The "trusted curated sources" set
   (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code,
-  north, mio}`) encodes which brand modules already filter to pump-
-  foil gear at the source, so we skip the title-keyword filter for
-  them. If you add a new pump-curated brand source, add it here too
-  — otherwise its components will silently get dropped by the
-  keyword filter.
+  north, mio, starboard, naish, ensis}`) encodes which brand modules
+  already filter to pump-foil gear at the source, so we skip the
+  title-keyword filter for them. If you add a new pump-curated brand
+  source, add it here too — otherwise its components will silently get
+  dropped by the keyword filter.
 - `--frontwings-only` and `--boards-only` are mutually-exclusive
   filters applied AFTER classification, AFTER spec enrichment, AFTER
   the DB upsert. So the DB always reflects the full curated catalog
@@ -90,9 +90,35 @@ PDF render in one process. Invariants worth knowing before editing it:
   categories = price ascending.
 - The DB write happens **before** the PDF render. The render queries
   the DB (`new_in_scan` / `modified_in_scan`) for freshness badges, so
-  the order matters. `--from-db` skips the crawl but still re-runs the
-  upsert with an empty list (so freshness is empty on that path) and
-  re-renders.
+  the order matters.
+- `--from-db` short-circuits the crawl + enrichment + upsert entirely
+  and rebuilds `categorized` from `Db::latest_snapshot()` — the rows
+  whose `last_seen` matches the most recent scan. `freshness` is empty
+  on this path (no fresh scan, no diff to badge) and `summary` is
+  zeros. Specs come straight from the stored `area_cm2`/`span_mm`/
+  `aspect_ratio`/`chord_mm` columns; no detail-page fetches happen.
+  See `load_categorized_from_db` + `stored_to_categorized` +
+  `render_from_categorized` in `pumpfoil_report.rs`. Earlier code
+  passed an empty `Vec` here, which silently rendered an empty PDF —
+  if you touch this path, smoke-test with `--from-db --frontwings-only`
+  and confirm the row count matches `SELECT COUNT(*) FROM listings
+  WHERE last_seen=(SELECT MAX(last_seen) FROM listings) AND
+  category='Front Wings'`.
+- **Front-wing enrichment is parallel.** Three passes:
+  1. Title parse + description regex (cheap, in-place, sequential).
+  2. Detail-page fetch for wings still missing area or span — runs
+     through `stream::iter(...).buffer_unordered(8)`, so 8 HTTP fetches
+     are in flight at any time. 200+ wings finish in ~3 min instead of
+     ~25 min. The merged spec only fills in fields that were `None`
+     after pass 1 (we never overwrite a title-extracted value).
+  3. Compute AR and chord from area + span if the regex passes didn't
+     find them explicitly; drop empty `WingSpecs` so the renderer sees
+     `None` for wings with no useful data.
+  The fetch client uses a real Safari User-Agent — Naish (and likely
+  others) gate the per-variant spec block behind a non-bot UA. A bare
+  `(compatible; pumpfoil-report)` UA gets a stripped-down page that
+  hides `Aspect_ratio:` / `Front wing span cm:` / `Projected surface
+  area cm2:`.
 
 ## SQLite persistence (`src/db.rs`)
 
@@ -222,6 +248,23 @@ the whitelist.
    `parse_page_product`'s price-extraction fallback path).
 6. Make sure the module's `region()` is accurate — Swiss brands shipping
    from CH should return `Region::Ch`.
+7. **Shopify rate-limiting fallback** — Naish 429s the
+   `foil-collection` endpoint when 4+ collections fire concurrently.
+   `brands/naish.rs` and `brands/starboard.rs` use a small
+   `fetch_with_retry` shim: 500 ms gap between collection fetches plus
+   one 2 s retry on error. Copy that pattern (rather than touching
+   shared `shopify::fetch_paginated`) for any future brand whose
+   Shopify backend rejects bursty access — it keeps the rate-limit
+   workaround scoped to the brands that actually need it.
+8. **Brand-info-only sites with no e-commerce** — Ensis (`ensis.surf`)
+   ships product pages with `og:title` / `og:image` / `og:description`
+   but no Product JSON-LD and no price. `parse_page_product` returns
+   `price=None` for these; the listings still flow through to the DB
+   and PDF (renderers display `—` for missing price). `brands/ensis.rs`
+   uses a hand-curated URL allowlist instead of `looks_like_pump_foil`
+   because Ensis's slugs are model names (Pacer / Stride / Maniac)
+   rather than category words. Pattern is fine; just expect price
+   columns to be empty across these rows.
 
 ## Pump-foil-specific filtering
 
@@ -338,6 +381,44 @@ sort front wings by price — riders shop by area. `pumpfoil_report`
 sorts the FrontWings category **descending** by `specs.area_cm2`
 (largest beginner / glide wings first; smallest race / high-aspect
 wings last). No-spec wings sink to the bottom of the section.
+
+### Spec-text regex hygiene (`extract_from_text`)
+
+Lessons from chasing wrong values across brands — change carefully:
+
+- **Strip HTML tags before matching.** Naish (and likely others) ship
+  spec labels embedded in `<strong>` tags: `<p><strong>Front wing
+  span cm:</strong> 83.5</p>`. The extractor runs `<[^>]+>` →  ` `
+  then collapses whitespace before applying the per-field regexes,
+  so labels and values appear adjacent. Without this step the
+  `[^0-9<>\n]{0,N}` gap pattern fails because `</strong>` contains
+  `<` and `>`.
+- **Iterate matches, range-check each.** Naish's page header carries
+  a JSON state blob `"aspect_ratio":true,"img_aspect_ratio":3.698`
+  that lexically precedes the human-readable `Aspect_ratio: 4.1`.
+  The first regex.captures() grabs the JSON value; the range check
+  rejects 1.0 / true but a single `re.captures(text)` doesn't try
+  again. Use `for c in re.captures_iter(text) { ... if range_ok {
+  break; } }` so out-of-range hits keep the search going.
+- **Require `\s*:` after `aspect[_ ]+ratio`.** This is what disqualifies
+  the JSON form `"aspect_ratio":` (where `"` separates `ratio` from
+  the colon, breaking `\s*:`) and accepts the HTML form
+  `Aspect_ratio: 4.1` (where `:` immediately follows). Doing this with
+  Rust's regex crate is fine since we don't need lookbehind — just a
+  positive `:` anchor.
+- **German connectives.** Indiana's body text reads "Spannweite **von**
+  1696 mm, einen Chord **von** 173 mm, eine projizierte Fläche
+  **von** 2274 cm²". The label-to-number gap pattern is therefore
+  `[^0-9\n]{0,15-20}` (allows "von "), not `[\s:=]*` (only colon /
+  whitespace). Same fix needed across area / span / chord / AR.
+- **Span values may be in cm, not mm.** Naish prints "Front wing span
+  cm: 100.0". The `span_cm` regex matches before the mm regex and
+  multiplies by 10 to normalize to mm. Range gate `30..=250` (cm)
+  catches obvious garbage.
+- **Don't widen the range gates without thinking.** Plausibility
+  ranges per field: area 200–2700 cm², span 300–2500 mm, AR 3–15,
+  chord 50–400 mm. These are domain bounds, not arbitrary; loosening
+  them lets Naish's image aspect ratio (3.698) become "AR=3.7" again.
 
 ## Known caveats (read before debugging)
 
