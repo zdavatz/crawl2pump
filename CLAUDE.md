@@ -266,6 +266,39 @@ drift):
   `looks_like_front_wing` matches — the collection has 27 boards
   total, so the filter shoulder is wide enough to take a few extras
   without flooding.
+- `used_pdf.rs` — render a used-gear PDF combining the existing
+  `crawl2pump --condition used --format json` dump (Tutti/Anibis,
+  which already work via FlareSolverr) with a Ricardo crawl routed
+  through FS. The in-tree Ricardo source still uses raw chromiumoxide
+  and 403s under Cloudflare; this bin is the "promote Ricardo to FS"
+  workaround until that lands as a real source. Three things to know
+  before editing:
+  1. **Multi-query merge.** Defaults to `pumpfoil,pump foil,foilboard`.
+     Each query hits `ricardo.ch/de/s/<query>?sort=newest` via FS,
+     parses the SSR HTML, and merges by URL. Three queries is enough
+     to surface ~85 unique used items today; widening to "foil" alone
+     floods with MTG cards / guitars / gold leaf (hence the
+     `looks_pump_relevant` watersport gate).
+  2. **Card structure quirks.** Ricardo's grid wraps each card in a
+     single `<a>` containing both image and title. `walk_up(a, 2)`
+     escapes to a category-banner `<div>` whose first `<img>` has alt
+     "Wing Foilboard " — that hijacks every card title. Keep the img
+     selection scoped to `a` itself; only the price scan walks up
+     (one level, since price renders as a sibling overlay).
+  3. **Image backfill via per-card detail-page OG fetch.** Ricardo's
+     grid lazy-loads card thumbs after intersection-observer fires,
+     so SSR HTML from FlareSolverr only carries thumbs for ~25% of
+     cards (the above-the-fold ones). The fix is to fetch each card's
+     detail page through FS and parse `<meta property="og:image">`
+     out of its SSR head — the high-res `t_1000x750` thumbnail is
+     always present there. Runs in `buffer_unordered(4)` with one
+     retry on transient FS HTTP 5xx; ~85 detail fetches take 4–6
+     minutes wall-clock. Title/price/URL extraction still works for
+     100% of cards on the search-page parse alone (titles fall back
+     img alt → first MuiTypography span → URL slug, in that order),
+     so the OG fetch is purely image-only. Don't gate the render on
+     it — if FS dies mid-backfill, listings without thumbs just show
+     a "no photo" placeholder.
 
 If you find yourself running any of these regularly, that's the cue to
 either fold the logic into `pumpfoil_report` or promote that bin into

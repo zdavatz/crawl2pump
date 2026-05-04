@@ -112,8 +112,11 @@ printable catalog. Such scratch tooling belongs in `src/bin/` (gitignored)
 so it doesn't become part of the shipped crate. Examples that have lived
 there: `sets_pdf.rs` (foil-bundle PDF from a JSON dump),
 `surfari_rentals_pdf.rs` (pumpfoil rentals from surfari.ch's Shopify
-`mietboards` collection — Zürich rental shop, not part of the brand crawl).
-See `CLAUDE.md` for the full catalogue.
+`mietboards` collection — Zürich rental shop, not part of the brand crawl),
+`used_pdf.rs` (used-gear PDF combining a `crawl2pump --condition used`
+JSON dump with a Ricardo crawl routed through FlareSolverr — the
+in-tree Ricardo source is still chromiumoxide-only and 403's under
+Cloudflare). See `CLAUDE.md` for the full catalogue.
 
 ### `pumpfoil_report` — one-shot brand scan + PDF + SQLite history
 
