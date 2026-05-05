@@ -16,3 +16,6 @@ Cargo.lock.*
 sqlite/*.db
 sqlite/*.db-shm
 sqlite/*.db-wal
+
+# Local-only files
+/resume
