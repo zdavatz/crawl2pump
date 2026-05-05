@@ -13,13 +13,13 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 |---|---|---|---|
 | Axis Foils | World | Shopify | `/collections/all-pump/products.json` (curated 128-item pump collection) |
 | Armstrong Foils | World | Shopify | `step-one-collection` + `front-foils` collection + global title-filter for `pump` |
-| Gong (gong-galaxy.com) | World | Shopify | `/products.json` (filter applied downstream) |
+| Gong (gong-galaxy.com) | World | Shopify | `pumping-planches` + `pumping-packs` + `pumping-foils-complets` + `pumping-spare-parts-foil-front-wings` collections (incl. Megasled / Donut / Kluber / Strada pump boards) |
 | Lift Foils | World | Shopify | `/products.json` |
 | North (northactionsports.com) | World | Shopify | `front-wings` + `foilboards` collections + global pump title-filter |
 | Takuma | World | **URL unverified — stub** | — |
 | Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap + `<image:title>` for pumpfoil/front-wing/stabilizer |
 | AlpineFoil | France | Custom (sitemap + JSON-LD) | `/kitefoil-windfoil-shop/.../*.html` for pumpfoil + front-wing keywords |
-| Ketos | France | WordPress / WooCommerce | English shop only, pumpfoil + front-wing keywords |
+| Ketos | France | WordPress / WooCommerce | English shop only, pumpfoil + front-wing keywords. Per-product page `data-product_variations` JSON + `<table>` spec rows are parsed to emit one `Listing` per size variant (Kobun: 4 sizes; Split: 5 CORE/TIPS kit options) — capped at 8 variants/product to avoid board-configurator explosions |
 | Onix | France | Shopify | `combo-packs` + `foil-full-pack` + `front-wings` collections |
 | Takoon | France | Shopify | `pack-foil-pump` + `foil-pump` collections + global `pump` title-filter |
 | Code Foils | USA | WordPress (no per-product sitemap) | scrape `/products/` index page; no retail prices (dealer-only) |
@@ -139,7 +139,7 @@ Each run does five things:
    Naish, Ensis, Pump Zürich) — sources fire concurrently via
    `tokio::spawn` so the 19-source crawl finishes in ~30 s.
 2. Filters down to pump-foil-relevant gear (curated brand modules are
-   trusted; Gong/Lift get a title-keyword filter).
+   trusted; Lift gets a title-keyword filter).
 3. Categorizes into **Sets · Boards · Foil Packs · Front Wings ·
    Components/Accessories**. Front Wings get spec extraction
    (area, span, AR, chord) from title patterns + JSON-LD

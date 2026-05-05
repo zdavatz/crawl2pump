@@ -116,6 +116,7 @@ async fn main() -> Result<()> {
         "naish",
         "ensis",
         "pumpzuerich",
+        "gong",
     ]
     .into_iter()
     .collect();

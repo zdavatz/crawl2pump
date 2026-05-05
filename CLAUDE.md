@@ -88,7 +88,8 @@ PDF render in one process. Invariants worth knowing before editing it:
   is genuinely common across multiple brands.
 - The "trusted curated sources" set
   (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code,
-  north, mio, starboard, naish, ensis}`) encodes which brand modules
+  north, mio, starboard, naish, ensis, pumpzuerich, gong}`) encodes
+  which brand modules
   already filter to pump-foil gear at the source, so we skip the
   title-keyword filter for them. If you add a new pump-curated brand
   source, add it here too — otherwise its components will silently get
@@ -317,7 +318,10 @@ the whitelist.
    collections; the global list mixes wing/wake/SUP gear that uses no
    "pump" in the title and would silently slip past any title-keyword
    filter. See `brands/axis.rs` (single curated collection) and
-   `brands/onix.rs` / `brands/takoon.rs` (multiple collections).
+   `brands/onix.rs` / `brands/takoon.rs` / `brands/gong.rs` (multiple
+   collections; Gong pulls the four `pumping-*` collections —
+   `pumping-planches`, `pumping-packs`, `pumping-foils-complets`,
+   `pumping-spare-parts-foil-front-wings`).
 3. **If Shopify but no pump collection** — fall back to
    `fetch_all_products` and apply a title-substring filter at the
    source (see `brands/armstrong.rs` and `brands/takoon.rs` for the
@@ -451,6 +455,56 @@ omits `pump` (Indiana's `Foil HP Front Wing 920 H-AR`, Ketos's
 collection, prefer pulling the brand's own `front-wings` / `front-foils`
 collection (Onix, North, Armstrong) on top of the pump-pack
 collection.
+
+## WooCommerce variant explosion (Ketos)
+
+Ketos's WordPress shop ships variant data inline in the product page
+HTML — Shopify-style `/products.json` doesn't apply. `brands/ketos.rs`
+parses two structures off each detail page in a single fetch:
+
+1. **`data-product_variations="..."`** attribute on `form.variations_form`
+   — an HTML-entity-encoded JSON array of `{variation_id, attributes,
+   display_price, image}` records. We HTML-unescape, `serde_json::from_str`,
+   and pull `attributes.attribute_<slug>` (the human-readable size /
+   option name) plus the price and image URL.
+2. **The first `<table>`** whose header row contains a "Surface"/"Area"
+   column. We index columns by header (Surface → area_cm2, WingSpan →
+   span_mm, AR → aspect_ratio, Chord → chord_mm) and read each data
+   row's first cell to build a `model_key → spec_row` map. The model
+   key is the **first contiguous digit run** of that cell so a header
+   like `KOBUN コブン 111 V2` reduces to `"111"`.
+
+Variants are matched to spec rows by the same first-digit-run extractor
+applied to the variant's attribute value (`コブン 111` → `"111"`).
+For each variant we emit a `Listing` with:
+
+- URL = `<base>?attribute_<slug>=<urlencoded value>` so each size has
+  a unique DB key.
+- title = `<base_title> — <variant_label>`.
+- description = `<original> + "Surface area: NNN cm² Wingspan: NNNN
+  mm Aspect ratio: X.X Chord: NNN mm"` — baked into the description
+  string so the existing `pumpfoil_report::extract_from_text` enricher
+  picks the specs up on pass 1, no second HTTP fetch required.
+- price/image from the variant record, falling back to page-level
+  JSON-LD if missing.
+
+**Explosion is capped at 8 variants per product.** Above that, the
+variants are almost certainly a board configurator (KOBUN DW 85's
+24 finish×size combos, etc.) and we fall back to a single Listing.
+At ≤ 8 we comfortably cover front-wing size sets (Kobun: 4 sizes) and
+modular kit options (Ketos Split: 5 CORE/TIPS bundles where the
+"variant key" doesn't match any spec row but the per-bundle price
+differs — 832.50 EUR CORE → 2082.50 EUR CORE+3 TIPS).
+
+The spec-row matcher and the variant exploder are decoupled: a variant
+without a matching spec row still gets exploded (Split has no per-kit
+specs, just per-kit prices), and a variant with a matching row gets the
+spec line baked into its description. WingSpan column values are
+detected as cm vs mm by range — values in `[30, 250]` are treated as
+cm and multiplied by 10. `parse_wing_spec_table` walks every `<table>`
+and stops at the first one whose header has a "Surface" column, so
+WP/WC pages with sidebar tables for shipping/weight don't pollute the
+match map.
 
 ## JSON-LD parsing gotchas (seen in the wild)
 
