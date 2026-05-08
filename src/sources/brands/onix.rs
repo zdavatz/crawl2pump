@@ -1,9 +1,11 @@
 //! Onix Foils — onix-foils.com — Shopify storefront.
 //!
-//! Onix has dedicated pump-foil collections so we don't post-filter on
-//! the global product list — we fetch `combo-packs` (Pump Starter Pack)
-//! and `foil-full-pack` (Osprey/Stingray/Albatros packs) directly and
-//! merge.
+//! Onix is a pumpfoil-focused brand, so we treat their whole foil-gear
+//! catalog as pump-relevant. We fetch the pump-curated collections
+//! (`combo-packs`, `foil-full-pack`) plus the per-component collections
+//! (`front-wings`, `stabilizers`, `foil-covers` bags, plus the small
+//! `foil-adaptors` / `fuselage-adapters` parts) and merge. Apparels +
+//! wetsuits are skipped — those are not foil gear.
 use crate::listing::{Listing, Region};
 use crate::sources::shopify::{fetch_collection_products, product_to_listings};
 use crate::sources::Source;
@@ -14,7 +16,15 @@ use reqwest::Client;
 const BASE: &str = "https://www.onix-foils.com";
 const BRAND: &str = "Onix";
 const CURRENCY: &str = "EUR";
-const COLLECTIONS: &[&str] = &["combo-packs", "foil-full-pack", "front-wings"];
+const COLLECTIONS: &[&str] = &[
+    "combo-packs",
+    "foil-full-pack",
+    "front-wings",
+    "stabilizers",
+    "foil-covers",
+    "foil-adaptors",
+    "fuselage-adapters",
+];
 
 pub struct OnixFoils {
     client: Client,

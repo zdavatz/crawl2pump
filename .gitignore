@@ -19,3 +19,4 @@ sqlite/*.db-wal
 
 # Local-only files
 /resume
+/.meta.env
