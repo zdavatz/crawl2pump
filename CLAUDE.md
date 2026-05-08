@@ -44,7 +44,7 @@ Tests: `cargo test --release` (currently one: Swiss-price regex).
 
 Sources run concurrently via `tokio::spawn` inside `lib.rs::run`.
 
-## `src/bin/` — scratch bins (gitignored, with one whitelisted exception)
+## `src/bin/` — scratch bins (gitignored, with two whitelisted exceptions)
 
 Throwaway one-off binaries (ad-hoc PDF/CSV/report generators,
 spelunking tools) live in `src/bin/` and are excluded from git via
@@ -54,9 +54,14 @@ tool becomes useful enough to keep, promote it by adding the file to
 the gitignore whitelist (`!/src/bin/<file>.rs`), registering it in
 `Cargo.toml`, and committing.
 
-The single whitelisted promotion so far is `pumpfoil_report.rs` (the
-end-to-end "scan all brands, persist to SQLite, render categorized
-PDF with new/modified badges" tool — see "Convenience binary" below).
+Whitelisted promotions:
+
+- **`pumpfoil_report.rs`** — the end-to-end "scan all brands, persist
+  to SQLite, render categorized PDF with new/modified badges" tool.
+  See "Convenience binary `pumpfoil_report`" below.
+- **`meta_post.rs`** — Facebook Page poster. Reads catalog rows out of
+  `sqlite/crawl2pump.db` and publishes them to the Pump Tsüri Page
+  via the Meta Graph API. See "Convenience binary `meta_post`" below.
 
 ## Convenience binary `pumpfoil_report`
 
@@ -173,6 +178,67 @@ PDF render in one process. Invariants worth knowing before editing it:
   `(compatible; pumpfoil-report)` UA gets a stripped-down page that
   hides `Aspect_ratio:` / `Front wing span cm:` / `Projected surface
   area cm2:`.
+
+## Convenience binary `meta_post`
+
+`src/bin/meta_post.rs` posts catalog rows from `sqlite/crawl2pump.db`
+to a Facebook Page via the Meta Graph API. Reads credentials from
+`.meta.env` in the project root (gitignored — keep it that way).
+
+```bash
+./target/release/meta_post --source onix
+./target/release/meta_post --source ketos --overview \
+    --overview-message "Ketos — 170 Produkte ..." \
+    --overview-link "https://www.ketos-foil.com/" \
+    --gap-secs 15
+./target/release/meta_post --source axis --limit 3 --dry-run   # preview
+```
+
+Hard-won bits worth knowing before editing it:
+
+- **`.meta.env` schema** — four keys: `META_APP_ID`, `META_APP_SECRET`,
+  `META_PAGE_ID`, `META_PAGE_TOKEN`. The Page token must be
+  long-lived (derived from a long-lived user token via
+  `/me/accounts`); short-lived 1-hour tokens won't survive a 42-min
+  bulk run. Already-exported env vars take precedence over the file
+  (so CI can override without touching the repo).
+- **Caption template per row** — `title` + price line + description
+  block + `🔗 url`. The description block uses `extract_caption_block`:
+  if the description contains `Surface area:` (Ketos variant
+  marker — see `WooCommerce variant explosion (Ketos)` section), we
+  pull the spec line and surface that exclusively (short, factual,
+  exactly what a buyer scans for); otherwise we cleaned-truncate
+  the prose to ~250 chars at the last sentence boundary. Don't post
+  full body_html — captions over ~700 chars get a "See more…" cut on
+  FB's mobile UI which is unsightly for a catalog feed.
+- **Image URL transform** — Shopify CDN URLs get
+  `?width=1200&format=jpg` appended. Critical: the raw `.webp` images
+  Shopify ships work *most* of the time on FB's photo ingest but
+  occasionally trip a "URL not accessible" error (the file format
+  detection on FB's side is finicky). Forcing JPEG removes the
+  variability. Non-Shopify URLs (Indiana, Ketos, etc.) pass through
+  unchanged — those are already JPEG/PNG.
+- **`condition='new'` filter** — only fresh catalog rows get posted.
+  We never want to surface used-gear classifieds (Tutti / Anibis /
+  Ricardo) on the Pump Tsüri Page. The query lower-cases for safety
+  since older sources stored `Condition::New.to_string()` and newer
+  ones store the lowercased Display impl.
+- **Pacing — 15 s default, no parallelism.** A brand-new Page (0
+  followers) can post 50–100 items/day before FB anti-spam kicks in.
+  Bulk runs of 170 items at 15 s = ~42 min — well under the daily
+  limit. Going below 10 s/post or running multiple batches per day
+  on a fresh Page is asking for throttling. There's no retry-with-
+  backoff yet — if we hit a 429 in the wild, add it before the next
+  big run.
+- **Overview post** — opt-in via `--overview`. Posts a text+link
+  message via `/feed` (link card; FB scrapes OG metadata) before the
+  product loop starts. Without `--overview-link` we'd lose the rich
+  preview card, so always pass both flags or neither.
+- **Cleanup** — every successful product post logs `post_id=...` to
+  stdout. Pipe to a file (`> /tmp/post_<brand>.log`) so you can
+  delete the whole batch later via `curl -X DELETE
+  graph.facebook.com/v21.0/<post_id>?access_token=...`. Overview
+  posts log `id=...` (different field; same DELETE call).
 
 ## SQLite persistence (`src/db.rs`)
 

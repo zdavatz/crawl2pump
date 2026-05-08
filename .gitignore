@@ -8,6 +8,7 @@ Cargo.lock.*
 # Keep them out of the published crate; real bins are explicitly whitelisted.
 /src/bin/*
 !/src/bin/pumpfoil_report.rs
+!/src/bin/meta_post.rs
 # Generated PDF/HTML catalogs.
 /pumpfoil-sets.pdf
 /pumpfoil-sets.html

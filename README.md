@@ -281,6 +281,38 @@ sqlite3 sqlite/crawl2pump.db \
    ORDER BY h.observed_at DESC LIMIT 20"
 ```
 
+### `meta_post` — publish catalog rows to a Facebook Page
+
+A second whitelisted bin posts catalog rows from `sqlite/crawl2pump.db`
+to a Facebook Page via the Meta Graph API. Reads credentials from a
+local `.meta.env` (gitignored) with four keys: `META_APP_ID`,
+`META_APP_SECRET`, `META_PAGE_ID`, `META_PAGE_TOKEN`.
+
+```bash
+./target/release/meta_post --source onix
+./target/release/meta_post --source ketos --overview \
+    --overview-message "Ketos — 170 Produkte ..." \
+    --overview-link "https://www.ketos-foil.com/" \
+    --gap-secs 15
+./target/release/meta_post --source axis --limit 3 --dry-run   # preview
+```
+
+Each row becomes a photo post (image + caption + product URL); the
+caption is `title → price → description-block → 🔗 url`. The
+description block prefers a short variant spec line (Ketos's
+"Surface area: NNN cm² Wingspan: NNN mm …" pattern) when present, and
+falls back to a 250-char prose truncation otherwise. Shopify CDN images
+get `?width=1200&format=jpg` appended so FB's photo ingest never trips
+on `.webp`.
+
+Pacing defaults to 15 s between posts — bulk runs of 170 items finish
+in ~42 min, well under the daily anti-spam ceiling for a fresh Page.
+Filter is `condition='new'` so used-gear classifieds never leak onto
+the Page.
+
+Pump Tsüri is the live target — current Page lives at
+[facebook.com/pumptsueri](https://www.facebook.com/pumptsueri/).
+
 ### CLI flags
 
 | Flag | Default | Effect |
