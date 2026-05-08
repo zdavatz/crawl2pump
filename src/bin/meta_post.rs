@@ -116,10 +116,12 @@ fn fetch_rows(db: &std::path::Path, source: &str) -> Result<Vec<Row>> {
     let mut stmt = conn.prepare(
         "SELECT title, url, image, price, currency, description
          FROM listings
-         WHERE source = ?1 AND (condition IS NULL OR LOWER(condition) = 'new')
+         WHERE source = ?1
+           AND (condition IS NULL OR LOWER(condition) = 'new')
+           AND last_seen = (SELECT MAX(last_seen) FROM listings WHERE source = ?1)
          ORDER BY category, price",
     )?;
-    let rows: Vec<Row> = stmt
+    let raw: Vec<Row> = stmt
         .query_map([source], |r| {
             Ok(Row {
                 title: r.get(0)?,
@@ -131,6 +133,20 @@ fn fetch_rows(db: &std::path::Path, source: &str) -> Result<Vec<Row>> {
             })
         })?
         .collect::<rusqlite::Result<_>>()?;
+    // Defensive dedup by (title, price) — earlier crawls produced
+    // multiple variant rows with identical titles when a product had
+    // attribute axes the source code didn't reflect in the label
+    // (e.g. Ketos Pack Kahuna with size+deck axes only surfaced the
+    // size in the title). The brand source has since been fixed, but
+    // older rows may still be in the DB; this keeps the FB feed clean.
+    let mut seen = std::collections::HashSet::new();
+    let rows: Vec<Row> = raw
+        .into_iter()
+        .filter(|r| {
+            let price_key = r.price.map(|p| (p * 100.0) as i64);
+            seen.insert((r.title.clone(), price_key))
+        })
+        .collect();
     Ok(rows)
 }
 

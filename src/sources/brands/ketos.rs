@@ -231,14 +231,32 @@ fn parse_wc_variants(html: &str) -> Vec<WcVariant> {
                 attrs.push((k.clone(), s.trim().to_string()));
             }
         }
+        // Sort attributes by key so the iteration order (HashMap is
+        // random in Rust) doesn't reshuffle the visible label between
+        // runs and produce spurious "modified" diffs.
+        attrs.sort_by(|a, b| a.0.cmp(&b.0));
+        // Build the user-visible label from ALL attribute values joined
+        // by " / ". Using only `attrs.first()` collapses multi-axis
+        // products (e.g. Ketos Pocket 95 = color × deck × insert) into
+        // duplicate-looking rows where 6 variants all surface as
+        // "STANDARD" because that's just the colour. Joining keeps each
+        // variant uniquely identifiable on the FB feed.
         let label = attrs
-            .first()
-            .map(|(_, v)| v.clone())
-            .unwrap_or_default();
+            .iter()
+            .map(|(_, v)| v.as_str())
+            .collect::<Vec<_>>()
+            .join(" / ");
         if label.is_empty() {
             continue;
         }
-        let size_key = first_digit_run(&label).unwrap_or_default();
+        // The size key is whatever attribute carries the wing/board
+        // size — pick the first attribute whose value starts with a
+        // digit run so e.g. "kahuna980-en" → "980" or "コブン 99" → "99",
+        // ignoring colour/finish attributes that don't.
+        let size_key = attrs
+            .iter()
+            .find_map(|(_, v)| first_digit_run(v))
+            .unwrap_or_default();
         let price = item
             .get("display_price")
             .and_then(|x| x.as_f64().or_else(|| x.as_u64().map(|n| n as f64)));
