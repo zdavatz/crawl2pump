@@ -524,7 +524,25 @@ async fn fetch_and_resize_jpeg(
     let img = image::load_from_memory(&bytes)
         .with_context(|| format!("decode {url}"))?;
     let resized = img.resize(width, u32::MAX, image::imageops::FilterType::Lanczos3);
-    let rgb = resized.to_rgb8();
+    // Composite over white before dropping alpha — Indiana (and any
+    // other shop using transparent PNGs) would otherwise get black
+    // backgrounds in the JPEG since RGB under fully-transparent pixels
+    // is undefined and often happens to be zero.
+    let rgb = if resized.color().has_alpha() {
+        let rgba = resized.to_rgba8();
+        let (w, h) = (rgba.width(), rgba.height());
+        let mut out = image::RgbImage::new(w, h);
+        for (x, y, p) in rgba.enumerate_pixels() {
+            let [r, g, b, a] = p.0;
+            let af = a as f32 / 255.0;
+            let inv = 1.0 - af;
+            let blend = |c: u8| (c as f32 * af + 255.0 * inv).round().clamp(0.0, 255.0) as u8;
+            out.put_pixel(x, y, image::Rgb([blend(r), blend(g), blend(b)]));
+        }
+        out
+    } else {
+        resized.to_rgb8()
+    };
     let mut buf = Vec::new();
     let mut cursor = std::io::Cursor::new(&mut buf);
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 82)

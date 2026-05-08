@@ -17,7 +17,7 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Lift Foils | World | Shopify | `/products.json` |
 | North (northactionsports.com) | World | Shopify | `front-wings` + `foilboards` collections + global pump title-filter |
 | Takuma | World | **URL unverified — stub** | — |
-| Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap + `<image:title>` for pumpfoil/front-wing/stabilizer |
+| Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap URL **and** `<image:title>` matched for pumpfoil / front-wing / stabilizer keywords (catches SKU-only URLs like `3569sr-3569sr.html`) |
 | AlpineFoil | France | Custom (sitemap + JSON-LD) | `/kitefoil-windfoil-shop/.../*.html` for pumpfoil + front-wing keywords |
 | Ketos | France | WordPress / WooCommerce | English shop only, pumpfoil + front-wing keywords. Per-product page `data-product_variations` JSON + `<table>` spec rows are parsed to emit one `Listing` per size variant (Kobun: 4 sizes; Split: 5 CORE/TIPS kit options) — capped at 8 variants/product to avoid board-configurator explosions |
 | Onix | France | Shopify | `combo-packs` + `foil-full-pack` + `front-wings` collections |
@@ -163,7 +163,10 @@ Each run does five things:
    `width=600` query param appended (server-side resize, ~75% of the
    catalog), and non-Shopify thumbnails (Indiana, Ketos, AlpineFoil,
    Code Foils, Mio, Ensis) are fetched + resized + re-encoded as 600 px
-   JPEGs and inlined as `data:` URLs. Resize fetches run in parallel
+   JPEGs and inlined as `data:` URLs. Transparent PNGs (Indiana ships
+   most of theirs that way) are composited over white before alpha is
+   dropped, so the JPEG output has clean white backgrounds rather than
+   black where the PNG was transparent. Resize fetches run in parallel
    via `buffer_unordered(8)`, same pattern as front-wing enrichment.
    Net effect: PDF dropped from ~244 MB to ~35 MB with no visible
    quality loss at normal zoom (thumbnails render at 44 mm × 34 mm,

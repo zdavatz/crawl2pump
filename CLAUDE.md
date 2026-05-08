@@ -128,6 +128,17 @@ PDF render in one process. Invariants worth knowing before editing it:
      fetch — never blocks the render. Cost: ~3-5 s wall-clock for ~140
      non-Shopify thumbnails on a fresh `--from-db`.
 
+     **Alpha compositing matters.** Indiana ships product photos as
+     transparent PNGs. Calling `to_rgb8()` directly drops the alpha
+     channel and exposes whatever's in the underlying RGB — which on
+     these PNGs is zero, so transparent pixels rendered black after
+     JPEG encoding. We now check `resized.color().has_alpha()` and, if
+     true, composite each pixel over white (`c·α + 255·(1-α)`) before
+     handing the buffer to the JPEG encoder. Don't refactor this back
+     to a plain `to_rgb8()` even if a PR claims it's faster — it
+     reintroduces the black-background regression the moment any new
+     brand starts shipping transparent PNGs.
+
   Net effect on the PDF: 244 MB → ~35 MB. Chrome's printToPDF time also
   drops because the embedded JPEGs are smaller. The 600 px target is
   derived from the card thumb size (44 mm × 34 mm at 300 DPI ≈ 520 ×
@@ -336,7 +347,12 @@ the whitelist.
    `looks_like_pump_foil` against both URL and image titles —
    Magento-style SKU-only URLs (e.g. `3615sq-3615sq.html`) carry the
    real product name in `<image:title>` only, so URL-keyword filters
-   would miss real sets like Indiana's Condor XL Complete.
+   would miss real sets like Indiana's Condor XL Complete. Same trap
+   for component-substring matches: Indiana's HP Stabilizer Condor S
+   lives at `3569sr-3569sr.html` with no `stabilizer` substring in the
+   URL, so the `stabilizer` keyword check in `brands/indiana.rs` runs
+   against `e.titles` too, not just `e.loc`. Whenever you add a
+   keyword filter for a sitemap source, run it against both.
 5. **If no sitemap** — last resort, scrape an index page for product
    links (see `brands/codefoils.rs` — fetches `/products/` and pulls
    `/product/*` hrefs; or `brands/mio.rs` — fetches `/c/shop/boards/foil`

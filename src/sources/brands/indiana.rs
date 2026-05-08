@@ -67,8 +67,12 @@ impl Source for IndianaSup {
                     || e.titles.iter().any(|t| looks_like_front_wing(t))
                     // Indiana sells stabilizers across the same HP /
                     // monobloc lines — keep them as components alongside
-                    // the front wings.
+                    // the front wings. Some stabilizer products use
+                    // SKU-only URLs (e.g. `3569sr-3569sr.html` for the
+                    // HP Stabilizer Condor S), so also match the
+                    // sitemap's `<image:title>`.
                     || e.loc.contains("stabilizer")
+                    || e.titles.iter().any(|t| t.to_lowercase().contains("stabilizer"))
             })
             .map(|e| e.loc)
             .take(MAX_PRODUCTS)
