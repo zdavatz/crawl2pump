@@ -342,7 +342,12 @@ async fn main() -> Result<()> {
     let mut ok = 0usize;
     let mut fail = 0usize;
     for (i, r) in rows.iter().enumerate() {
-        let Some(image) = r.image.as_deref() else {
+        // Some brand sources occasionally yield rows with empty string
+        // images (in addition to the expected None for shops that just
+        // don't ship any photo). Treat both as "no image" — sending an
+        // empty `url` to FB returns error 100 "url should represent a
+        // valid URL" and counts against the daily anti-spam quota.
+        let Some(image) = r.image.as_deref().filter(|s| !s.is_empty()) else {
             eprintln!("  [{:2}/{}] SKIP (no image)  {}", i + 1, rows.len(), trunc(&r.title, 55));
             fail += 1;
             continue;
