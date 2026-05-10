@@ -12,6 +12,7 @@ Cargo.lock.*
 # Generated PDF/HTML catalogs.
 /pumpfoil-sets.pdf
 /pumpfoil-sets.html
+/PDF/
 
 # SQLite database files (the schema is in src/db.rs; data is local)
 sqlite/*.db

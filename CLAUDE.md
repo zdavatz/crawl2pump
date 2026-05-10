@@ -218,18 +218,41 @@ Hard-won bits worth knowing before editing it:
   detection on FB's side is finicky). Forcing JPEG removes the
   variability. Non-Shopify URLs (Indiana, Ketos, etc.) pass through
   unchanged — those are already JPEG/PNG.
-- **`condition='new'` filter** — only fresh catalog rows get posted.
-  We never want to surface used-gear classifieds (Tutti / Anibis /
-  Ricardo) on the Pump Tsüri Page. The query lower-cases for safety
-  since older sources stored `Condition::New.to_string()` and newer
-  ones store the lowercased Display impl.
-- **Pacing — 15 s default, no parallelism.** A brand-new Page (0
-  followers) can post 50–100 items/day before FB anti-spam kicks in.
-  Bulk runs of 170 items at 15 s = ~42 min — well under the daily
-  limit. Going below 10 s/post or running multiple batches per day
-  on a fresh Page is asking for throttling. There's no retry-with-
-  backoff yet — if we hit a 429 in the wild, add it before the next
-  big run.
+- **`condition='new'` filter + per-source latest-scan filter.** The
+  query is `source=? AND LOWER(condition)='new' AND last_seen=(SELECT
+  MAX(last_seen) FROM listings WHERE source=?)`. The condition filter
+  keeps used classifieds (Tutti / Anibis / Ricardo) off the Pump
+  Tsüri Page; the `last_seen=MAX(source)` filter avoids posting stale
+  ghosts from earlier partial scans (e.g. when a previous run only
+  touched Indiana, Onix rows still carry an older `last_seen`). Both
+  are non-negotiable — never drop one without the other.
+- **Defensive (title, price) dedup after the query.** We `HashSet`
+  on `(title, price*100 as i64)` even after the latest-scan filter.
+  Belt-and-suspenders against any future bug where two URLs collide
+  on the same display row (Ketos's multi-axis Pocket 95 was the
+  case study — see "WooCommerce variant explosion (Ketos)" below for
+  the root-cause fix).
+- **Empty-image guard.** Rows where `image IS NULL` or `image=''`
+  are skipped with a `SKIP (no image)` log line — they don't get a
+  Graph API call at all. Takoon's `Stab pump HA 140 T300/T700` ship
+  with `images: []` in `/products.json`; pre-guard, we'd POST
+  `url=''` to `/photos`, FB returned error 100, and the failed call
+  *still counted against the daily anti-spam quota*. Same guard
+  lives in the Python resume helpers under `/tmp/post_*_resume.py`.
+  If a future brand legitimately needs an image-less post, route
+  through `/feed` (text+link) not `/photos`.
+- **Pacing — 15 s default, no parallelism.** Original guidance was
+  "50–100 items/day"; **actual ceiling on a fresh 0-follower Page is
+  ~75 successful posts before a hard throttle**. Throttle manifests
+  as Graph API error **368, subcode 1390008** ("temporarily blocked
+  due to unusual activity"), NOT 429. Recovery is empirically **48+
+  hours**, not 24 — failed posts during the throttle window appear
+  to *deepen* the cooldown, so don't retry hot. Bulk runs of 170
+  items at 25 s gap = ~70 min and stay under the ceiling. 15 s
+  works for first runs of the day; if you've already posted >50
+  items today, switch to 25 s gap and stop at 70. No retry-with-
+  backoff in the bin yet — if we ever do add it, make it pause for
+  *hours* on 368/1390008, not seconds.
 - **Overview post** — opt-in via `--overview`. Posts a text+link
   message via `/feed` (link card; FB scrapes OG metadata) before the
   product loop starts. Without `--overview-link` we'd lose the rich
@@ -435,15 +458,19 @@ the whitelist.
    shared `shopify::fetch_paginated`) for any future brand whose
    Shopify backend rejects bursty access — it keeps the rate-limit
    workaround scoped to the brands that actually need it.
-8. **Brand-info-only sites with no e-commerce** — Ensis (`ensis.surf`)
-   ships product pages with `og:title` / `og:image` / `og:description`
-   but no Product JSON-LD and no price. `parse_page_product` returns
-   `price=None` for these; the listings still flow through to the DB
-   and PDF (renderers display `—` for missing price). `brands/ensis.rs`
-   uses a hand-curated URL allowlist instead of `looks_like_pump_foil`
-   because Ensis's slugs are model names (Pacer / Stride / Maniac)
-   rather than category words. Pattern is fine; just expect price
-   columns to be empty across these rows.
+8. **Brand-info-only sites with no e-commerce** — kept as a pattern
+   note in case a future brand starts there. `og:title` / `og:image`
+   / `og:description` but no Product JSON-LD and no price means
+   `parse_page_product` returns `price=None` and the rows render `—`
+   in the price column. URL allowlists work better than
+   `looks_like_pump_foil` when slugs are model names rather than
+   category words. *Historical:* Ensis (`ensis.surf`) used this
+   pattern until mid-2026; it migrated to Shopify and now goes
+   through `fetch_collection_products` for `pump-foiling` /
+   `pump-foils` / `pump-boards` / `pump-accessories`. If a future
+   brand's `og:` migration breaks an allowlist source, this is the
+   playbook: check for `/products.json` first, fall back to OG
+   scraping only if Shopify isn't there.
 9. **Single-product brands with no Product JSON-LD** — Pump Zürich
    (`pump.zuerich/skate/`) is one product hosted on WordPress.com /
    Atomic. No JSON-LD `Product`, no `og:price:*` meta — price lives in
@@ -578,6 +605,22 @@ modular kit options (Ketos Split: 5 CORE/TIPS bundles where the
 "variant key" doesn't match any spec row but the per-bundle price
 differs — 832.50 EUR CORE → 2082.50 EUR CORE+3 TIPS).
 
+**Multi-axis variant labels must concatenate ALL attribute values,
+not just the first.** Pocket 95 ships variants with three axes
+(`attribute_pa_color`, `attribute_pa_deck`, `attribute_pa_insert`).
+Original code did `attrs.first().map(|(_,v)| v.clone())` — but
+`attrs` came from a `HashMap`, so the "first" entry was random per
+parse. Result: two variants whose only real difference was the
+color got labeled identically (e.g. both `"black"`), collapsed to
+one DB row on URL collision, then *also* showed as duplicate posts
+in `meta_post` because they shared title + price. Fix:
+`attrs.sort_by(|a,b| a.0.cmp(&b.0)); label = attrs.iter().map(|(_,v)|
+v.as_str()).collect::<Vec<_>>().join(" / ")`. The size_key used for
+spec-row matching takes the first attribute whose value starts with
+a digit run (so `pa_size: "111"` still wins over `pa_color: "black"`
+when building specs). If you add a new WooCommerce brand, sort
+attrs by key the same way before deriving any human-readable label.
+
 The spec-row matcher and the variant exploder are decoupled: a variant
 without a matching spec row still gets exploded (Split has no per-kit
 specs, just per-kit prices), and a variant with a matching row gets the
@@ -699,6 +742,16 @@ Lessons from chasing wrong values across brands — change carefully:
   ~130 recent listings per site instead of the old ~30 all-recent.
   Freetext tokens would still need reverse-engineering of the msgpack
   encoder — not done.
+- **Tutti listing URLs expire silently.** When a `tutti.ch/go/vi/<id>`
+  ad is sold or removed, the redirect chain becomes
+  `/go/vi/<id>` → `/de/vi/<id>` (302) → `/de/vi/not-found?lid=<id>`
+  (307) → 404. The not-found page returns generic "Gratis Inserate in
+  deiner Nähe" OG metadata, NOT a 4xx-style scrape error. If you're
+  asked to scrape or repost a single Tutti URL, **check the final
+  resolved URL for `/not-found`** before parsing — otherwise you'll
+  silently extract Tutti's homepage title/image. FlareSolverr returns
+  the same not-found page (verified), so this isn't a CF block to
+  work around. Same shape likely on Anibis (same parent company).
 - **Tutti/Anibis card images aren't in the DOM** — the rendered
   `<img src>` is a `data:image/gif…` placeholder that only swaps for
   the real CDN URL after client-side hydration. Tutti hides the real

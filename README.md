@@ -26,7 +26,7 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Mio (mioboards.com) | Switzerland | Custom (Store29 platform) | scrape `/c/shop/boards/foil` for `/p/*` product URLs; OG meta tags for price |
 | Starboard (star-board.com) | World | Shopify | `foilboards` collection + strict pump-keyword filter (only the dedicated Pump Foilboard survives) |
 | Naish (naish.com) | World | Shopify | `foil-collection` + `foil-completes` + `foil-boards` + `front-wings-a-la-cart`, filtered by `product_type` allowlist (front wings / masts / stabs / fuselages / semi-completes / DW + SUP foil boards) — drops wing-foil-only and kite-foil boards |
-| Ensis (ensis.surf) | Switzerland | WordPress (no e-commerce, info only) | sitemap-based; URL allowlist for Pacer / Stride / Maniac line + `pumpfoil` slugs. **No prices** (Ensis pages have no Product schema). |
+| Ensis (ensis.surf) | Switzerland | Shopify (migrated from WordPress mid-2026) | `pump-foiling` + `pump-foils` + `pump-boards` + `pump-accessories` collections. Full pump catalog with EUR prices. |
 | Pump Zürich (pump.zuerich) | Switzerland | WordPress.com (single-product page) | hardcoded URL `/skate/`; OG meta for title/image/description, price parsed from `EUR 660.-` literal in description (no JSON-LD, no `og:price`). One product: the **Pump Tsüri Skate** pump-skate land trainer. |
 
 ### Classifieds (second-hand)
