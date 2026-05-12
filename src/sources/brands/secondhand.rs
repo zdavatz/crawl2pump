@@ -40,11 +40,11 @@ struct StaticAd {
 }
 
 const ADS: &[StaticAd] = &[StaticAd {
-    title: "🔁 GEBRAUCHT — Komplettes Pump Foil Set + Board Onix/MIO",
+    title: "🔁 GEBRAUCHT — Komplettes Pump Foil Set + Board Onix/MIO (CHF 1'350 – 1'450)",
     brand: "Onix/MIO (gebraucht)",
-    url: "https://www.facebook.com/permalink.php?story_fbid=122101989477306040&id=1118089814717727",
+    url: "https://www.facebook.com/permalink.php?story_fbid=122102796939306040&id=1118089814717727",
     image_bytes: include_bytes!("../../../images/secondhand/onix-mio-set.jpg"),
-    description: "Neupreis (NP) CHF 2'400 — Preis auf Anfrage über FB. \
+    description: "Preis: CHF 1'350 – 1'450 (NP 2'400). \
         Komplettes Pump Foil Set von Onix/MIO bestehend aus: \
         Onix Osprey Front Wing 1850, MIO Board „Pump to the beat\" 92 cm, \
         Onix Mast Alu 80 cm, Onix Split-Fuselage 61 und 66 cm, \
@@ -54,7 +54,7 @@ const ADS: &[StaticAd] = &[StaticAd {
         entwickelt und von Hand produziert. Alles in einem sehr guten \
         Zustand.",
     location: "Zürich",
-    price: 2400.0,
+    price: 1350.0,
     currency: "CHF",
 }];
 
