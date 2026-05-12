@@ -61,6 +61,13 @@ struct Args {
     /// `.meta.env` path (key=value lines for META_PAGE_ID + META_PAGE_TOKEN).
     #[arg(long, default_value = DEFAULT_ENV)]
     env_file: PathBuf,
+    /// File with one URL per line — rows whose `url` matches an entry
+    /// are silently dropped before posting. Useful for resuming a run
+    /// that was interrupted: pass the list of URLs FB already accepted
+    /// (derived from the `published_posts` API or earlier stdout logs)
+    /// and the bin won't double-post them.
+    #[arg(long)]
+    skip_urls_file: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -304,6 +311,23 @@ async fn main() -> Result<()> {
     let page_token = std::env::var("META_PAGE_TOKEN").context("META_PAGE_TOKEN missing")?;
 
     let mut rows = fetch_rows(&args.db, &args.source)?;
+    if let Some(skip_path) = &args.skip_urls_file {
+        let text = std::fs::read_to_string(skip_path)
+            .with_context(|| format!("read {}", skip_path.display()))?;
+        let skip: std::collections::HashSet<String> = text
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .collect();
+        let before = rows.len();
+        rows.retain(|r| !skip.contains(&r.url));
+        eprintln!(
+            "skip-urls-file: dropped {} of {} (kept {})",
+            before - rows.len(),
+            before,
+            rows.len()
+        );
+    }
     if let Some(lim) = args.limit {
         rows.truncate(lim);
     }

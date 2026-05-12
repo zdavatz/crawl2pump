@@ -93,9 +93,10 @@ PDF render in one process. Invariants worth knowing before editing it:
   is genuinely common across multiple brands.
 - The "trusted curated sources" set
   (`{axis, onix, indiana, alpinefoil, ketos, armstrong, takoon, code,
-  north, mio, starboard, naish, ensis, pumpzuerich, gong}`) encodes
-  which brand modules
-  already filter to pump-foil gear at the source, so we skip the
+  north, mio, starboard, naish, ensis, pumpzuerich, brack, galaxus,
+  secondhand, gong}`) encodes which brand modules already filter to
+  pump-foil gear at the source (or aren't keyword-checkable at all,
+  like the accessory-case sources and community ads), so we skip the
   title-keyword filter for them. If you add a new pump-curated brand
   source, add it here too — otherwise its components will silently get
   dropped by the keyword filter.
@@ -120,18 +121,31 @@ PDF render in one process. Invariants worth knowing before editing it:
   browser tabs; Chrome's print path ignores the attribute, so PDF
   behaviour is unchanged.
 - **Thumbnail optimisation runs before render.** `optimize_thumbnails`
-  rewrites every `Listing.image` URL in two passes:
-  1. **Shopify CDN URLs** (host contains `cdn.shopify.com`) get
-     `width=600` appended as a query param. Shopify resizes server-side
-     before Chrome fetches, so this is free at our end — no decode, no
-     re-encode. Covers ~75% of the catalog.
-  2. **Everything else** (Indiana, Ketos, AlpineFoil, Code Foils, Mio,
-     Ensis) gets fetched through `buffer_unordered(8)`, resized to
-     600 px wide via the `image` crate (Lanczos3 + JPEG q=82), and
-     embedded as `data:image/jpeg;base64,…`. On any HTTP/decode failure
-     we leave the original URL so Chrome falls back to the full-size
-     fetch — never blocks the render. Cost: ~3-5 s wall-clock for ~140
-     non-Shopify thumbnails on a fresh `--from-db`.
+  inlines every `Listing.image` as a `data:image/jpeg;base64,…` URL.
+  We used to leave Shopify CDN URLs in place and trust Chrome to fetch
+  them at print-to-pdf time — that was "free" but unreliable (Chrome's
+  headless fetcher silently flakes on a small fraction of Shopify URLs
+  due to TLS/CORS/CF edge issues, and those rows render with broken
+  thumbnails). Now: every image is fetched + resized + base64-inlined
+  on the Rust side, guaranteeing a picture on every card. Pipeline:
+  1. **Cache lookup first.** `image_cache(url PK, data_url, cached_at)`
+     in SQLite. A warm cache turns the entire optimization pass into
+     a no-op (~3× speedup: cold 51 s vs warm 17 s for ~650 thumbs).
+     Cache key is the post-transform URL (so a Shopify `width=600`
+     change implicitly invalidates), and brand URLs carrying `?v=...`
+     version tokens cache-bust naturally when the source updates.
+  2. **Shopify pre-resize** for cache misses on `cdn.shopify.com`
+     URLs — append `width=600` so we fetch ~600 px instead of the
+     2000+ px originals. We still inline the result locally; the
+     server-side resize just saves bandwidth.
+  3. **Fetch + resize + encode**, 8 in flight via `buffer_unordered`.
+     `image` crate handles JPEG / PNG / WebP. For decode failures
+     (mostly AVIF served under `.jpg` — Alpinefoil) we shell out to
+     `magick` (ImageMagick) which transcodes via stdin/stdout. If
+     `magick` isn't installed those rows leave the original URL in
+     place and Chrome falls back. **The magick fallback is what keeps
+     Alpinefoil's AVIF thumbnails alive** — don't remove it without a
+     pure-Rust AVIF decoder (image-crate `avif-native` needs `dav1d`).
 
      **Alpha compositing matters.** Indiana ships product photos as
      transparent PNGs. Calling `to_rgb8()` directly drops the alpha
@@ -144,25 +158,30 @@ PDF render in one process. Invariants worth knowing before editing it:
      reintroduces the black-background regression the moment any new
      brand starts shipping transparent PNGs.
 
-  Net effect on the PDF: 244 MB → ~35 MB. Chrome's printToPDF time also
-  drops because the embedded JPEGs are smaller. The 600 px target is
-  derived from the card thumb size (44 mm × 34 mm at 300 DPI ≈ 520 ×
-  400 px) — going lower (e.g. 400 px) is visible at zoom; going higher
-  saves nothing. Don't push it past 600 without checking print quality
-  on a representative card first.
+  Net effect on the PDF: ~16 MB for ~650 listings. The 600 px target
+  is derived from the card thumb size (44 mm × 34 mm at 300 DPI ≈
+  520 × 400 px) — going lower is visible at zoom; going higher saves
+  nothing. Don't push it past 600 without checking print quality on a
+  representative card first.
 - `--from-db` short-circuits the crawl + enrichment + upsert entirely
   and rebuilds `categorized` from `Db::latest_snapshot()` — the rows
-  whose `last_seen` matches the most recent scan. `freshness` is empty
-  on this path (no fresh scan, no diff to badge) and `summary` is
-  zeros. Specs come straight from the stored `area_cm2`/`span_mm`/
-  `aspect_ratio`/`chord_mm` columns; no detail-page fetches happen.
+  whose `last_seen` matches each source's most recent scan
+  (per-source `MAX(last_seen)` — see [[db.rs latest_snapshot]] for why
+  it has to be per-source: a global `MAX` would make every brand
+  except the most-recently-upserted look stale after a single-source
+  `pumpfoil_report --sources brack` run). Freshness on this path now
+  comes from `Db::new_since` / `Db::modified_since` with a 7-day
+  window — so the header pill shows "X neu im PDF · Y aktualisiert"
+  reflecting recent additions rather than always-zero. Specs come
+  straight from the stored `area_cm2`/`span_mm`/`aspect_ratio`/
+  `chord_mm` columns; no detail-page fetches happen.
   See `load_categorized_from_db` + `stored_to_categorized` +
   `render_from_categorized` in `pumpfoil_report.rs`. Earlier code
   passed an empty `Vec` here, which silently rendered an empty PDF —
   if you touch this path, smoke-test with `--from-db --frontwings-only`
-  and confirm the row count matches `SELECT COUNT(*) FROM listings
-  WHERE last_seen=(SELECT MAX(last_seen) FROM listings) AND
-  category='Front Wings'`.
+  and confirm the row count matches `SELECT COUNT(*) FROM listings l
+  WHERE l.last_seen=(SELECT MAX(last_seen) FROM listings WHERE
+  source=l.source) AND category='Front Wings'`.
 - **Front-wing enrichment is parallel.** Three passes:
   1. Title parse + description regex (cheap, in-place, sequential).
   2. Detail-page fetch for wings still missing area or span — runs
@@ -192,7 +211,19 @@ to a Facebook Page via the Meta Graph API. Reads credentials from
     --overview-link "https://www.ketos-foil.com/" \
     --gap-secs 15
 ./target/release/meta_post --source axis --limit 3 --dry-run   # preview
+# resume after partial run — skip URLs already on FB
+./target/release/meta_post --source takoon \
+    --skip-urls-file /tmp/takoon_already_posted.txt
 ```
+
+The `--skip-urls-file` flag takes a file with one URL per line; rows
+whose `url` matches are dropped before posting. Build the file by
+fetching the FB Page's `published_posts` and regexing brand URLs out
+of each post's `message`. Empty lines and `#` comments are ignored.
+This is the "graceful resume" path — there's no automatic dedup
+against FB itself (the Graph API has no efficient way to check from
+the meta_post side), so manual list = belt-and-braces against
+double-posting.
 
 Hard-won bits worth knowing before editing it:
 
@@ -266,8 +297,13 @@ Hard-won bits worth knowing before editing it:
 ## SQLite persistence (`src/db.rs`)
 
 Schema is created on first open at `sqlite/crawl2pump.db` (overridable
-via `--db`). Two tables:
+via `--db`). Three tables:
 
+- `image_cache(url PK, data_url, cached_at)` — thumbnail cache for
+  `pumpfoil_report`. Storing the resized + base64-encoded data URL
+  keyed by the fetch URL lets warm renders skip all HTTP + decode
+  work (~3× speedup). The cache is implicitly invalidated by URL
+  change (Shopify `?v=...` tokens, our own `width=600` resize param).
 - `listings(url PK, ...listing fields..., area_cm2/span_mm/aspect_ratio/chord_mm,
   category, content_hash, first_seen, last_seen, last_modified_at, scan_count)`
 - `price_history(url FK, price, currency, observed_at)` — appended on

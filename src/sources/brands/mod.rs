@@ -1,8 +1,10 @@
 pub mod alpinefoil;
 pub mod armstrong;
 pub mod axis;
+pub mod brack;
 pub mod codefoils;
 pub mod ensis;
+pub mod galaxus;
 pub mod gong;
 pub mod indiana;
 pub mod ketos;
@@ -12,6 +14,7 @@ pub mod naish;
 pub mod north;
 pub mod onix;
 pub mod pumpzuerich;
+pub mod secondhand;
 pub mod starboard;
 pub mod takoon;
 pub mod takuma;

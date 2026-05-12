@@ -102,7 +102,39 @@ CREATE TABLE IF NOT EXISTS price_history (
     FOREIGN KEY (url) REFERENCES listings(url) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url);
+
+-- Resized + base64-inlined thumbnails. Keyed by the fetch URL (which
+-- includes Shopify width= and any other resize params), so changing
+-- the thumbnail size invalidates the cache implicitly. Brand URLs that
+-- carry version tokens (`?v=...`) get a fresh cache row when the
+-- thumbnail itself changes.
+CREATE TABLE IF NOT EXISTS image_cache (
+    url          TEXT PRIMARY KEY,
+    data_url     TEXT NOT NULL,
+    cached_at    TEXT NOT NULL
+);
 "#,
+        )?;
+        Ok(())
+    }
+
+    /// Look up a cached base64 data-URL for a thumbnail. Returns None
+    /// on miss or if the row is somehow malformed.
+    pub fn get_cached_image(&self, url: &str) -> Result<Option<String>> {
+        let mut stmt = self.conn.prepare("SELECT data_url FROM image_cache WHERE url = ?1")?;
+        let mut rows = stmt.query(params![url])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get(0)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Store a resized thumbnail's data URL keyed by its fetch URL.
+    pub fn put_cached_image(&self, url: &str, data_url: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO image_cache (url, data_url, cached_at) VALUES (?1, ?2, ?3)",
+            params![url, data_url, chrono::Utc::now().to_rfc3339()],
         )?;
         Ok(())
     }
@@ -264,6 +296,28 @@ CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url);
         )
     }
 
+    /// Listings first seen at or after the cutoff timestamp. Use this
+    /// to populate the freshness map on `--from-db` renders, where no
+    /// single `scan_at` covers multiple single-source upserts.
+    pub fn new_since(&self, cutoff: DateTime<Utc>) -> Result<Vec<StoredListing>> {
+        self.query_listings(
+            "SELECT * FROM listings WHERE first_seen >= ?1 ORDER BY source, title",
+            params![cutoff.to_rfc3339()],
+        )
+    }
+
+    /// Listings whose content changed at or after the cutoff (but
+    /// weren't first-seen in the same window — those are already
+    /// counted as `new`).
+    pub fn modified_since(&self, cutoff: DateTime<Utc>) -> Result<Vec<StoredListing>> {
+        self.query_listings(
+            "SELECT * FROM listings \
+             WHERE last_modified_at >= ?1 AND first_seen < ?1 \
+             ORDER BY source, title",
+            params![cutoff.to_rfc3339()],
+        )
+    }
+
     /// Listings present in this scan (by `last_seen == scan_at`).
     pub fn current(&self, scan_at: DateTime<Utc>) -> Result<Vec<StoredListing>> {
         self.query_listings(
@@ -276,10 +330,17 @@ CREATE INDEX IF NOT EXISTS idx_price_history_url ON price_history(url);
     /// `pumpfoil_report --from-db` to re-render without re-crawling. The
     /// "most recent scan" is the maximum `last_seen` value across all
     /// listings; we return everything that matches it.
+    /// Current state across all sources — for each `source`, the rows
+    /// from its most recent scan. Uses per-source `MAX(last_seen)` so a
+    /// single-source upsert (e.g. `pumpfoil_report --sources brack`)
+    /// doesn't make every other brand look stale.
     pub fn latest_snapshot(&self) -> Result<Vec<StoredListing>> {
         self.query_listings(
-            "SELECT * FROM listings WHERE last_seen = (SELECT MAX(last_seen) FROM listings) \
-             ORDER BY source, title",
+            "SELECT l.* FROM listings l \
+             WHERE l.last_seen = ( \
+                SELECT MAX(last_seen) FROM listings WHERE source = l.source \
+             ) \
+             ORDER BY l.source, l.title",
             params![],
         )
     }

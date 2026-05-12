@@ -116,6 +116,9 @@ async fn main() -> Result<()> {
         "naish",
         "ensis",
         "pumpzuerich",
+        "brack",
+        "galaxus",
+        "secondhand",
         "gong",
     ]
     .into_iter()
@@ -372,7 +375,7 @@ async fn sort_filter_render(
         })
     });
 
-    optimize_thumbnails(&mut categorized).await;
+    optimize_thumbnails(&mut categorized, &args.db).await;
 
     let html = render_html(
         &categorized,
@@ -425,24 +428,28 @@ async fn sort_filter_render(
 /// worse than it was before this step existed.
 const THUMBNAIL_WIDTH: u32 = 600;
 
-async fn optimize_thumbnails(categorized: &mut [(Category, Listing, Option<WingSpecs>)]) {
-    let mut shopify_count = 0u32;
-    for (_, l, _) in categorized.iter_mut() {
-        if let Some(img) = l.image.as_deref() {
-            if is_shopify_cdn(img) {
-                l.image = Some(shopify_resize_url(img, THUMBNAIL_WIDTH));
-                shopify_count += 1;
-            }
-        }
-    }
-
-    let to_fetch: Vec<(usize, String)> = categorized
+async fn optimize_thumbnails(
+    categorized: &mut [(Category, Listing, Option<WingSpecs>)],
+    db_path: &std::path::Path,
+) {
+    // We used to special-case Shopify CDN URLs (just append `width=600`
+    // and let Chrome fetch at print-to-pdf time). That was free at our
+    // end but unreliable: Chrome's headless fetcher silently fails on a
+    // small fraction of Shopify URLs (TLS/CORS quirks, transient CF
+    // edge issues), and those rows render with a broken-image icon.
+    // Inlining every image as base64 trades a few seconds of crawl
+    // time for a PDF that's guaranteed to have a picture on every
+    // card. Pre-resize URLs that support server-side resize (Shopify)
+    // so we only fetch ~600 px instead of the 2000+ px originals.
+    let candidates: Vec<(usize, String)> = categorized
         .iter()
         .enumerate()
         .filter_map(|(i, (_, l, _))| {
             l.image.as_ref().and_then(|u| {
-                if u.is_empty() || is_shopify_cdn(u) || u.starts_with("data:") {
+                if u.is_empty() || u.starts_with("data:") {
                     None
+                } else if is_shopify_cdn(u) {
+                    Some((i, shopify_resize_url(u, THUMBNAIL_WIDTH)))
                 } else {
                     Some((i, u.clone()))
                 }
@@ -450,10 +457,48 @@ async fn optimize_thumbnails(categorized: &mut [(Category, Listing, Option<WingS
         })
         .collect();
 
+    // Cache lookup pass: rows whose URL is already in `image_cache`
+    // get their inlined data URL straight from SQLite — no HTTP fetch,
+    // no decode, no re-encode. The cache key is the post-transform
+    // URL (Shopify width=600 etc.) so a thumbnail-width change
+    // invalidates implicitly. Brand URLs carrying `?v=...` version
+    // tokens cache-bust naturally when the source image updates.
+    let mut to_fetch: Vec<(usize, String)> = Vec::new();
+    let mut cache_hits = 0usize;
+    let mut cache_errs = 0usize;
+    let cache_db = match crawl2pump::db::Db::open(db_path) {
+        Ok(d) => Some(d),
+        Err(e) => {
+            eprintln!("warn: image cache disabled — open db failed: {e}");
+            None
+        }
+    };
+    for (i, url) in candidates {
+        if let Some(db) = &cache_db {
+            match db.get_cached_image(&url) {
+                Ok(Some(data_url)) => {
+                    categorized[i].1.image = Some(data_url);
+                    cache_hits += 1;
+                    continue;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    cache_errs += 1;
+                    if cache_errs <= 3 {
+                        eprintln!("  cache read err for {} — {e}", trunc_for_log(&url, 70));
+                    }
+                }
+            }
+        }
+        to_fetch.push((i, url));
+    }
+    let shopify_count = to_fetch.iter().filter(|(_, u)| is_shopify_cdn(u)).count();
+
     eprintln!(
-        "optimizing thumbnails: {} via Shopify URL transform, {} via local resize…",
+        "optimizing thumbnails: {cache_hits} cache hits · {} to fetch ({} Shopify pre-resized, {} other)",
+        to_fetch.len(),
         shopify_count,
-        to_fetch.len()
+        to_fetch.len() - shopify_count,
     );
     if to_fetch.is_empty() {
         return;
@@ -472,12 +517,12 @@ async fn optimize_thumbnails(categorized: &mut [(Category, Listing, Option<WingS
     };
 
     use futures::stream::{self, StreamExt};
-    let results: Vec<(usize, Option<String>)> = stream::iter(to_fetch.into_iter())
+    let results: Vec<(usize, String, Result<String>)> = stream::iter(to_fetch.into_iter())
         .map(|(i, url)| {
             let client = client.clone();
             async move {
                 let res = fetch_and_resize_jpeg(&client, &url, THUMBNAIL_WIDTH).await;
-                (i, res.ok())
+                (i, url, res)
             }
         })
         .buffer_unordered(8)
@@ -486,15 +531,35 @@ async fn optimize_thumbnails(categorized: &mut [(Category, Listing, Option<WingS
 
     let mut ok = 0u32;
     let mut fail = 0u32;
-    for (i, opt) in results {
-        if let Some(data_url) = opt {
-            categorized[i].1.image = Some(data_url);
-            ok += 1;
-        } else {
-            fail += 1;
+    for (i, url, res) in results {
+        match res {
+            Ok(data_url) => {
+                if let Some(db) = &cache_db {
+                    if let Err(e) = db.put_cached_image(&url, &data_url) {
+                        eprintln!("  cache write err for {} — {e}", trunc_for_log(&url, 70));
+                    }
+                }
+                categorized[i].1.image = Some(data_url);
+                ok += 1;
+            }
+            Err(e) => {
+                eprintln!("  image FAIL {} — {}", trunc_for_log(&url, 90), e);
+                fail += 1;
+                // Leave the original URL in place — Chrome may still
+                // render it at print time, and if not, the broken
+                // image is at least visible in logs.
+            }
         }
     }
     eprintln!("  resized {ok} thumbnails, {fail} fallback to original URL");
+}
+
+fn trunc_for_log(s: &str, n: usize) -> String {
+    if s.len() <= n {
+        s.to_string()
+    } else {
+        format!("{}…", &s[..n])
+    }
 }
 
 fn is_shopify_cdn(url: &str) -> bool {
@@ -521,8 +586,17 @@ async fn fetch_and_resize_jpeg(
         .error_for_status()?
         .bytes()
         .await?;
-    let img = image::load_from_memory(&bytes)
-        .with_context(|| format!("decode {url}"))?;
+    // Decode path: try the `image` crate first (JPEG / PNG / WebP). If
+    // that fails, fall back to shelling out to ImageMagick — covers
+    // formats the crate doesn't (AVIF, HEIC) without pulling in C deps
+    // at crate level. Alpinefoil serves AVIF under `.jpg` filenames so
+    // this fallback is what keeps the PDF complete.
+    let img = match image::load_from_memory(&bytes) {
+        Ok(img) => img,
+        Err(_) => convert_via_imagemagick(&bytes)
+            .await
+            .with_context(|| format!("decode {url}"))?,
+    };
     let resized = img.resize(width, u32::MAX, image::imageops::FilterType::Lanczos3);
     // Composite over white before dropping alpha — Indiana (and any
     // other shop using transparent PNGs) would otherwise get black
@@ -552,6 +626,35 @@ async fn fetch_and_resize_jpeg(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(&buf)
     ))
+}
+
+/// Decode AVIF / HEIC / anything-else-the-image-crate-misses via the
+/// system `magick` (ImageMagick) binary. Pipes the raw bytes in via
+/// stdin, asks for a PNG out on stdout, then hands the PNG back to
+/// the image crate for our usual resize + JPEG re-encode pass.
+async fn convert_via_imagemagick(bytes: &[u8]) -> Result<image::DynamicImage> {
+    use std::process::Stdio;
+    use tokio::io::AsyncWriteExt;
+    let mut child = tokio::process::Command::new("magick")
+        .args(["-", "png:-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("spawn magick (ImageMagick not installed?)")?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(bytes).await.context("write to magick stdin")?;
+        drop(stdin); // close to signal EOF
+    }
+    let out = child.wait_with_output().await.context("wait magick")?;
+    if !out.status.success() {
+        return Err(anyhow!(
+            "magick exit {}: {}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    image::load_from_memory(&out.stdout).context("decode magick PNG output")
 }
 
 /// Rebuild a categorized list from the most recent scan in the DB. Used
@@ -620,13 +723,32 @@ async fn render_from_categorized(
     scan_at: DateTime<Utc>,
     categorized: Vec<(Category, Listing, Option<WingSpecs>)>,
 ) -> Result<()> {
-    let summary = crawl2pump::db::UpsertSummary {
-        new_count: 0,
-        updated_count: 0,
-        modified_count: 0,
-        price_changes: 0,
+    // For `--from-db` we don't have a "this scan's" diff to badge. Instead
+    // show rows that have appeared or changed in the last week — this is
+    // what a reader scanning the PDF for "what's new" actually wants. The
+    // freshness map uses recency-based DB queries; the summary counts
+    // mirror them so the header strip ("X new · Y modified") is non-zero
+    // whenever there's been activity since the last render.
+    let cutoff = scan_at - chrono::Duration::days(7);
+    let (freshness, summary) = {
+        let db = Db::open(&args.db)?;
+        let new_rows = db.new_since(cutoff)?;
+        let mod_rows = db.modified_since(cutoff)?;
+        let mut m = std::collections::HashMap::new();
+        for l in &new_rows {
+            m.insert(l.url.clone(), Freshness::New);
+        }
+        for l in &mod_rows {
+            m.entry(l.url.clone()).or_insert(Freshness::Modified);
+        }
+        let summary = crawl2pump::db::UpsertSummary {
+            new_count: new_rows.len(),
+            updated_count: 0,
+            modified_count: mod_rows.len(),
+            price_changes: 0,
+        };
+        (m, summary)
     };
-    let freshness = std::collections::HashMap::new();
     sort_filter_render(args, output, scan_at, categorized, freshness, summary).await
 }
 
@@ -1109,8 +1231,9 @@ fn render_html(
     position: relative;
   }}
   .badge {{
-    position: absolute; top: 4mm; right: 32mm;
+    display: inline-block; vertical-align: 1.5pt; margin-right: 2mm;
     font-size: 7.5pt; font-weight: 700; padding: 0.5mm 1.5mm; border-radius: 1mm;
+    line-height: 1; white-space: nowrap;
   }}
   .badge.new      {{ background: #0e6132; color: white; }}
   .badge.modified {{ background: #f0ad4e; color: white; }}
@@ -1127,8 +1250,8 @@ fn render_html(
 <h1>{title}</h1>
 <div class="sub">{total} Angebote{mode} · {today} · via crawl2pump</div>
 <div class="diff">
-  <span class="pill pill-new">{} new</span>
-  <span class="pill pill-modified">{} modified (price/spec/image)</span>
+  <span class="pill pill-new">{} neu im PDF</span>
+  <span class="pill pill-modified">{} aktualisiert (Preis / Spec / Bild)</span>
   · {} touched · {} price changes
 </div>
 {body}
@@ -1177,16 +1300,15 @@ fn render_card(
         format!(r#"<a class="thumb-link" href="{url}" target="_blank" rel="noopener"><img class="thumb" src="{img}" loading="lazy"/></a>"#)
     };
     let badge = match freshness {
-        Some(Freshness::New) => r#"<span class="badge new">NEW</span>"#,
-        Some(Freshness::Modified) => r#"<span class="badge modified">MOD</span>"#,
+        Some(Freshness::New) => r#"<span class="badge new">neu im PDF</span>"#,
+        Some(Freshness::Modified) => r#"<span class="badge modified">aktualisiert</span>"#,
         None => "",
     };
     format!(
         r#"<section class="card">
-  {badge}
   {img_html}
   <div class="body">
-    <a class="title" href="{url}" target="_blank" rel="noopener">{title}</a>
+    <a class="title" href="{url}" target="_blank" rel="noopener">{badge}{title}</a>
     <div class="meta">{meta}</div>
     <p class="desc">{desc}</p>
     <a class="url" href="{url}" target="_blank" rel="noopener">{url}</a>

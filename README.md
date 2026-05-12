@@ -28,6 +28,9 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Naish (naish.com) | World | Shopify | `foil-collection` + `foil-completes` + `foil-boards` + `front-wings-a-la-cart`, filtered by `product_type` allowlist (front wings / masts / stabs / fuselages / semi-completes / DW + SUP foil boards) — drops wing-foil-only and kite-foil boards |
 | Ensis (ensis.surf) | Switzerland | Shopify (migrated from WordPress mid-2026) | `pump-foiling` + `pump-foils` + `pump-boards` + `pump-accessories` collections. Full pump catalog with EUR prices. |
 | Pump Zürich (pump.zuerich) | Switzerland | WordPress.com (single-product page) | hardcoded URL `/skate/`; OG meta for title/image/description, price parsed from `EUR 660.-` literal in description (no JSON-LD, no `og:price`). One product: the **Pump Tsüri Skate** pump-skate land trainer. |
+| Brack.ch | Switzerland | Magento + JSON-LD | seven hardcoded Peli Micro Case product URLs (1010 – 1060). IP67 waterproof cases sized for foil-session sensors (e.g. STEVAL-MKBOXPRO at 63 × 40 × 20 mm). |
+| Galaxus.ch | Switzerland | hard-coded static records | two case products (Sonoff IP66, Purecrea IP67). Galaxus's Akamai bot filter rejects reqwest's TLS handshake, so values are baked in by hand; needs a manual edit if prices change. |
+| secondhand (community ads) | Switzerland | hard-coded static records | hand-curated entries for community-posted used gear. One entry currently: Peter's complete Onix/MIO pump-foil set. Title prefix `🔁 GEBRAUCHT — ` flags the row as used; primary photo is `include_bytes!`'d into the binary. |
 
 ### Classifieds (second-hand)
 

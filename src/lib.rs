@@ -125,6 +125,9 @@ pub fn build_sources(
         Box::new(sources::brands::starboard::Starboard::new(client.clone())),
         Box::new(sources::brands::naish::Naish::new(client.clone())),
         Box::new(sources::brands::ensis::Ensis::new(client.clone())),
+        Box::new(sources::brands::brack::Brack::new(client.clone())),
+        Box::new(sources::brands::galaxus::Galaxus::new(client.clone())),
+        Box::new(sources::brands::secondhand::SecondHand::new(client.clone())),
         Box::new(sources::brands::pumpzuerich::PumpZuerich::new(client)),
     ];
     if let Some(b) = browser {
