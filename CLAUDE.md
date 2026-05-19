@@ -330,18 +330,37 @@ Architecture / invariants worth knowing before editing it:
   this for USB-C WiFi parts; widen it if you add other USB-C roles.
 - **Six distributor sources, two kinds** (`src/sources/distributors/`):
   - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
-    image), `st` and `vendor` (**reference-only, zero HTTP**).
+    image), `vendor` (best-effort og:image fetch), `st`
+    (**reference-only, zero HTTP**).
   - *API, key required:* `mouser`, `digikey`, `farnell`.
-- **`st` and `vendor` do NOT fetch.** st.com is behind Akamai bot
-  protection that *hangs* a plain reqwest GET (~30 s/part of dead
-  timeout, 0 results — measured). ST's eStore never exposes a price
-  without auth anyway, and u-blox/Espressif don't sell direct at a
-  scrapeable price. So both emit a **price-less reference offer**
-  pointing at the canonical product page with no HTTP at all. This is
-  deliberate — it guarantees *every BOM part shows up in the catalog
-  even with zero API keys*, and the real price/stock layers in from
-  the API distributors when keys are present. Don't "fix" these by
-  re-adding a fetch; it just reintroduces the 210 s hang.
+- **`st`: never fetch `www.st.com`; do fetch `estore.st.com`.** The
+  `www.st.com` *product page* is behind Akamai bot protection that
+  *hangs* a plain reqwest GET (~30 s/part of dead timeout, 0 results
+  — measured) and never exposes a price without auth. **Never re-add
+  an HTML fetch of www.st.com — it reintroduces the 210 s hang.** But
+  ST's Magento eStore *image CDN*,
+  `estore.st.com/media/catalog/product/<c1>/<c2>/<key>.jpg` (key =
+  shortest MPN lowercased), is reachable without auth, so `st` pulls
+  the real product photo from there. Bare sensor ICs have no eStore
+  photo — ST serves one shared placeholder PNG (constant SHA-256
+  `ST_PLACEHOLDER_SHA` in `st.rs`); we hash the bytes and treat that
+  as "no image" so our own placeholder fires instead of ST's blank
+  tile. The eval board + a few ICs (LIS2MDL) have real photos and
+  come through. Offers stay price-less reference (price/stock via the
+  API distributors) — just *with an image*. If ST swaps their
+  placeholder, re-capture the hash (recipe in `st.rs`). `vendor` (u-blox / Espressif / Seeed) are
+  normal sites, so it *does* `fetch_page_product` for `og:image`
+  (and price/title where the page ships JSON-LD — Seeed sells direct),
+  falling back to a reference offer if the fetch fails. Either way
+  every BOM part still shows up with zero API keys.
+- **"Always an image" guarantee.** `render_card` substitutes a
+  generated inline-SVG base64 placeholder (`placeholder_data_url`,
+  no network, can't fail) for any row where no source found a real
+  photo — so no card ever renders a blank tile. Placeholders are
+  **render-time only**, never persisted to the DB image column, so a
+  later run with API keys (which return real ST/Espressif photos)
+  upgrades them. Don't persist the placeholder; it would mask the
+  real image on the next keyed run.
 - **API distributors skip, never fail, on missing creds.** They
   signal a clean skip by returning `Err("skip: …")`; the `run()`
   wrapper renders that as `[skip]` not `[err]`. Keep that contract —

@@ -323,9 +323,15 @@ A third whitelisted bin scans electronics distributors for a fixed
 [`movement_logger_firmware`](https://github.com/zdavatz/movement_logger_firmware)
 session-recorder hardware (STEVAL-MKBOXPRO + its on-board ST sensor
 ICs + the u-blox MAX-M10S GPS) plus a curated set of **USB-C,
-open-source-firmware** pluggable modules (ESP32 devkits, SparkFun
-boards). Open-source firmware is a hard requirement for the USB-C
-group — closed-blob-only modules are intentionally excluded.
+open-source-firmware** pluggable modules (Seeed Studio XIAO ESP32
+family, Espressif DevKitC boards, SparkFun boards). Open-source
+firmware is a hard requirement for the USB-C group — closed-blob-only
+modules are intentionally excluded. Every card always shows an image:
+a real product photo where one is reachable without a key (SparkFun
+and Seeed JSON-LD/og:image, u-blox og:image, and the ST eStore image
+CDN for the eval board), otherwise a generated placeholder. Bare ST
+sensor ICs have no public photo without an API key, so they show the
+placeholder until Mouser/DigiKey/Farnell keys are configured.
 
 ```bash
 ./target/release/sensor_report                 # all parts → ~/Downloads/sensors.pdf

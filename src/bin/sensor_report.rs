@@ -481,7 +481,16 @@ fn render_card(l: &Listing, freshness: Option<Freshness>) -> String {
         (Some(p), None) => format!("{:.2}", p),
         _ => "—".into(),
     };
-    let img = l.image.as_deref().unwrap_or("");
+    // "Always an image": real photo when a source found one, otherwise
+    // a generated placeholder so no card ever renders a blank tile.
+    let owned_img;
+    let img = match l.image.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        Some(s) => s,
+        None => {
+            owned_img = placeholder_data_url(&l.title);
+            &owned_img
+        }
+    };
     let url = html_escape(&l.url);
     let title = html_escape(&l.title);
     let desc = l
@@ -494,13 +503,9 @@ fn render_card(l: &Listing, freshness: Option<Freshness>) -> String {
         Some(false) => " · out of stock",
         None => "",
     };
-    let img_html = if img.is_empty() {
-        String::new()
-    } else {
-        format!(
-            r#"<a href="{url}" target="_blank" rel="noopener"><img class="thumb" src="{img}"/></a>"#
-        )
-    };
+    let img_html = format!(
+        r#"<a href="{url}" target="_blank" rel="noopener"><img class="thumb" src="{img}"/></a>"#
+    );
     let badge = match freshness {
         Some(Freshness::New) => r#"<span class="badge new">neu</span>"#,
         Some(Freshness::Modified) => r#"<span class="badge modified">aktualisiert</span>"#,
@@ -517,8 +522,41 @@ fn render_card(l: &Listing, freshness: Option<Freshness>) -> String {
   </div>
   <div class="price">{price}</div>
 </section>"#,
-        html_escape(&l.source)
+        html_escape(&source_label(l))
     )
+}
+
+/// Human-readable "where this offer is from" for the card meta line.
+/// `source` is the internal distributor-bucket slug — for the generic
+/// scrape buckets (`vendor` = the manufacturer's own site, `st` =
+/// st.com) that slug is meaningless to a reader, so lead with the
+/// actual manufacturer (`brand`). API distributors get their proper
+/// brand name.
+fn source_label(l: &Listing) -> String {
+    let brand = l.brand.as_deref().unwrap_or("");
+    match l.source.as_str() {
+        "vendor" => {
+            if brand.is_empty() {
+                "manufacturer store".into()
+            } else {
+                format!("{brand} (manufacturer store)")
+            }
+        }
+        "st" => "STMicroelectronics — st.com".into(),
+        "sparkfun" => "SparkFun".into(),
+        "mouser" => fmt_dist(brand, "Mouser"),
+        "digikey" => fmt_dist(brand, "DigiKey"),
+        "farnell" => fmt_dist(brand, "Farnell"),
+        other => other.to_string(),
+    }
+}
+
+fn fmt_dist(brand: &str, dist: &str) -> String {
+    if brand.is_empty() {
+        dist.to_string()
+    } else {
+        format!("{brand} @ {dist}")
+    }
 }
 
 fn shorten(s: &str, limit: usize) -> String {
@@ -532,6 +570,32 @@ fn shorten(s: &str, limit: usize) -> String {
     }
     out.push('…');
     out
+}
+
+/// Inline SVG placeholder (base64 data URL — no network, never fails)
+/// used when no source found a real product photo. Shows the part
+/// name so the tile is still informative.
+fn placeholder_data_url(label: &str) -> String {
+    let short: String = label.chars().take(40).collect();
+    let svg = format!(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="380" height="300">
+<rect width="380" height="300" fill="#f1f3f5"/>
+<rect x="8" y="8" width="364" height="284" fill="none" stroke="#ced4da" stroke-width="2" rx="6"/>
+<text x="190" y="140" font-family="Helvetica,Arial,sans-serif" font-size="20" fill="#adb5bd" text-anchor="middle">no photo</text>
+<text x="190" y="170" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="#868e96" text-anchor="middle">{}</text>
+</svg>"##,
+        svg_escape(&short)
+    );
+    format!(
+        "data:image/svg+xml;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(svg.as_bytes())
+    )
+}
+
+fn svg_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn html_escape(s: &str) -> String {

@@ -318,6 +318,64 @@ pub fn bom() -> Vec<Part> {
             direct_url: None,
             note: "USB-C ESP32 + Qwiic. OSS Arduino/ESP-IDF, open hardware.",
         },
+        // Seeed Studio XIAO ESP32 family — thumb-sized, USB-C, OSS
+        // firmware (ESP-IDF / Arduino). The natural pick for a
+        // host-pluggable WiFi/BLE add-on; far smaller than the
+        // Espressif DevKitC boards.
+        Part {
+            key: "seeed-xiao-esp32c3",
+            name: "Seeed Studio XIAO ESP32-C3 (WiFi + BLE, USB-C)",
+            role: Role::Wifi,
+            manufacturer: "Seeed Studio",
+            mpns: &["XIAO ESP32C3", "113991054"],
+            connector: Connector::UsbC,
+            oss_firmware: true, // ESP-IDF / Arduino
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.seeedstudio.com/Seeed-XIAO-ESP32C3-p-5431.html"),
+            note: "RISC-V XIAO, USB-C, external antenna. OSS ESP-IDF.",
+        },
+        Part {
+            key: "seeed-xiao-esp32s3",
+            name: "Seeed Studio XIAO ESP32-S3 (WiFi + BLE, USB-C)",
+            role: Role::Wifi,
+            manufacturer: "Seeed Studio",
+            mpns: &["XIAO ESP32S3", "113991114"],
+            connector: Connector::UsbC,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html"),
+            note: "Xtensa XIAO, USB-C. OSS ESP-IDF / Arduino.",
+        },
+        Part {
+            key: "seeed-xiao-esp32s3-sense",
+            name: "Seeed Studio XIAO ESP32-S3 Sense (WiFi + camera, USB-C)",
+            role: Role::Wifi,
+            manufacturer: "Seeed Studio",
+            mpns: &["XIAO ESP32S3 Sense", "113991115"],
+            connector: Connector::UsbC,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.seeedstudio.com/XIAO-ESP32S3-Sense-p-5639.html"),
+            note: "S3 + OV2640 camera + mic. USB-C, OSS ESP-IDF.",
+        },
+        Part {
+            key: "seeed-xiao-esp32c6",
+            name: "Seeed Studio XIAO ESP32-C6 (WiFi 6 + BLE + Zigbee, USB-C)",
+            role: Role::Wifi,
+            manufacturer: "Seeed Studio",
+            mpns: &["XIAO ESP32C6", "113991143"],
+            connector: Connector::UsbC,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some(
+                "https://www.seeedstudio.com/Seeed-Studio-XIAO-ESP32C6-p-5884.html",
+            ),
+            note: "WiFi 6 / BLE / 802.15.4 XIAO, USB-C. OSS ESP-IDF.",
+        },
     ]
 }
 
