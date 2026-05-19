@@ -74,6 +74,8 @@ struct Row {
     dimensions: Option<(f32, f32, f32)>,
     /// Canonical OSS-firmware GitHub repo (from the BOM part).
     firmware_repo: Option<&'static str>,
+    /// Host-MCU comparable one-liner (from the BOM part), if any.
+    mcu: Option<&'static str>,
     listing: Listing,
 }
 
@@ -201,7 +203,7 @@ async fn main() -> Result<()> {
 }
 
 fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
-    let (oss, connector, features, resellers, dimensions, firmware_repo) = meta
+    let (oss, connector, features, resellers, dimensions, firmware_repo, mcu) = meta
         .get(o.part_name)
         .map(|(p,)| {
             (
@@ -211,9 +213,10 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
                 p.resellers(),
                 p.dimensions_cm(),
                 p.firmware_repo(),
+                p.mcu(),
             )
         })
-        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None));
+        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None, None));
     Row {
         role: o.role,
         part_name: o.part_name.to_string(),
@@ -223,6 +226,7 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
         resellers,
         dimensions,
         firmware_repo,
+        mcu,
         listing: o.listing,
     }
 }
@@ -249,7 +253,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         .unwrap_or(&s.title)
         .trim()
         .to_string();
-    let (oss, connector, features, resellers, dimensions, firmware_repo) = meta
+    let (oss, connector, features, resellers, dimensions, firmware_repo, mcu) = meta
         .get(part_name.as_str())
         .map(|(p,)| {
             (
@@ -259,9 +263,10 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
                 p.resellers(),
                 p.dimensions_cm(),
                 p.firmware_repo(),
+                p.mcu(),
             )
         })
-        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None));
+        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None, None));
     let listing = Listing {
         source: s.source,
         brand: s.brand,
@@ -289,6 +294,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         resellers,
         dimensions,
         firmware_repo,
+        mcu,
         listing,
     })
 }
@@ -473,6 +479,15 @@ fn render_html(
             }
             feats.push_str("</div>");
             body.push_str(&feats);
+            // Host-MCU line — only parts with a user-programmable MCU
+            // (boards + the STM32U585); lets a reader compare chips
+            // (STM32U585 ultra-low-power vs ESP32 dual-core+WiFi).
+            if let Some(mcu) = head.mcu {
+                body.push_str(&format!(
+                    r#"<div class="mcu"><span class="mcu-l">MCU:</span> {}</div>"#,
+                    html_escape(mcu)
+                ));
+            }
             // OSS firmware repo for this device (every BOM part is
             // open-firmware, so this always renders). One line per
             // part, like the feature/buy rows.
@@ -577,6 +592,8 @@ fn render_html(
   .fw {{ font-size: 8.5pt; margin: 0 0 2mm; }}
   .fw-l {{ font-weight: 700; color: #0e6132; margin-right: 1mm; }}
   .fw a {{ color: #0a58ca; text-decoration: none; word-break: break-all; }}
+  .mcu {{ font-size: 8.5pt; margin: 0 0 2mm; color: #222; }}
+  .mcu-l {{ font-weight: 700; color: #6a1b9a; margin-right: 1mm; }}
   .sub {{ color: #555; font-size: 9pt; margin-bottom: 2mm; }}
   .diff {{ color: #444; font-size: 9pt; margin-bottom: 6mm; }}
   .diff .pill {{ display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; margin-right: 2mm; }}

@@ -369,7 +369,14 @@ Architecture / invariants worth knowing before editing it:
   the LilyGO all-in-one) so a Swiss/EU buyer gets real shop links;
   prefer a verified deep product URL, else the shop's product-search
   URL (survives reslugging). No price in the reseller label — a
-  hardcoded price in a static table goes stale.
+  hardcoded price in a static table goes stale. `mcu()` returns a
+  compact comparable host-MCU one-liner (`chip · core · clock ·
+  flash/RAM · trait`) or `None` for parts with no user-programmable
+  MCU (bare sensor ICs, GNSS modules); test asserts STEVAL→STM32U585,
+  LilyGO→ESP32-S3, bare-IC→None. It exists so a reader can weigh the
+  recorder's ultra-low-power STM32U585 against the ESP32 boards'
+  higher-throughput-but-power-hungry dual-core — not a "bigger number
+  wins" field; keep the trade-off trait (e.g. `ultra-low-power`).
 - **The LilyGO T-Beam S3 Supreme is the only all-in-one board** and
   the canonical `direct_url`/`vendor`-source example: not stocked by
   Mouser/DigiKey/Farnell, sold direct on LilyGO's Shopify store, so

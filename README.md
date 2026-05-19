@@ -340,10 +340,14 @@ a **"Buy (EU/CH)" row** lists Swiss/EU reseller links so a local
 buyer has a real shop to order from. Every part also links its
 **OSS firmware repo** on GitHub (the MovementLogger recorder firmware
 for the STEVAL/ST/GPS hardware, Espressif ESP-IDF for the ESP32
-modules, LilyGo-LoRa-Series for the all-in-one). Feature, dimension,
-reseller and firmware-repo data are single keyed tables in
-`src/sensors.rs` (`Part::features()` / `Part::dimensions_cm()` /
-`Part::resellers()` / `Part::firmware_repo()`), all unit-tested.
+modules, Meshtastic firmware for the LilyGO all-in-one). Boards with
+a user-programmable host MCU additionally show an **`MCU:` spec
+line** (chip · core · clock · flash/RAM · trait) so you can compare
+chips directly — e.g. the STEVAL-MKBOXPRO's ultra-low-power
+STM32U585 Cortex-M33 vs the LilyGO's dual-core ESP32-S3. Feature,
+dimension, reseller, firmware-repo and MCU data are single keyed
+tables in `src/sensors.rs` (`Part::features()` / `dimensions_cm()`
+/ `resellers()` / `firmware_repo()` / `mcu()`), all unit-tested.
 
 Every card always shows an image: a real product photo where one is
 reachable without a key (SparkFun and Seeed JSON-LD/og:image, u-blox

@@ -298,6 +298,37 @@ impl Part {
         };
         Some(url)
     }
+
+    /// Host MCU spec, keyed by part — a compact, comparable one-liner
+    /// (`<chip> · <core> @<MHz> · <flash>/<RAM> · <trait>`). `None` for
+    /// parts that have no host MCU (bare sensor ICs, the GNSS modules
+    /// — a GNSS receiver's internal core isn't user-programmable). The
+    /// recorder's STM32U585 is the deliberately power/secure-optimised
+    /// choice for battery session logging; the ESP32 boards trade that
+    /// for raw dual-core throughput + on-board WiFi/BLE. Specs from the
+    /// ST / Espressif datasheets.
+    pub fn mcu(&self) -> Option<&'static str> {
+        Some(match self.key {
+            "steval-mkboxpro" | "stm32u585ai" => {
+                "STM32U585 · Cortex-M33 @160 MHz · 2 MB flash / 786 KB SRAM · TrustZone · ultra-low-power"
+            }
+            "lilygo-tbeam-s3-supreme" | "esp32-s3-devkitc" | "seeed-xiao-esp32s3"
+            | "seeed-xiao-esp32s3-sense" => {
+                "ESP32-S3 · dual Xtensa LX7 @240 MHz · 8 MB flash / 512 KB SRAM (+PSRAM) · WiFi+BLE"
+            }
+            "esp32-c3-devkitc" | "seeed-xiao-esp32c3" => {
+                "ESP32-C3 · RISC-V @160 MHz · 400 KB SRAM · WiFi+BLE"
+            }
+            "seeed-xiao-esp32c6" => {
+                "ESP32-C6 · RISC-V @160 MHz · 512 KB SRAM · WiFi 6 + BLE + 802.15.4"
+            }
+            "sparkfun-thing-plus-c" => {
+                "ESP32 (WROOM) · dual Xtensa LX6 @240 MHz · 520 KB SRAM · WiFi+BLE"
+            }
+            // bare sensor ICs + GNSS modules → no user-programmable MCU
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -646,6 +677,14 @@ mod tests {
             Feature::ALL.as_slice()
         );
         assert!(by_key("lps22df").features().is_empty());
+        // Chip-comparison data: recorder = STM32U585, LilyGO = ESP32-S3,
+        // bare sensor ICs have no host MCU.
+        assert!(by_key("steval-mkboxpro").mcu().unwrap().contains("STM32U585"));
+        assert!(by_key("lilygo-tbeam-s3-supreme")
+            .mcu()
+            .unwrap()
+            .contains("ESP32-S3"));
+        assert!(by_key("lps22df").mcu().is_none());
         // Every part has a known LxBxH so the report never shows "—".
         for p in &parts {
             let (l, b, h) = p
