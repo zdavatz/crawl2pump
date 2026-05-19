@@ -264,6 +264,37 @@ impl Part {
         };
         Some(d)
     }
+
+    /// Canonical open-source-firmware repo for this device, keyed by
+    /// part. For the MovementLogger recorder hardware (STEVAL-MKBOXPRO,
+    /// the custom-board STM32U585, and every ST sensor IC + the GPS it
+    /// reads) the OSS firmware *is* `movement_logger_firmware` — that
+    /// repo is the whole reason this BOM exists. The USB-C ESP32
+    /// modules run Espressif's ESP-IDF (Apache-2.0); the LilyGO
+    /// all-in-one uses the LilyGo-LoRa-Series SDK/examples (the same
+    /// repo whose hardware doc we verified its spec against). Every
+    /// part is `oss_firmware: true`, so every part has a repo — the
+    /// test enforces `Some` + a github.com URL so the report never
+    /// renders a part without a firmware link.
+    pub fn firmware_repo(&self) -> Option<&'static str> {
+        let url = match self.key {
+            "esp32-c3-devkitc"
+            | "esp32-s3-devkitc"
+            | "sparkfun-thing-plus-c"
+            | "seeed-xiao-esp32c3"
+            | "seeed-xiao-esp32s3"
+            | "seeed-xiao-esp32s3-sense"
+            | "seeed-xiao-esp32c6" => "https://github.com/espressif/esp-idf",
+            "lilygo-tbeam-s3-supreme" => {
+                "https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series"
+            }
+            // STEVAL-MKBOXPRO, STM32U585, LSM6DSV16X, LIS2MDL, LPS22DF,
+            // STTS22H, STC3115, u-blox/SparkFun MAX-M10S → the recorder
+            // firmware that drives them.
+            _ => "https://github.com/zdavatz/movement_logger_firmware",
+        };
+        Some(url)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -620,6 +651,15 @@ mod tests {
             assert!(
                 l > 0.0 && b > 0.0 && h > 0.0,
                 "{} has a non-positive dimension",
+                p.key
+            );
+            // Every (oss_firmware) part links a real GitHub repo.
+            let repo = p
+                .firmware_repo()
+                .unwrap_or_else(|| panic!("{} missing firmware_repo", p.key));
+            assert!(
+                repo.starts_with("https://github.com/"),
+                "{} firmware_repo is not a github URL",
                 p.key
             );
         }

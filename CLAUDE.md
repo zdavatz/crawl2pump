@@ -345,10 +345,19 @@ Architecture / invariants worth knowing before editing it:
   has all six (confirmed against the LilyGo-LoRa-Series hardware doc,
   not the marketing page — its GNSS is variant-dependent: u-blox
   MAX-M10 *or* Quectel L76K).
-- **`Part::dimensions_cm()` and `Part::resellers()` follow the exact
-  same keyed-`match self.key` pattern** as `features()` — one table
-  each, no per-`Part`-literal field, both asserted in
-  `bom_is_well_formed`. `dimensions_cm()` returns `(L,B,H)` in cm for
+- **`Part::dimensions_cm()`, `Part::resellers()` and
+  `Part::firmware_repo()` follow the exact same keyed-`match self.key`
+  pattern** as `features()` — one table each, no per-`Part`-literal
+  field, all asserted in `bom_is_well_formed`. `firmware_repo()`
+  returns the canonical OSS-firmware GitHub repo: the catch-all arm is
+  `zdavatz/movement_logger_firmware` (the recorder firmware *is* the
+  OSS firmware for STEVAL-MKBOXPRO + STM32U585 + every ST sensor IC +
+  the u-blox/SparkFun GPS it reads — that repo is why this BOM
+  exists); ESP32 USB-C modules → `espressif/esp-idf`; the LilyGO
+  all-in-one → `Xinyuan-LilyGO/LilyGo-LoRa-Series` (same repo whose hw
+  doc we verified its spec against). Every part is `oss_firmware:
+  true`, so the test asserts every part returns a `github.com` URL —
+  the report never renders a part without a firmware link. `dimensions_cm()` returns `(L,B,H)` in cm for
   **all 17** parts (boards = enclosure/PCB, bare ICs = datasheet
   package body — sub-cm but that *is* the device for an SMD part;
   test enforces every part is `Some` and positive so the report never

@@ -337,9 +337,13 @@ present, ☐ grey where not — plus an **L×B×H size** chip in cm (board
 enclosure/PCB size for modules, datasheet package body for bare ICs).
 For boards no API distributor stocks (e.g. the LilyGO all-in-one),
 a **"Buy (EU/CH)" row** lists Swiss/EU reseller links so a local
-buyer has a real shop to order from. Feature, dimension and reseller
-data are single keyed tables in `src/sensors.rs` (`Part::features()`
-/ `Part::dimensions_cm()` / `Part::resellers()`), all unit-tested.
+buyer has a real shop to order from. Every part also links its
+**OSS firmware repo** on GitHub (the MovementLogger recorder firmware
+for the STEVAL/ST/GPS hardware, Espressif ESP-IDF for the ESP32
+modules, LilyGo-LoRa-Series for the all-in-one). Feature, dimension,
+reseller and firmware-repo data are single keyed tables in
+`src/sensors.rs` (`Part::features()` / `Part::dimensions_cm()` /
+`Part::resellers()` / `Part::firmware_repo()`), all unit-tested.
 
 Every card always shows an image: a real product photo where one is
 reachable without a key (SparkFun and Seeed JSON-LD/og:image, u-blox

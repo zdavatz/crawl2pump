@@ -72,6 +72,8 @@ struct Row {
     resellers: &'static [(&'static str, &'static str)],
     /// Physical (L, B, H) in cm (from the BOM part).
     dimensions: Option<(f32, f32, f32)>,
+    /// Canonical OSS-firmware GitHub repo (from the BOM part).
+    firmware_repo: Option<&'static str>,
     listing: Listing,
 }
 
@@ -199,7 +201,7 @@ async fn main() -> Result<()> {
 }
 
 fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
-    let (oss, connector, features, resellers, dimensions) = meta
+    let (oss, connector, features, resellers, dimensions, firmware_repo) = meta
         .get(o.part_name)
         .map(|(p,)| {
             (
@@ -208,9 +210,10 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
                 p.features(),
                 p.resellers(),
                 p.dimensions_cm(),
+                p.firmware_repo(),
             )
         })
-        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None));
+        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None));
     Row {
         role: o.role,
         part_name: o.part_name.to_string(),
@@ -219,6 +222,7 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
         features,
         resellers,
         dimensions,
+        firmware_repo,
         listing: o.listing,
     }
 }
@@ -245,7 +249,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         .unwrap_or(&s.title)
         .trim()
         .to_string();
-    let (oss, connector, features, resellers, dimensions) = meta
+    let (oss, connector, features, resellers, dimensions, firmware_repo) = meta
         .get(part_name.as_str())
         .map(|(p,)| {
             (
@@ -254,9 +258,10 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
                 p.features(),
                 p.resellers(),
                 p.dimensions_cm(),
+                p.firmware_repo(),
             )
         })
-        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None));
+        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None));
     let listing = Listing {
         source: s.source,
         brand: s.brand,
@@ -283,6 +288,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         features,
         resellers,
         dimensions,
+        firmware_repo,
         listing,
     })
 }
@@ -467,6 +473,15 @@ fn render_html(
             }
             feats.push_str("</div>");
             body.push_str(&feats);
+            // OSS firmware repo for this device (every BOM part is
+            // open-firmware, so this always renders). One line per
+            // part, like the feature/buy rows.
+            if let Some(repo) = head.firmware_repo {
+                body.push_str(&format!(
+                    r#"<div class="fw"><span class="fw-l">OSS firmware:</span> <a href="{0}" target="_blank" rel="noopener">{0}</a></div>"#,
+                    html_escape(repo)
+                ));
+            }
             // EU/CH reseller buy links — only emitted for parts that
             // carry them (boards no API distributor stocks, e.g. the
             // LilyGO all-in-one). Once per part, like the feature row.
@@ -559,6 +574,9 @@ fn render_html(
   .buy {{ font-size: 8.5pt; margin: 0 0 3mm; line-height: 1.5; }}
   .buy-l {{ font-weight: 700; color: #444; margin-right: 1mm; }}
   .buy a {{ color: #0a58ca; text-decoration: none; white-space: nowrap; }}
+  .fw {{ font-size: 8.5pt; margin: 0 0 2mm; }}
+  .fw-l {{ font-weight: 700; color: #0e6132; margin-right: 1mm; }}
+  .fw a {{ color: #0a58ca; text-decoration: none; word-break: break-all; }}
   .sub {{ color: #555; font-size: 9pt; margin-bottom: 2mm; }}
   .diff {{ color: #444; font-size: 9pt; margin-bottom: 6mm; }}
   .diff .pill {{ display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; margin-right: 2mm; }}
