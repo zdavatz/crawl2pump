@@ -266,6 +266,7 @@ impl Part {
             "seeed-xiao-esp32s3-sense" => (2.1, 1.75, 0.65), // + cam/mic
             "lilygo-tbeam-s3-supreme" => (10.0, 3.3, 1.3),
             "vl53l1x-tof" => (2.54, 2.54, 0.5), // SparkFun Qwiic 1×1"
+            "qwiic-cable-100mm" => (10.0, 0.5, 0.3), // 100 mm flex cable
             _ => return None,
         };
         Some(d)
@@ -283,6 +284,10 @@ impl Part {
     /// test enforces `Some` + a github.com URL so the report never
     /// renders a part without a firmware link.
     pub fn firmware_repo(&self) -> Option<&'static str> {
+        // Passive accessories (cables) have no firmware concept.
+        if self.key == "qwiic-cable-100mm" {
+            return None;
+        }
         let url = match self.key {
             "esp32-c3-devkitc"
             | "esp32-s3-devkitc"
@@ -655,6 +660,30 @@ pub fn bom() -> Vec<Part> {
                    (specular reflection); angle it or use ultrasonic / \
                    radar for a rugged altimeter.",
         },
+        // The cable that makes the ToF actually solder-free: a
+        // SparkFun Qwiic Cable (100 mm, JST-SH 4-pin = STEMMA-QT
+        // compatible). Listed in the Distance section right beside the
+        // VL53L1X so the "what to actually order" set is complete.
+        // Passive wire — no firmware (firmware_repo() → None, so no
+        // OSS-firmware line renders for it; oss_firmware:true only
+        // means "contains no closed blob", it's vacuous for a cable).
+        Part {
+            key: "qwiic-cable-100mm",
+            name: "SparkFun Qwiic Cable 100 mm (solder-free I²C link)",
+            role: Role::Distance,
+            manufacturer: "SparkFun",
+            mpns: &["PRT-14427"],
+            connector: Connector::Qwiic,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: Some("14427"),
+            direct_url: None,
+            note: "4-pin JST-SH Qwiic / STEMMA-QT cable (100 mm). The \
+                   no-solder link from the VL53L1X Qwiic breakout to \
+                   the LilyGO T-Beam S3 Supreme's QWIIC socket (or the \
+                   STEVAL I²C bus). Order one alongside the ToF — the \
+                   breakout does not ship with a cable.",
+        },
     ]
 }
 
@@ -731,15 +760,21 @@ mod tests {
                 "{} has a non-positive dimension",
                 p.key
             );
-            // Every (oss_firmware) part links a real GitHub repo.
-            let repo = p
-                .firmware_repo()
-                .unwrap_or_else(|| panic!("{} missing firmware_repo", p.key));
-            assert!(
-                repo.starts_with("https://github.com/"),
-                "{} firmware_repo is not a github URL",
-                p.key
-            );
+            // Programmable parts link a real GitHub firmware repo;
+            // passive accessories (cables) legitimately have none —
+            // but if a repo is given it must be a github.com URL.
+            match p.firmware_repo() {
+                Some(repo) => assert!(
+                    repo.starts_with("https://github.com/"),
+                    "{} firmware_repo is not a github URL",
+                    p.key
+                ),
+                None => assert_eq!(
+                    p.key, "qwiic-cable-100mm",
+                    "{} unexpectedly has no firmware_repo",
+                    p.key
+                ),
+            }
         }
     }
 }

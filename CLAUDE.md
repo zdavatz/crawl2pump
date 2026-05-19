@@ -400,6 +400,17 @@ Architecture / invariants worth knowing before editing it:
   `Role::{label,from_label,order}` (Distance sits after Barometer);
   `bom_is_well_formed` already round-trips every role label, so a new
   role with no `from_label` entry fails the test.
+- **`qwiic-cable-100mm` is the first passive accessory** (SparkFun
+  Qwiic Cable, PID 14427) — sits in the Distance section beside the
+  VL53L1X so the no-solder order set is complete. It's the reason
+  `firmware_repo()` is no longer "every part is `Some`": a cable has
+  no firmware, so it returns `None` (render skips the OSS-firmware
+  line for it), and `bom_is_well_formed` now allows exactly that one
+  key to be `None` while still requiring any present repo to be a
+  github URL. `oss_firmware: true` on it is vacuous ("contains no
+  closed blob" — it's wire), not a real firmware claim. If you add
+  more passive accessories, widen that one allowed-`None` assertion
+  rather than reverting it to "every part `Some`".
 - **Six distributor sources, two kinds** (`src/sources/distributors/`):
   - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
     image), `vendor` (best-effort og:image fetch), `st`
