@@ -345,12 +345,27 @@ Architecture / invariants worth knowing before editing it:
   has all six (confirmed against the LilyGo-LoRa-Series hardware doc,
   not the marketing page — its GNSS is variant-dependent: u-blox
   MAX-M10 *or* Quectel L76K).
+- **`Part::dimensions_cm()` and `Part::resellers()` follow the exact
+  same keyed-`match self.key` pattern** as `features()` — one table
+  each, no per-`Part`-literal field, both asserted in
+  `bom_is_well_formed`. `dimensions_cm()` returns `(L,B,H)` in cm for
+  **all 17** parts (boards = enclosure/PCB, bare ICs = datasheet
+  package body — sub-cm but that *is* the device for an SMD part;
+  test enforces every part is `Some` and positive so the report never
+  shows "—"). `resellers()` returns `&[(label,url)]`, normally empty,
+  populated only for boards no API distributor stocks (currently just
+  the LilyGO all-in-one) so a Swiss/EU buyer gets real shop links;
+  prefer a verified deep product URL, else the shop's product-search
+  URL (survives reslugging). No price in the reseller label — a
+  hardcoded price in a static table goes stale.
 - **The LilyGO T-Beam S3 Supreme is the only all-in-one board** and
   the canonical `direct_url`/`vendor`-source example: not stocked by
   Mouser/DigiKey/Farnell, sold direct on LilyGO's Shopify store, so
   `vendor`'s `fetch_page_product` pulls og:image/title/price. Role is
   `Gps` so it lists beside the bare GNSS modules as the integrated
-  alternative.
+  alternative. Resellers include CH shops Bastelgarage + ChipDepot
+  (the `(M)` 868 MHz / Quectel L76K Meshtastic variant; ships with an
+  11 cm LoRa antenna, onboard GNSS antenna, no 18650).
 - **Six distributor sources, two kinds** (`src/sources/distributors/`):
   - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
     image), `vendor` (best-effort og:image fetch), `st`

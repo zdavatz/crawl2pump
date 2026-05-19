@@ -68,6 +68,10 @@ struct Row {
     connector: Connector,
     /// Buyer-facing capability checkboxes (from the BOM part).
     features: &'static [Feature],
+    /// EU/CH reseller buy links (from the BOM part), usually empty.
+    resellers: &'static [(&'static str, &'static str)],
+    /// Physical (L, B, H) in cm (from the BOM part).
+    dimensions: Option<(f32, f32, f32)>,
     listing: Listing,
 }
 
@@ -195,16 +199,26 @@ async fn main() -> Result<()> {
 }
 
 fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
-    let (oss, connector, features) = meta
+    let (oss, connector, features, resellers, dimensions) = meta
         .get(o.part_name)
-        .map(|(p,)| (p.oss_firmware, p.connector, p.features()))
-        .unwrap_or((false, Connector::Soldered, &[][..]));
+        .map(|(p,)| {
+            (
+                p.oss_firmware,
+                p.connector,
+                p.features(),
+                p.resellers(),
+                p.dimensions_cm(),
+            )
+        })
+        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None));
     Row {
         role: o.role,
         part_name: o.part_name.to_string(),
         oss,
         connector,
         features,
+        resellers,
+        dimensions,
         listing: o.listing,
     }
 }
@@ -231,10 +245,18 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         .unwrap_or(&s.title)
         .trim()
         .to_string();
-    let (oss, connector, features) = meta
+    let (oss, connector, features, resellers, dimensions) = meta
         .get(part_name.as_str())
-        .map(|(p,)| (p.oss_firmware, p.connector, p.features()))
-        .unwrap_or((false, Connector::Soldered, &[][..]));
+        .map(|(p,)| {
+            (
+                p.oss_firmware,
+                p.connector,
+                p.features(),
+                p.resellers(),
+                p.dimensions_cm(),
+            )
+        })
+        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None));
     let listing = Listing {
         source: s.source,
         brand: s.brand,
@@ -259,6 +281,8 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         oss,
         connector,
         features,
+        resellers,
+        dimensions,
         listing,
     })
 }
@@ -433,8 +457,36 @@ fn render_html(
                     html_escape(f.label())
                 ));
             }
+            if let Some((l, b, h)) = head.dimensions {
+                feats.push_str(&format!(
+                    r#"<span class="dim">L×B×H {} × {} × {} cm</span>"#,
+                    fmt_cm(l),
+                    fmt_cm(b),
+                    fmt_cm(h)
+                ));
+            }
             feats.push_str("</div>");
             body.push_str(&feats);
+            // EU/CH reseller buy links — only emitted for parts that
+            // carry them (boards no API distributor stocks, e.g. the
+            // LilyGO all-in-one). Once per part, like the feature row.
+            if !head.resellers.is_empty() {
+                let mut buy = String::from(r#"<div class="buy"><span class="buy-l">Buy (EU/CH):</span> "#);
+                let links: Vec<String> = head
+                    .resellers
+                    .iter()
+                    .map(|(label, url)| {
+                        format!(
+                            r#"<a href="{}" target="_blank" rel="noopener">{}</a>"#,
+                            html_escape(url),
+                            html_escape(label)
+                        )
+                    })
+                    .collect();
+                buy.push_str(&links.join(" · "));
+                buy.push_str("</div>");
+                body.push_str(&buy);
+            }
             // Cross-offer image fallback: if any offer for this part
             // carries a real photo (after thumbnail inlining), reuse it
             // for offers that have none — typically the price-less ST
@@ -503,6 +555,10 @@ fn render_html(
   .feat {{ display: inline-block; font-size: 8pt; font-weight: 600; padding: 0.5mm 2mm; border-radius: 1mm; margin: 0 1.5mm 1mm 0; border: 1px solid #d5d5d5; }}
   .feat.yes {{ background: #d1f0d6; color: #0e6132; border-color: #9ed8ab; }}
   .feat.no  {{ background: #f6f6f6; color: #aaa; }}
+  .dim {{ display: inline-block; font-size: 8pt; font-weight: 600; padding: 0.5mm 2mm; border-radius: 1mm; margin: 0 1.5mm 1mm 0; background: #e7eefc; color: #234; border: 1px solid #c5d4f3; }}
+  .buy {{ font-size: 8.5pt; margin: 0 0 3mm; line-height: 1.5; }}
+  .buy-l {{ font-weight: 700; color: #444; margin-right: 1mm; }}
+  .buy a {{ color: #0a58ca; text-decoration: none; white-space: nowrap; }}
   .sub {{ color: #555; font-size: 9pt; margin-bottom: 2mm; }}
   .diff {{ color: #444; font-size: 9pt; margin-bottom: 6mm; }}
   .diff .pill {{ display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; margin-right: 2mm; }}
@@ -631,6 +687,14 @@ fn shorten(s: &str, limit: usize) -> String {
     }
     out.push('…');
     out
+}
+
+/// Format a cm measurement: up to 2 decimals, trailing zeros trimmed
+/// (6.30 → "6.3", 4.00 → "4", 0.06 → "0.06", 2.55 → "2.55").
+fn fmt_cm(v: f32) -> String {
+    let s = format!("{:.2}", v);
+    let s = s.trim_end_matches('0').trim_end_matches('.');
+    s.to_string()
 }
 
 /// Inline SVG placeholder (base64 data URL — no network, never fails)

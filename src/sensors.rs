@@ -181,6 +181,89 @@ impl Part {
             _ => &[],
         }
     }
+
+    /// EU/Switzerland resellers with a buy link, keyed by part. Used
+    /// for boards that no API distributor (Mouser/DigiKey/Farnell)
+    /// stocks, so the report can still point a Swiss/EU buyer at a
+    /// real shop. `(label, url)`; label is "Shop (CC)". Links are
+    /// either a verified deep product page or the shop's own product
+    /// search (robust — stays valid if the shop reslugs). Sourced
+    /// from LilyGO's official distributors page (lilygo.cc/pages/
+    /// distributors), EU/CH entries only. Deliberately no price in
+    /// the label — a hardcoded price in a static table goes stale.
+    pub fn resellers(&self) -> &'static [(&'static str, &'static str)] {
+        match self.key {
+            "lilygo-tbeam-s3-supreme" => &[
+                (
+                    "Bastelgarage (CH)",
+                    "https://www.bastelgarage.ch/lilygo-t-beam-supreme-meshtastic-esp32-s3-868mhz-lora-modul-mit-gps",
+                ),
+                (
+                    "ChipDepot (CH)",
+                    "https://chipdepot.ch/shop/lilygo-t-beam-supreme-m-868mhz/",
+                ),
+                (
+                    "TinyTronics (NL)",
+                    "https://www.tinytronics.nl/en/search?query=T-Beam+S3+Supreme",
+                ),
+                (
+                    "OpenELAB (EU)",
+                    "https://openelab.io/search?q=T-Beam+Supreme",
+                ),
+                (
+                    "Elektor (EU)",
+                    "https://www.elektor.com/catalogsearch/result/?q=T-Beam+Supreme",
+                ),
+                (
+                    "The Machine Shop (UK)",
+                    "https://themachineshop.uk/?s=T-Beam+Supreme&post_type=product",
+                ),
+                (
+                    "Bot'n Roll (PT)",
+                    "https://www.botnroll.com/en/search?s=T-Beam+Supreme",
+                ),
+                (
+                    "LilyGO (direct)",
+                    "https://lilygo.cc/products/t-beam-supreme-meshtastic",
+                ),
+            ],
+            _ => &[],
+        }
+    }
+
+    /// Physical size as (L, B, H) in **centimetres**, keyed by part.
+    /// Boards/modules = product enclosure/PCB size; bare solder-down
+    /// ICs = datasheet package body size (sub-cm — that's the real
+    /// "device" for an SMD part, shown for completeness). Sources:
+    /// STEVAL-MKBOXPRO 63×40×20 mm (measured, see task notes); ESP32
+    /// DevKitC + XIAO + Feather/Thing-Plus = vendor form-factor specs;
+    /// LilyGO T-Beam S3 Supreme ≈ 100×33×13 mm (no 18650); ST IC
+    /// packages from their datasheets (UFBGA169 7×7, LGA-14 3×2.5,
+    /// LGA/HLGA-1x 2×2, UDFN-6 2×2, DFN-8 3×2). All 17 are known so
+    /// the report never shows "—" for this row.
+    pub fn dimensions_cm(&self) -> Option<(f32, f32, f32)> {
+        let d = match self.key {
+            "steval-mkboxpro" => (6.3, 4.0, 2.0),
+            "stm32u585ai" => (0.70, 0.70, 0.06), // UFBGA169 7×7
+            "lsm6dsv16x" => (0.30, 0.25, 0.08),  // LGA-14 3.0×2.5
+            "lis2mdl" => (0.20, 0.20, 0.10),     // LGA-12 2×2
+            "lps22df" => (0.20, 0.20, 0.10),     // HLGA-10 2×2
+            "stts22h" => (0.20, 0.20, 0.05),     // UDFN-6 2×2
+            "stc3115" => (0.30, 0.20, 0.06),     // DFN-8 3×2
+            "ublox-max-m10s" => (1.01, 0.97, 0.25), // MAX-M10 module
+            "sparkfun-max-m10s" => (2.54, 2.54, 0.60), // 1×1" Qwiic
+            "esp32-c3-devkitc" => (5.2, 2.3, 1.0),
+            "esp32-s3-devkitc" => (6.9, 2.55, 1.0),
+            "sparkfun-thing-plus-c" => (5.84, 2.29, 0.71), // Feather FF
+            "seeed-xiao-esp32c3" | "seeed-xiao-esp32s3" | "seeed-xiao-esp32c6" => {
+                (2.1, 1.75, 0.40)
+            }
+            "seeed-xiao-esp32s3-sense" => (2.1, 1.75, 0.65), // + cam/mic
+            "lilygo-tbeam-s3-supreme" => (10.0, 3.3, 1.3),
+            _ => return None,
+        };
+        Some(d)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -529,5 +612,16 @@ mod tests {
             Feature::ALL.as_slice()
         );
         assert!(by_key("lps22df").features().is_empty());
+        // Every part has a known LxBxH so the report never shows "—".
+        for p in &parts {
+            let (l, b, h) = p
+                .dimensions_cm()
+                .unwrap_or_else(|| panic!("{} missing dimensions_cm", p.key));
+            assert!(
+                l > 0.0 && b > 0.0 && h > 0.0,
+                "{} has a non-positive dimension",
+                p.key
+            );
+        }
     }
 }

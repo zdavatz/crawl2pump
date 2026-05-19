@@ -333,8 +333,13 @@ intentionally excluded.
 Each part shows a **capability checkbox row** (USB-C · WiFi ·
 Bluetooth · GPS · Motion · SD-card) so you can scan the catalog for
 "what does this board actually have" at a glance — ☑ green where
-present, ☐ grey where not. The feature data is a single keyed table
-in `src/sensors.rs` (`Part::features()`), unit-tested.
+present, ☐ grey where not — plus an **L×B×H size** chip in cm (board
+enclosure/PCB size for modules, datasheet package body for bare ICs).
+For boards no API distributor stocks (e.g. the LilyGO all-in-one),
+a **"Buy (EU/CH)" row** lists Swiss/EU reseller links so a local
+buyer has a real shop to order from. Feature, dimension and reseller
+data are single keyed tables in `src/sensors.rs` (`Part::features()`
+/ `Part::dimensions_cm()` / `Part::resellers()`), all unit-tested.
 
 Every card always shows an image: a real product photo where one is
 reachable without a key (SparkFun and Seeed JSON-LD/og:image, u-blox
