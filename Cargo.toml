@@ -37,6 +37,10 @@ path = "src/bin/pumpfoil_report.rs"
 name = "meta_post"
 path = "src/bin/meta_post.rs"
 
+[[bin]]
+name = "sensor_report"
+path = "src/bin/sensor_report.rs"
+
 [lib]
 name = "crawl2pump"
 path = "src/lib.rs"

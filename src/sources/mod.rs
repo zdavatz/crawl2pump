@@ -5,6 +5,7 @@ use async_trait::async_trait;
 pub mod brands;
 pub mod browser;
 pub mod classifieds;
+pub mod distributors;
 pub mod flaresolverr;
 pub mod html_util;
 pub mod shopify;

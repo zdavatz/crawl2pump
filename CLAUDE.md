@@ -62,6 +62,10 @@ Whitelisted promotions:
 - **`meta_post.rs`** — Facebook Page poster. Reads catalog rows out of
   `sqlite/crawl2pump.db` and publishes them to the Pump Tsüri Page
   via the Meta Graph API. See "Convenience binary `meta_post`" below.
+- **`sensor_report.rs`** — electronics-distributor scan for the
+  MovementLogger firmware BOM + USB-C OSS modules. Part-list driven
+  (not query/brand driven). See "Convenience binary `sensor_report`"
+  below.
 
 ## Convenience binary `pumpfoil_report`
 
@@ -293,6 +297,89 @@ Hard-won bits worth knowing before editing it:
   delete the whole batch later via `curl -X DELETE
   graph.facebook.com/v21.0/<post_id>?access_token=...`. Overview
   posts log `id=...` (different field; same DELETE call).
+
+## Convenience binary `sensor_report`
+
+`src/bin/sensor_report.rs` is the hardware-sibling of
+`pumpfoil_report`: instead of crawling pumpfoil brand shops by query,
+it scans electronics distributors for a **fixed bill of materials** —
+the MovementLogger pumpfoil session-recorder firmware
+([`movement_logger_firmware`](https://github.com/zdavatz/movement_logger_firmware))
+plus a curated set of USB-C, open-source-firmware pluggable modules.
+
+```bash
+./target/release/sensor_report                 # ~/Downloads/sensors.pdf
+./target/release/sensor_report --oss-only      # only OSS-firmware parts
+./target/release/sensor_report --usbc-only     # only USB-C pluggable
+./target/release/sensor_report --from-db       # re-render, no crawl
+```
+
+Architecture / invariants worth knowing before editing it:
+
+- **The BOM is the single source of truth** — `src/sensors.rs::bom()`.
+  Each `Part` carries `role` (→ PDF section + DB `category`),
+  `connector`, an `oss_firmware` flag, the manufacturer part numbers
+  (`mpns`, used by the API distributors), and at most one no-key
+  lookup hint (`st_url` / `sparkfun_pid` / `direct_url`). Add new
+  hardware here, nowhere else.
+- **`oss_firmware` is a hard rule for the USB-C group.** Any USB-C
+  pluggable WiFi/GPS/MCU module added to the curated section *must*
+  run fully open-source firmware (ESP-IDF Apache-2.0 / Arduino core /
+  RP2040 SDK). Closed-blob-only modules don't belong no matter how
+  convenient the hardware — there's a unit-test assertion enforcing
+  this for USB-C WiFi parts; widen it if you add other USB-C roles.
+- **Six distributor sources, two kinds** (`src/sources/distributors/`):
+  - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
+    image), `st` and `vendor` (**reference-only, zero HTTP**).
+  - *API, key required:* `mouser`, `digikey`, `farnell`.
+- **`st` and `vendor` do NOT fetch.** st.com is behind Akamai bot
+  protection that *hangs* a plain reqwest GET (~30 s/part of dead
+  timeout, 0 results — measured). ST's eStore never exposes a price
+  without auth anyway, and u-blox/Espressif don't sell direct at a
+  scrapeable price. So both emit a **price-less reference offer**
+  pointing at the canonical product page with no HTTP at all. This is
+  deliberate — it guarantees *every BOM part shows up in the catalog
+  even with zero API keys*, and the real price/stock layers in from
+  the API distributors when keys are present. Don't "fix" these by
+  re-adding a fetch; it just reintroduces the 210 s hang.
+- **API distributors skip, never fail, on missing creds.** They
+  signal a clean skip by returning `Err("skip: …")`; the `run()`
+  wrapper renders that as `[skip]` not `[err]`. Keep that contract —
+  a missing key is expected, not an error.
+- **`.sensors.env`** (gitignored, project root) holds the API keys.
+  Loaded by `load_sensors_env`; already-exported env vars win (CI
+  override). Schema — all optional, absent ⇒ that distributor skips:
+  ```text
+  MOUSER_API_KEY=...
+  DIGIKEY_CLIENT_ID=...
+  DIGIKEY_CLIENT_SECRET=...
+  FARNELL_API_KEY=...
+  ```
+  DigiKey uses OAuth2 client-credentials (one token, then keyword
+  search/part); Mouser & Farnell are single-key. DigiKey/Farnell
+  queries are pinned to the Swiss store (CHF); Mouser currency comes
+  from the price-break record.
+- **Separate DB file: `sqlite/sensors.db`** (not `crawl2pump.db`).
+  Same `src/db.rs` schema and `Db::upsert_scan` write path — `role`
+  label goes in the generic `category` column, the rest maps straight
+  from `Listing`. The `image_cache` table is reused for thumbnail
+  inlining. New/modified freshness uses the same 7-day-window
+  `new_since`/`modified_since` queries as `pumpfoil_report --from-db`.
+- **`--from-db` recovers OSS/connector from the BOM by name.** The
+  generic `listings` table doesn't carry `oss_firmware`/`connector`.
+  Offer titles are `"<part.name> · <mpn> @ <distributor>"`, so the
+  rebuild splits on `" · "`, takes the part-name prefix, and looks it
+  up in `bom()` for the badges. If you change the offer title format
+  in `distributors::offer`, fix `stored_to_row`'s prefix split too.
+- **`--oss-only` / `--usbc-only` are post-DB filters** (same contract
+  as `pumpfoil_report --frontwings-only`): the DB always stores the
+  full BOM scan; only the rendered PDF/HTML narrows. A subsequent
+  `--from-db --usbc-only` re-renders any subset without re-crawling.
+- Render groups by `Role` (section) → part (sub-heading with OSS /
+  USB-C / connector tag) → distributor offer cards, price ascending
+  with no-price (reference) rows last. Thumbnails are fetched +
+  resized + base64-inlined exactly like `pumpfoil_report` (minus the
+  AVIF/magick fallback — distributor photos are plain JPEG/PNG/WebP).
 
 ## SQLite persistence (`src/db.rs`)
 

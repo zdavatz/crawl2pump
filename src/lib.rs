@@ -1,6 +1,7 @@
 pub mod db;
 pub mod listing;
 pub mod output;
+pub mod sensors;
 pub mod sources;
 
 use anyhow::Result;

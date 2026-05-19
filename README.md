@@ -316,6 +316,47 @@ the Page.
 Pump Tsüri is the live target — current Page lives at
 [facebook.com/pumptsueri](https://www.facebook.com/pumptsueri/).
 
+### `sensor_report` — distributor scan for the MovementLogger hardware
+
+A third whitelisted bin scans electronics distributors for a fixed
+**bill of materials** instead of crawling pumpfoil shops: the
+[`movement_logger_firmware`](https://github.com/zdavatz/movement_logger_firmware)
+session-recorder hardware (STEVAL-MKBOXPRO + its on-board ST sensor
+ICs + the u-blox MAX-M10S GPS) plus a curated set of **USB-C,
+open-source-firmware** pluggable modules (ESP32 devkits, SparkFun
+boards). Open-source firmware is a hard requirement for the USB-C
+group — closed-blob-only modules are intentionally excluded.
+
+```bash
+./target/release/sensor_report                 # all parts → ~/Downloads/sensors.pdf
+./target/release/sensor_report --oss-only      # only open-source-firmware parts
+./target/release/sensor_report --usbc-only     # only USB-C pluggable modules
+./target/release/sensor_report --from-db       # re-render from DB without re-crawling
+```
+
+Six distributor sources, two kinds:
+
+- **No key needed:** SparkFun (real price + image), ST and the
+  generic vendor pages (reference links only — st.com / u-blox /
+  Espressif are behind bot-protection or don't sell direct, so these
+  emit a price-less canonical link with no HTTP fetch). This means
+  **every BOM part shows up even with zero API keys configured**.
+- **API key needed:** Mouser, DigiKey, Farnell — these add real
+  price/stock. Keys live in a local `.sensors.env` (gitignored); any
+  that are absent simply skip with a one-line hint:
+
+  ```text
+  MOUSER_API_KEY=...
+  DIGIKEY_CLIENT_ID=...
+  DIGIKEY_CLIENT_SECRET=...
+  FARNELL_API_KEY=...
+  ```
+
+Results persist to a separate `sqlite/sensors.db` (same schema as the
+pumpfoil DB) with the same new/modified freshness tracking, and render
+to a PDF + HTML grouped by part role, each part tagged with its
+firmware-openness, connector, and USB-C-pluggable status.
+
 ### CLI flags
 
 | Flag | Default | Effect |
