@@ -416,6 +416,51 @@ async fn fetch_resize_jpeg(client: &reqwest::Client, url: &str) -> Result<String
     ))
 }
 
+/// Wiring/build guide, emitted only when the rendered set contains
+/// BOTH the LilyGO T-Beam S3 Supreme and the SparkFun XM125 radar —
+/// i.e. the focused build sheet. Static, hand-verified against the
+/// LilyGo-LoRa-Series hw doc + SparkFun Qwiic colour convention.
+fn build_guide_html(rows: &[Row]) -> Option<String> {
+    let has = |needle: &str| rows.iter().any(|r| r.part_name.contains(needle));
+    if !(has("LilyGO T-Beam") && has("XM125")) {
+        return None;
+    }
+    Some(
+        r#"<div class="guide">
+<h2 class="cat">Build &amp; Wiring — LilyGO T-Beam S3 Supreme + XM125 radar</h2>
+<p class="g-h">1 · Power / battery</p>
+<ul>
+<li>Insert one <b>charged 18650 Li-ion cell (flat-top, ∅18 × 65 mm)</b> into the LilyGO's onboard holder — mind polarity. Not included; order separately.</li>
+<li>USB-C charges the 18650 and runs the board via the onboard AXP2101 PMU. On the water run untethered off the 18650; recharge over USB-C between sessions.</li>
+</ul>
+<p class="g-h">2 · Radar wiring — Qwiic female-jumper (SparkFun colour code)</p>
+<ul>
+<li>Plug the <b>Qwiic end</b> of the female-jumper cable into the <b>XM125's Qwiic port</b>.</li>
+<li>Wire the 4 female leads to the LilyGO's <b>real I²C header (GPIO17/18)</b> — <b>NOT</b> the connector labelled "QWIIC socket" (that is UART1, GPIO43/44, and will not work):</li>
+</ul>
+<table class="wire">
+<tr><th>Lead</th><th>XM125 (Qwiic)</th><th>→ LilyGO pin</th></tr>
+<tr><td>Black</td><td>GND</td><td>GND</td></tr>
+<tr><td>Red</td><td>3.3 V</td><td>3V3 (peripheral rail)</td></tr>
+<tr><td>Blue</td><td>SDA</td><td>GPIO 17 (SDA)</td></tr>
+<tr><td>Yellow</td><td>SCL</td><td>GPIO 18 (SCL)</td></tr>
+</table>
+<p class="g-n">XM125 default I²C address 0x52 — no clash with the onboard QMC6310 / BME280 / OLED, so it shares the bus fine. Zero soldering: Qwiic plug one end, push-on header pins the other.</p>
+<p class="g-h">3 · Firmware</p>
+<ul>
+<li>Firmware must <b>enable the AXP2101 peripheral/sensor power rail before any I²C access</b> (the LilyGO I²C bus hangs otherwise), init I²C on GPIO17/18, then drive the XM125 via the Acconeer A121 / SparkFun XM125 library.</li>
+<li>Stock Meshtastic does <b>not</b> read the radar — use custom firmware (movement_logger_firmware or an Arduino-ESP32 sketch).</li>
+</ul>
+<p class="g-h">4 · Enclosure</p>
+<ul>
+<li>Plastic (RF-transparent) waterproof box — the radar ranges <b>through</b> the wall, so the whole stack can be fully sealed. <b>No metal/carbon</b> case (blocks radar + GPS). If you keep the LPS22DF barometer, add a Gore-type vent membrane.</li>
+</ul>
+</div>
+"#
+        .to_string(),
+    )
+}
+
 fn render_html(
     rows: &[Row],
     freshness: &HashMap<String, Freshness>,
@@ -437,6 +482,13 @@ fn render_html(
 
     let mut body = String::new();
     let total = rows.len();
+    // Lead with a wiring/build guide when the rendered set is the
+    // LilyGO + XM125 radar build (both present). It's the answer to
+    // "how do I actually connect this so it works with battery +
+    // power + radar" and is the load-bearing reason --keys exists.
+    if let Some(g) = build_guide_html(rows) {
+        body.push_str(&g);
+    }
     for role in &roles {
         let role_rows: Vec<&Row> = rows.iter().filter(|r| r.role == *role).collect();
         body.push_str(&format!(
@@ -612,6 +664,15 @@ fn render_html(
   .fw a {{ color: #0a58ca; text-decoration: none; word-break: break-all; }}
   .mcu {{ font-size: 8.5pt; margin: 0 0 2mm; color: #222; }}
   .mcu-l {{ font-weight: 700; color: #6a1b9a; margin-right: 1mm; }}
+  .guide {{ border: 1px solid #c5d4f3; background: #f5f8ff; border-radius: 2mm; padding: 3mm 4mm; margin: 0 0 6mm; break-inside: avoid; }}
+  .guide h2.cat {{ margin-top: 0; }}
+  .guide .g-h {{ font-weight: 700; color: #0a58ca; margin: 3mm 0 1mm; font-size: 10pt; }}
+  .guide ul {{ margin: 0 0 1mm; padding-left: 5mm; }}
+  .guide li {{ font-size: 9pt; margin: 0.5mm 0; line-height: 1.35; }}
+  .guide .g-n {{ font-size: 8pt; color: #555; margin: 1mm 0 0; }}
+  table.wire {{ border-collapse: collapse; margin: 1mm 0 1mm; font-size: 9pt; }}
+  table.wire th, table.wire td {{ border: 1px solid #c5d4f3; padding: 0.8mm 3mm; text-align: left; }}
+  table.wire th {{ background: #e7eefc; }}
   .sub {{ color: #555; font-size: 9pt; margin-bottom: 2mm; }}
   .diff {{ color: #444; font-size: 9pt; margin-bottom: 6mm; }}
   .diff .pill {{ display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; margin-right: 2mm; }}

@@ -46,6 +46,8 @@ pub enum Role {
     Temperature,
     /// Battery fuel gauge.
     FuelGauge,
+    /// Battery cell (the 18650 that powers the LilyGO).
+    Battery,
 }
 
 impl Role {
@@ -61,6 +63,7 @@ impl Role {
             Role::Distance => "Distance / ToF",
             Role::Temperature => "Temperature",
             Role::FuelGauge => "Fuel Gauge",
+            Role::Battery => "Battery / Power",
         }
     }
     pub fn from_label(s: &str) -> Option<Self> {
@@ -75,6 +78,7 @@ impl Role {
             Role::Distance,
             Role::Temperature,
             Role::FuelGauge,
+            Role::Battery,
         ]
         .into_iter()
         .find(|r| r.label() == s)
@@ -92,6 +96,7 @@ impl Role {
             Role::Distance => 7,
             Role::Temperature => 8,
             Role::FuelGauge => 9,
+            Role::Battery => 10,
         }
     }
 }
@@ -109,6 +114,9 @@ pub enum Connector {
     Qwiic,
     /// USB-C — host-pluggable, the connector the user cares about.
     UsbC,
+    /// Not a connector — a power cell (the 18650). Kept so the
+    /// battery can be a first-class BOM part without faking a bus.
+    Battery,
 }
 
 impl Connector {
@@ -118,6 +126,7 @@ impl Connector {
             Connector::Uart => "UART pins",
             Connector::Qwiic => "Qwiic / I²C",
             Connector::UsbC => "USB-C",
+            Connector::Battery => "18650 cell",
         }
     }
     pub fn is_pluggable(self) -> bool {
@@ -232,6 +241,16 @@ impl Part {
                     "https://lilygo.cc/products/t-beam-supreme-meshtastic",
                 ),
             ],
+            "battery-18650" => &[
+                (
+                    "nkon.nl (EU 18650 specialist)",
+                    "https://www.nkon.nl/rechargeable/18650-size.html",
+                ),
+                (
+                    "Bastelgarage (CH)",
+                    "https://www.bastelgarage.ch/index.php?route=product/search&search=18650",
+                ),
+            ],
             _ => &[],
         }
     }
@@ -269,6 +288,7 @@ impl Part {
             "qwiic-cable-100mm" => (10.0, 0.5, 0.3), // 100 mm flex cable
             "sparkfun-xm125-radar" => (5.08, 2.54, 0.5), // 1.0×2.0" board
             "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
+            "battery-18650" => (6.5, 1.8, 1.8), // ∅18 × 65 mm cylinder
             _ => return None,
         };
         Some(d)
@@ -287,7 +307,10 @@ impl Part {
     /// renders a part without a firmware link.
     pub fn firmware_repo(&self) -> Option<&'static str> {
         // Passive accessories (cables) have no firmware concept.
-        if matches!(self.key, "qwiic-cable-100mm" | "qwiic-jumper-female") {
+        if matches!(
+            self.key,
+            "qwiic-cable-100mm" | "qwiic-jumper-female" | "battery-18650"
+        ) {
             return None;
         }
         let url = match self.key {
@@ -748,6 +771,31 @@ pub fn bom() -> Vec<Part> {
                    soldering. (Qwiic-native hosts / STEVAL use the \
                    plain Qwiic↔Qwiic cable instead.)",
         },
+        // The cell the LilyGO T-Beam S3 Supreme needs but does NOT
+        // ship with. Reference part: raw 18650s aren't reliably
+        // stocked by Mouser/DigiKey/Farnell and are a regulated
+        // li-ion shippable, so no API offer — just the spec + CH/EU
+        // reseller links (resellers()), like the LilyGO board itself.
+        Part {
+            key: "battery-18650",
+            name: "18650 Li-ion cell — flat-top ∅18 × 65 mm (LilyGO power)",
+            role: Role::Battery,
+            manufacturer: "Generic 18650",
+            mpns: &[],
+            connector: Connector::Battery,
+            oss_firmware: true, // passive cell — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.nkon.nl/rechargeable/18650-size.html"),
+            note: "NOT included with the LilyGO T-Beam S3 Supreme — \
+                   buy separately. Must be FLAT-TOP, ∅18 × 65 mm \
+                   (button-top cells are longer and won't seat). \
+                   3.6–3.7 V Li-ion, ≥2500 mAh recommended; the board's \
+                   AXP2101 PMU charges it over USB-C and runs the \
+                   board from it untethered. Protected or unprotected \
+                   both work (the AXP2101 handles charge/discharge \
+                   cut-off). Reputable cells: Samsung/LG/Molicel.",
+        },
     ]
 }
 
@@ -834,7 +882,10 @@ mod tests {
                     p.key
                 ),
                 None => assert!(
-                    matches!(p.key, "qwiic-cable-100mm" | "qwiic-jumper-female"),
+                    matches!(
+                        p.key,
+                        "qwiic-cable-100mm" | "qwiic-jumper-female" | "battery-18650"
+                    ),
                     "{} unexpectedly has no firmware_repo",
                     p.key
                 ),
