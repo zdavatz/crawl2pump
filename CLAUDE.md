@@ -411,6 +411,19 @@ Architecture / invariants worth knowing before editing it:
   closed blob" — it's wire), not a real firmware claim. If you add
   more passive accessories, widen that one allowed-`None` assertion
   rather than reverting it to "every part `Some`".
+- **`sparkfun-xm125-radar`** (SparkFun XM125, Acconeer A121 60 GHz
+  pulsed-coherent radar, PID 24540, Qwiic) is the *seal-in-a-box*
+  distance option vs the VL53L1X's *needs-an-optical-window*: radar
+  ranges **through** a non-metal enclosure wall, so the whole
+  recorder can be fully potted in a closed plastic box (the Peli
+  Micro cases in `brands/brack.rs` are polymer ⇒ RF-transparent ⇒
+  radar + GPS both work through them; a *metal* case would block
+  both). `oss_firmware: true` on the same host-driver basis as the
+  u-blox GPS (Acconeer SDK / SparkFun Arduino lib open; the radar
+  core blob is closed like every GNSS/radar IC) — don't "fix" it to
+  false. The only thing that still can't be fully sealed is the
+  LPS22DF barometer (needs a Gore-type vent, or drop it and let the
+  radar own height). Keep that trade-off note on the part.
 - **Six distributor sources, two kinds** (`src/sources/distributors/`):
   - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
     image), `vendor` (best-effort og:image fetch), `st`

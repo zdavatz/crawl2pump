@@ -337,6 +337,12 @@ pluggable into both the STEVAL's I²C bus and the LilyGO T-Beam S3
 Supreme's exposed I²C (SDA17/SCL18) via a Qwiic/STEMMA-QT breakout —
 and the matching **SparkFun Qwiic Cable** is in the BOM beside it so
 the "what to actually order for a no-solder build" set is complete.
+A second option in the same section, the **SparkFun XM125 60 GHz
+radar** (Acconeer A121), ranges *through* a sealed non-metal
+enclosure wall — no optical window — so the whole recorder can live
+in one fully closed plastic (Peli Micro) box; it's also more reliable
+over open water than IR ToF (water reflects radar strongly). Both
+distance options are Qwiic / solder-free and share the cable.
 
 Each part shows a **capability checkbox row** (USB-C · WiFi ·
 Bluetooth · GPS · Motion · SD-card) so you can scan the catalog for

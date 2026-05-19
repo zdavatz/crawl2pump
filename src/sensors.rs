@@ -267,6 +267,7 @@ impl Part {
             "lilygo-tbeam-s3-supreme" => (10.0, 3.3, 1.3),
             "vl53l1x-tof" => (2.54, 2.54, 0.5), // SparkFun Qwiic 1×1"
             "qwiic-cable-100mm" => (10.0, 0.5, 0.3), // 100 mm flex cable
+            "sparkfun-xm125-radar" => (5.08, 2.54, 0.5), // 1.0×2.0" board
             _ => return None,
         };
         Some(d)
@@ -683,6 +684,37 @@ pub fn bom() -> Vec<Part> {
                    the LilyGO T-Beam S3 Supreme's QWIIC socket (or the \
                    STEVAL I²C bus). Order one alongside the ToF — the \
                    breakout does not ship with a cable.",
+        },
+        // The "seal it fully inside a plastic box" distance option:
+        // 60 GHz pulsed-coherent radar (Acconeer A121 on SparkFun's
+        // XM125 Qwiic board). Radar ranges *through* a non-metal
+        // enclosure wall, so unlike the IR ToF it needs no optical
+        // window / air gap / anti-crosstalk — pot it completely in an
+        // RF-transparent box. Water is a strong radar reflector, so
+        // it's *more* reliable over open water than the VL53L1X (which
+        // suffers IR specular reflection). Qwiic ⇒ same no-solder
+        // cable as the ToF. oss_firmware:true on the same basis as the
+        // u-blox GPS — host SDK / SparkFun Arduino lib is open; the
+        // radar core blob is closed like every GNSS/radar IC.
+        Part {
+            key: "sparkfun-xm125-radar",
+            name: "SparkFun XM125 60 GHz Radar (Acconeer A121, seal-in-box distance)",
+            role: Role::Distance,
+            manufacturer: "SparkFun",
+            mpns: &["SEN-24540"],
+            connector: Connector::Qwiic,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: Some("24540"),
+            direct_url: None,
+            note: "60 GHz pulsed-coherent radar (Acconeer A121). \
+                   Ranges through a sealed non-metal enclosure wall — \
+                   no optical window needed, fully pottable in a \
+                   plastic box. Qwiic, plugs into the LilyGO T-Beam S3 \
+                   Supreme's QWIIC socket / STEVAL I²C with the same \
+                   no-solder cable. More reliable over open water than \
+                   the IR ToF (water reflects radar strongly). Box \
+                   wall must be RF-transparent (no metal / carbon).",
         },
     ]
 }
