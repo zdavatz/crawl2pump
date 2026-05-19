@@ -268,6 +268,7 @@ impl Part {
             "vl53l1x-tof" => (2.54, 2.54, 0.5), // SparkFun Qwiic 1×1"
             "qwiic-cable-100mm" => (10.0, 0.5, 0.3), // 100 mm flex cable
             "sparkfun-xm125-radar" => (5.08, 2.54, 0.5), // 1.0×2.0" board
+            "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
             _ => return None,
         };
         Some(d)
@@ -286,7 +287,7 @@ impl Part {
     /// renders a part without a firmware link.
     pub fn firmware_repo(&self) -> Option<&'static str> {
         // Passive accessories (cables) have no firmware concept.
-        if self.key == "qwiic-cable-100mm" {
+        if matches!(self.key, "qwiic-cable-100mm" | "qwiic-jumper-female") {
             return None;
         }
         let url = match self.key {
@@ -653,13 +654,13 @@ pub fn bom() -> Vec<Part> {
             st_url: Some("https://www.st.com/en/imaging-and-photonics-solutions/vl53l1x.html"),
             sparkfun_pid: Some("14722"),
             direct_url: None,
-            note: "Laser ToF rangefinder, up to ~4 m, I²C/Qwiic — plugs \
-                   into the STEVAL I²C bus and the LilyGO T-Beam S3 \
-                   Supreme's external I²C (SDA17/SCL18). The \
+            note: "Laser ToF rangefinder, up to ~4 m, I²C/Qwiic. The \
                    height-over-water sensor neither board has onboard. \
-                   Caveat: IR ToF is unreliable on flat water \
-                   (specular reflection); angle it or use ultrasonic / \
-                   radar for a rugged altimeter.",
+                   LilyGO side: female-jumper cable to its I²C header \
+                   (GPIO17/18), NOT its 'QWIIC socket' (that's UART1); \
+                   STEVAL side: normal I²C. No soldering. Caveat: IR \
+                   ToF is unreliable on flat water (specular \
+                   reflection) — angle it or use the radar instead.",
         },
         // The cable that makes the ToF actually solder-free: a
         // SparkFun Qwiic Cable (100 mm, JST-SH 4-pin = STEMMA-QT
@@ -679,10 +680,13 @@ pub fn bom() -> Vec<Part> {
             st_url: None,
             sparkfun_pid: Some("14427"),
             direct_url: None,
-            note: "4-pin JST-SH Qwiic / STEMMA-QT cable (100 mm). The \
-                   no-solder link from the VL53L1X Qwiic breakout to \
-                   the LilyGO T-Beam S3 Supreme's QWIIC socket (or the \
-                   STEVAL I²C bus). Order one alongside the ToF — the \
+            note: "4-pin JST-SH Qwiic / STEMMA-QT cable (100 mm). \
+                   Qwiic↔Qwiic — use it between two Qwiic-native I²C \
+                   ports (the STEVAL I²C path). NOT for the LilyGO: \
+                   its 'External QWIIC Socket' is wired to UART1 \
+                   (GPIO43/44), not I²C — the LilyGO needs the \
+                   female-jumper cable to its real I²C header \
+                   (GPIO17/18). Order one alongside the ToF — the \
                    breakout does not ship with a cable.",
         },
         // The "seal it fully inside a plastic box" distance option:
@@ -710,11 +714,39 @@ pub fn bom() -> Vec<Part> {
             note: "60 GHz pulsed-coherent radar (Acconeer A121). \
                    Ranges through a sealed non-metal enclosure wall — \
                    no optical window needed, fully pottable in a \
-                   plastic box. Qwiic, plugs into the LilyGO T-Beam S3 \
-                   Supreme's QWIIC socket / STEVAL I²C with the same \
-                   no-solder cable. More reliable over open water than \
-                   the IR ToF (water reflects radar strongly). Box \
+                   plastic box. I²C/Qwiic: connect to the LilyGO's \
+                   real I²C header (GPIO17 SDA / GPIO18 SCL / 3V3 / \
+                   GND) via the female-jumper cable — NOT the LilyGO \
+                   'QWIIC socket' (that's UART1). On STEVAL / \
+                   Qwiic-native hosts the plain Qwiic cable works. No \
+                   soldering either way. More reliable over open water \
+                   than IR ToF (water reflects radar strongly). Box \
                    wall must be RF-transparent (no metal / carbon).",
+        },
+        // The cable that actually connects a Qwiic sensor to the
+        // LilyGO T-Beam S3 Supreme: its "QWIIC socket" is UART1, so a
+        // plain Qwiic↔Qwiic cable can't reach the I²C bus. This one
+        // is Qwiic on the sensor end and 4 loose female Dupont leads
+        // on the other → push straight onto the LilyGO I²C header
+        // pins (GPIO17 SDA, GPIO18 SCL, 3V3, GND). Still zero solder.
+        Part {
+            key: "qwiic-jumper-female",
+            name: "SparkFun Flexible Qwiic Cable – Female Jumper (4-pin)",
+            role: Role::Distance,
+            manufacturer: "SparkFun",
+            mpns: &["CAB-17261"],
+            connector: Connector::Qwiic,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: Some("17261"),
+            direct_url: None,
+            note: "Qwiic plug → 4 female Dupont leads. THE no-solder \
+                   link for the LilyGO T-Beam S3 Supreme: its 'QWIIC \
+                   socket' is UART1, so plug these onto its real I²C \
+                   header — GPIO17 (SDA), GPIO18 (SCL), 3V3, GND. \
+                   Connects the VL53L1X / XM125 to the LilyGO without \
+                   soldering. (Qwiic-native hosts / STEVAL use the \
+                   plain Qwiic↔Qwiic cable instead.)",
         },
     ]
 }
@@ -801,8 +833,8 @@ mod tests {
                     "{} firmware_repo is not a github URL",
                     p.key
                 ),
-                None => assert_eq!(
-                    p.key, "qwiic-cable-100mm",
+                None => assert!(
+                    matches!(p.key, "qwiic-cable-100mm" | "qwiic-jumper-female"),
                     "{} unexpectedly has no firmware_repo",
                     p.key
                 ),

@@ -390,8 +390,18 @@ Architecture / invariants worth knowing before editing it:
   onboard). It's an ST VL53L1X — `Connector::Qwiic` because it's a
   2-wire I²C device on a Qwiic/STEMMA-QT breakout, so it plugs
   solder-free into the STEVAL's I²C bus *and* the LilyGO T-Beam S3
-  Supreme's exposed I²C (SDA17/SCL18, verified in the LilyGo-LoRa-
-  Series hw doc; firmware must power the sensor I²C rail first). ST
+  Supreme's I²C — **but the LilyGO's connector labelled "QWIIC
+  socket" is wired to UART1 (GPIO43/44), NOT I²C** (verified in the
+  LilyGo-LoRa-Series hw doc). Its real I²C bus is the header pins
+  GPIO17 (SDA) / GPIO18 (SCL); firmware must power the sensor I²C
+  rail first. Consequence: a plain Qwiic↔Qwiic cable can't reach the
+  LilyGO I²C — hence **two** cable parts: `qwiic-cable-100mm`
+  (Qwiic↔Qwiic, STEVAL / Qwiic-native) and `qwiic-jumper-female`
+  (Qwiic→female Dupont onto GPIO17/18 — the actual LilyGO link).
+  Both are passive (`firmware_repo()` → None; the
+  `bom_is_well_formed` allow-None set lists both keys — widen it, not
+  revert, for further accessories). Don't "correct" any note back to
+  "plug into the LilyGO QWIIC socket" — that's the exact UART trap. ST
   part ⇒ `st_url` + `mpns` (Mouser/Farnell stock it ~4.5 CHF) +
   `sparkfun_pid` 14722 (the Qwiic breakout, ~30 USD). The note keeps
   the honest field caveat: IR ToF reads flat water poorly (specular
@@ -505,6 +515,11 @@ Architecture / invariants worth knowing before editing it:
   as `pumpfoil_report --frontwings-only`): the DB always stores the
   full BOM scan; only the rendered PDF/HTML narrows. A subsequent
   `--from-db --usbc-only` re-renders any subset without re-crawling.
+  **`--keys <csv>`** is the same kind of post-DB filter but by BOM
+  `key` (Row carries `part_name`, so the keys are resolved to names
+  via `bom()` once). Use with `--output` for a focused build sheet,
+  e.g. `--from-db --keys lilygo-tbeam-s3-supreme,sparkfun-xm125-radar,
+  qwiic-jumper-female --output /tmp/build.pdf`.
 - Render groups by `Role` (section) → part (sub-heading with OSS /
   USB-C / connector tag) → distributor offer cards, price ascending
   with no-price (reference) rows last. Thumbnails are fetched +

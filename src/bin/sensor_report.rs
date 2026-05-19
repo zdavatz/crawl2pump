@@ -48,6 +48,12 @@ struct Args {
     /// Only USB-C (host-pluggable) modules.
     #[arg(long)]
     usbc_only: bool,
+    /// Render only these BOM part keys (CSV, e.g.
+    /// `lilygo-tbeam-s3-supreme,sparkfun-xm125-radar`). Post-DB
+    /// filter like --oss-only: the DB keeps the full scan; only the
+    /// rendered PDF narrows. Use with --output for a focused sheet.
+    #[arg(long)]
+    keys: Option<String>,
     /// `.sensors.env` path (Mouser/DigiKey/Farnell API keys).
     #[arg(long, default_value = ".sensors.env")]
     env_file: PathBuf,
@@ -130,10 +136,22 @@ async fn main() -> Result<()> {
 
     // Apply post-classification filters (DB always holds the full BOM;
     // only the rendered PDF narrows — same contract as pumpfoil_report).
+    // --keys is by BOM `key`; Row carries part_name, so resolve the
+    // requested keys to part names via the BOM once.
+    let key_names: Option<std::collections::HashSet<String>> = args.keys.as_ref().map(|csv| {
+        let want: std::collections::HashSet<&str> =
+            csv.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+        bom()
+            .into_iter()
+            .filter(|p| want.contains(p.key))
+            .map(|p| p.name.to_string())
+            .collect()
+    });
     let mut rows: Vec<Row> = rows
         .into_iter()
         .filter(|r| !args.oss_only || r.oss)
         .filter(|r| !args.usbc_only || r.connector == Connector::UsbC)
+        .filter(|r| key_names.as_ref().is_none_or(|n| n.contains(&r.part_name)))
         .collect();
 
     if rows.is_empty() {
