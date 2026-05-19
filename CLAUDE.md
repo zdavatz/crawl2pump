@@ -326,8 +326,31 @@ Architecture / invariants worth knowing before editing it:
   pluggable WiFi/GPS/MCU module added to the curated section *must*
   run fully open-source firmware (ESP-IDF Apache-2.0 / Arduino core /
   RP2040 SDK). Closed-blob-only modules don't belong no matter how
-  convenient the hardware — there's a unit-test assertion enforcing
-  this for USB-C WiFi parts; widen it if you add other USB-C roles.
+  convenient the hardware — there's a unit-test assertion in
+  `bom_is_well_formed` enforcing this for **any** `Connector::UsbC`
+  part (was WiFi-only; widened when the LilyGO USB-C GPS board was
+  added). Don't narrow it back.
+- **Capability checkboxes are `Part::features()`** in `src/sensors.rs`
+  — a single keyed `match self.key` table returning a `&'static
+  [Feature]` (USB-C / WiFi / Bluetooth / GPS / Motion / SD-card). It
+  is the single source of truth for the six-feature checkbox row the
+  PDF renders **once per part** (not per distributor offer — features
+  are a property of the part). Adding a part = one match arm; no
+  per-`Part`-literal field, so the existing literals and tests stay
+  untouched. `bom_is_well_formed` asserts the all-in-one LilyGO board
+  has all six, bare ICs have none, and that any part claiming the
+  USB-C *feature* really has `Connector::UsbC`. Verify feature data
+  against vendor docs before adding — STEVAL-MKBOXPRO = SensorTile.box
+  PRO (BLE+USB-C+IMU+microSD, no WiFi/GPS); LilyGO T-Beam S3 Supreme
+  has all six (confirmed against the LilyGo-LoRa-Series hardware doc,
+  not the marketing page — its GNSS is variant-dependent: u-blox
+  MAX-M10 *or* Quectel L76K).
+- **The LilyGO T-Beam S3 Supreme is the only all-in-one board** and
+  the canonical `direct_url`/`vendor`-source example: not stocked by
+  Mouser/DigiKey/Farnell, sold direct on LilyGO's Shopify store, so
+  `vendor`'s `fetch_page_product` pulls og:image/title/price. Role is
+  `Gps` so it lists beside the bare GNSS modules as the integrated
+  alternative.
 - **Six distributor sources, two kinds** (`src/sources/distributors/`):
   - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
     image), `vendor` (best-effort og:image fetch), `st`
@@ -353,14 +376,29 @@ Architecture / invariants worth knowing before editing it:
   (and price/title where the page ships JSON-LD — Seeed sells direct),
   falling back to a reference offer if the fetch fails. Either way
   every BOM part still shows up with zero API keys.
-- **"Always an image" guarantee.** `render_card` substitutes a
+- **"Always an image" guarantee — never a broken tile, never a
+  placeholder beside a real photo.** `render_card` substitutes a
   generated inline-SVG base64 placeholder (`placeholder_data_url`,
   no network, can't fail) for any row where no source found a real
-  photo — so no card ever renders a blank tile. Placeholders are
-  **render-time only**, never persisted to the DB image column, so a
-  later run with API keys (which return real ST/Espressif photos)
-  upgrades them. Don't persist the placeholder; it would mask the
-  real image on the next keyed run.
+  photo. Two render-path rules keep this honest, both load-bearing:
+  1. **`optimize_thumbnails` drops dead URLs on fetch/decode
+     failure** — it assigns the fetch *result* unconditionally
+     (`rows[i].listing.image = data;`), so a slot is either a
+     verified inlined `data:` URL or `None`, never a surviving
+     remote URL. Distributor image-by-MPN links (notably Mouser's
+     `www.mouser.com/images/...` behind Akamai) return HTTP 200 with
+     an HTML page; keeping that URL made Chrome render a broken-image
+     glyph at print time. Do **not** revert to "keep the original URL
+     on failure" — it reintroduces broken tiles.
+  2. **Cross-offer image fallback within a part group** — a price-
+     less reference card (e.g. ST for a bare IC) reuses a sibling
+     offer's photo instead of showing the generic placeholder next to
+     a card that has the real picture. Only verified-inlined `data:`
+     URLs are shared (a bare remote URL might itself be a dead link).
+  Placeholders are **render-time only**, never persisted to the DB
+  image column, so a later run with API keys (Farnell fills most bare
+  ICs; DigiKey the rest) upgrades them. Don't persist the placeholder;
+  it would mask the real image on the next keyed run.
 - **API distributors skip, never fail, on missing creds.** They
   signal a clean skip by returning `Err("skip: …")`; the `run()`
   wrapper renders that as `[skip]` not `[err]`. Keep that contract —

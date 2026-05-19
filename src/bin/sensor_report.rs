@@ -19,7 +19,7 @@ use chrono::{DateTime, Utc};
 use clap::Parser;
 use crawl2pump::db::{Db, ListingRow, StoredListing};
 use crawl2pump::listing::{Condition, Listing, Region};
-use crawl2pump::sensors::{bom, Connector, Part, Role};
+use crawl2pump::sensors::{bom, Connector, Feature, Part, Role};
 use crawl2pump::sources::distributors::{crawl_all, load_sensors_env, SensorOffer};
 use futures::stream::{self, StreamExt};
 use std::collections::HashMap;
@@ -66,6 +66,8 @@ struct Row {
     part_name: String,
     oss: bool,
     connector: Connector,
+    /// Buyer-facing capability checkboxes (from the BOM part).
+    features: &'static [Feature],
     listing: Listing,
 }
 
@@ -193,15 +195,16 @@ async fn main() -> Result<()> {
 }
 
 fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
-    let (oss, connector) = meta
+    let (oss, connector, features) = meta
         .get(o.part_name)
-        .map(|(p,)| (p.oss_firmware, p.connector))
-        .unwrap_or((false, Connector::Soldered));
+        .map(|(p,)| (p.oss_firmware, p.connector, p.features()))
+        .unwrap_or((false, Connector::Soldered, &[][..]));
     Row {
         role: o.role,
         part_name: o.part_name.to_string(),
         oss,
         connector,
+        features,
         listing: o.listing,
     }
 }
@@ -228,10 +231,10 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         .unwrap_or(&s.title)
         .trim()
         .to_string();
-    let (oss, connector) = meta
+    let (oss, connector, features) = meta
         .get(part_name.as_str())
-        .map(|(p,)| (p.oss_firmware, p.connector))
-        .unwrap_or((false, Connector::Soldered));
+        .map(|(p,)| (p.oss_firmware, p.connector, p.features()))
+        .unwrap_or((false, Connector::Soldered, &[][..]));
     let listing = Listing {
         source: s.source,
         brand: s.brand,
@@ -255,6 +258,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         part_name,
         oss,
         connector,
+        features,
         listing,
     })
 }
@@ -415,6 +419,22 @@ fn render_html(
                 html_escape(name),
                 badges
             ));
+            // Per-part capability checkbox row (features are a property
+            // of the part, not the distributor offer — render once per
+            // part, not per card). Always shows all six in fixed order
+            // so columns line up visually down the page.
+            let mut feats = String::from(r#"<div class="feats">"#);
+            for f in Feature::ALL {
+                let has = head.features.contains(&f);
+                feats.push_str(&format!(
+                    r#"<span class="feat {}">{} {}</span>"#,
+                    if has { "yes" } else { "no" },
+                    if has { "☑" } else { "☐" },
+                    html_escape(f.label())
+                ));
+            }
+            feats.push_str("</div>");
+            body.push_str(&feats);
             // Cross-offer image fallback: if any offer for this part
             // carries a real photo (after thumbnail inlining), reuse it
             // for offers that have none — typically the price-less ST
@@ -479,6 +499,10 @@ fn render_html(
   .tag.closed{{ background: #f8d7da; color: #842029; }}
   .tag.usbc  {{ background: #cfe2ff; color: #084298; }}
   .tag.conn  {{ background: #eee; color: #555; }}
+  .feats {{ margin: 0 0 2mm; page-break-after: avoid; }}
+  .feat {{ display: inline-block; font-size: 8pt; font-weight: 600; padding: 0.5mm 2mm; border-radius: 1mm; margin: 0 1.5mm 1mm 0; border: 1px solid #d5d5d5; }}
+  .feat.yes {{ background: #d1f0d6; color: #0e6132; border-color: #9ed8ab; }}
+  .feat.no  {{ background: #f6f6f6; color: #aaa; }}
   .sub {{ color: #555; font-size: 9pt; margin-bottom: 2mm; }}
   .diff {{ color: #444; font-size: 9pt; margin-bottom: 6mm; }}
   .diff .pill {{ display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; margin-right: 2mm; }}

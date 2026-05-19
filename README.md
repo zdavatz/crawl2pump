@@ -324,14 +324,29 @@ A third whitelisted bin scans electronics distributors for a fixed
 session-recorder hardware (STEVAL-MKBOXPRO + its on-board ST sensor
 ICs + the u-blox MAX-M10S GPS) plus a curated set of **USB-C,
 open-source-firmware** pluggable modules (Seeed Studio XIAO ESP32
-family, Espressif DevKitC boards, SparkFun boards). Open-source
-firmware is a hard requirement for the USB-C group — closed-blob-only
-modules are intentionally excluded. Every card always shows an image:
-a real product photo where one is reachable without a key (SparkFun
-and Seeed JSON-LD/og:image, u-blox og:image, and the ST eStore image
-CDN for the eval board), otherwise a generated placeholder. Bare ST
-sensor ICs have no public photo without an API key, so they show the
-placeholder until Mouser/DigiKey/Farnell keys are configured.
+family, Espressif DevKitC boards, SparkFun boards, and the LilyGO
+T-Beam S3 Supreme — the one all-in-one board: GNSS + IMU + mag + baro
++ microSD + WiFi on a single USB-C PCB). Open-source firmware is a
+hard requirement for the USB-C group — closed-blob-only modules are
+intentionally excluded.
+
+Each part shows a **capability checkbox row** (USB-C · WiFi ·
+Bluetooth · GPS · Motion · SD-card) so you can scan the catalog for
+"what does this board actually have" at a glance — ☑ green where
+present, ☐ grey where not. The feature data is a single keyed table
+in `src/sensors.rs` (`Part::features()`), unit-tested.
+
+Every card always shows an image: a real product photo where one is
+reachable without a key (SparkFun and Seeed JSON-LD/og:image, u-blox
+og:image, LilyGO Shopify og:image, and the ST eStore image CDN for
+the eval board), otherwise a generated placeholder. **No card ever
+renders a broken tile or a placeholder next to a sibling card that
+has the real photo** — dead distributor image URLs (e.g. Mouser's
+Akamai-walled image-by-MPN links) are dropped rather than handed to
+Chrome, and a verified photo found on any one offer for a part is
+reused for that part's other offers. Bare ST sensor ICs with no
+public photo show the placeholder until Mouser/DigiKey/Farnell keys
+are configured (Farnell in particular fills most of them).
 
 ```bash
 ./target/release/sensor_report                 # all parts → ~/Downloads/sensors.pdf
@@ -361,7 +376,8 @@ Six distributor sources, two kinds:
 Results persist to a separate `sqlite/sensors.db` (same schema as the
 pumpfoil DB) with the same new/modified freshness tracking, and render
 to a PDF + HTML grouped by part role, each part tagged with its
-firmware-openness, connector, and USB-C-pluggable status.
+firmware-openness, connector, USB-C-pluggable status, and the
+six-feature capability checkbox row described above.
 
 ### CLI flags
 

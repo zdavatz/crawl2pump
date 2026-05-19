@@ -120,6 +120,69 @@ impl Connector {
     }
 }
 
+/// User-facing capability checkboxes shown per part in the report.
+/// Deliberately a small fixed set (the things a buyer scans for) — not
+/// an exhaustive datasheet feature list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Feature {
+    UsbC,
+    Wifi,
+    Bluetooth,
+    Gps,
+    Motion,
+    SdCard,
+}
+
+impl Feature {
+    /// Fixed render order for the checkbox row.
+    pub const ALL: [Feature; 6] = [
+        Feature::UsbC,
+        Feature::Wifi,
+        Feature::Bluetooth,
+        Feature::Gps,
+        Feature::Motion,
+        Feature::SdCard,
+    ];
+    pub fn label(self) -> &'static str {
+        match self {
+            Feature::UsbC => "USB-C",
+            Feature::Wifi => "WiFi",
+            Feature::Bluetooth => "Bluetooth",
+            Feature::Gps => "GPS",
+            Feature::Motion => "Motion sensors",
+            Feature::SdCard => "SD-card",
+        }
+    }
+}
+
+impl Part {
+    /// Which of the six buyer-facing capabilities this part has.
+    /// Single source of truth, keyed by the stable `key` so adding a
+    /// part is one match arm (no per-literal field, test stays green).
+    /// Verified against vendor docs: STEVAL-MKBOXPRO = SensorTile.box
+    /// PRO (BLE + USB-C + LSM6DSV16X IMU + microSD; no WiFi/GPS);
+    /// LilyGO T-Beam S3 Supreme = all six (LilyGo-LoRa-Series hw doc);
+    /// bare sensor ICs / MCU / fuel-gauge carry none of the six.
+    pub fn features(&self) -> &'static [Feature] {
+        use Feature::*;
+        match self.key {
+            "steval-mkboxpro" => &[Bluetooth, UsbC, Motion, SdCard],
+            "lsm6dsv16x" => &[Motion],
+            "ublox-max-m10s" | "sparkfun-max-m10s" => &[Gps],
+            "esp32-c3-devkitc"
+            | "esp32-s3-devkitc"
+            | "sparkfun-thing-plus-c"
+            | "seeed-xiao-esp32c3"
+            | "seeed-xiao-esp32s3"
+            | "seeed-xiao-esp32s3-sense"
+            | "seeed-xiao-esp32c6" => &[Wifi, Bluetooth, UsbC],
+            "lilygo-tbeam-s3-supreme" => &[UsbC, Wifi, Bluetooth, Gps, Motion, SdCard],
+            // stm32u585ai, lis2mdl, lps22df, stts22h, stc3115 → none
+            _ => &[],
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Part {
     /// Stable grouping id (snake-ish, used as the DB/report group key).
@@ -376,19 +439,24 @@ pub fn bom() -> Vec<Part> {
             ),
             note: "WiFi 6 / BLE / 802.15.4 XIAO, USB-C. OSS ESP-IDF.",
         },
-        // All-in-one: GNSS + IMU + magnetometer + WiFi on one USB-C
-        // PCB, so no external sensor/GPS module to plug in (the
-        // "single board, nothing to wire" answer). u-blox MIA-M10Q
-        // GNSS + QMI8658C 6-axis IMU + QMC6310 mag + ESP32-S3.
-        // oss_firmware: ESP-IDF / Arduino-ESP32 (Apache-2.0); the
-        // GNSS receiver runs u-blox's own firmware exactly like the
-        // bare `ublox-max-m10s` part above (already oss_firmware:true
-        // here) — consistent treatment. Not stocked by Mouser/DigiKey/
-        // Farnell; LilyGO sells direct (Shopify), so `direct_url` is
-        // the lookup path (vendor source → og:image/title/price).
+        // All-in-one session-recorder board: GNSS + IMU + mag + baro
+        // + microSD + WiFi on one USB-C PCB, so nothing external to
+        // wire (the "single board" answer). Spec verified against
+        // LilyGO's official hardware doc (Xinyuan-LilyGO/LilyGo-LoRa-
+        // Series, docs/en/t_beam_supreme/t_beam_supreme_hw.md):
+        // ESP32-S3FN8, QMI8658 6-axis IMU, QMC6310 mag, BME280
+        // baro/temp/humidity, microSD slot, and a GNSS receiver that
+        // is variant-dependent — u-blox MAX-M10 *or* Quectel L76K
+        // (two product variants). oss_firmware: ESP-IDF / Arduino-
+        // ESP32 (Apache-2.0); the GNSS runs its vendor firmware
+        // exactly like the bare `ublox-max-m10s` part above (already
+        // oss_firmware:true) — consistent treatment. Not stocked by
+        // Mouser/DigiKey/Farnell; LilyGO sells direct (Shopify), so
+        // `direct_url` is the lookup path (vendor source →
+        // og:image/title/price).
         Part {
             key: "lilygo-tbeam-s3-supreme",
-            name: "LilyGO T-Beam S3 Supreme (GNSS + IMU + WiFi, USB-C)",
+            name: "LilyGO T-Beam S3 Supreme (GNSS+IMU+mag+baro+SD, USB-C)",
             role: Role::Gps,
             manufacturer: "LilyGO",
             mpns: &["T-Beam S3 Supreme"],
@@ -397,9 +465,11 @@ pub fn bom() -> Vec<Part> {
             st_url: None,
             sparkfun_pid: None,
             direct_url: Some("https://www.lilygo.cc/products/t-beam-supreme-meshtastic"),
-            note: "All-in-one: u-blox MIA-M10Q GNSS + QMI8658C 6-axis \
-                   IMU + QMC6310 mag + ESP32-S3 WiFi/BLE on one USB-C \
-                   board. Nothing to plug in. OSS ESP-IDF / Arduino.",
+            note: "All-in-one, nothing to plug in: ESP32-S3 WiFi/BLE + \
+                   QMI8658 6-axis IMU + QMC6310 mag + BME280 \
+                   baro/temp/humidity + microSD slot + GNSS (u-blox \
+                   MAX-M10 or Quectel L76K, variant-dependent) on one \
+                   USB-C board. OSS ESP-IDF / Arduino-ESP32.",
         },
     ]
 }
@@ -439,6 +509,25 @@ mod tests {
             if p.connector == Connector::UsbC {
                 assert!(p.oss_firmware, "{} USB-C module must be OSS", p.key);
             }
+            // A part declaring USB-C as a feature must actually be a
+            // USB-C connector part (keeps the checkbox honest).
+            if p.features().contains(&Feature::UsbC) {
+                assert_eq!(
+                    p.connector,
+                    Connector::UsbC,
+                    "{} claims USB-C feature but connector isn't UsbC",
+                    p.key
+                );
+            }
         }
+        // The all-in-one board carries every checkbox; bare sensor ICs
+        // carry none — guards against a future edit silently regressing
+        // the feature table.
+        let by_key = |k: &str| parts.iter().find(|p| p.key == k).unwrap();
+        assert_eq!(
+            by_key("lilygo-tbeam-s3-supreme").features(),
+            Feature::ALL.as_slice()
+        );
+        assert!(by_key("lps22df").features().is_empty());
     }
 }
