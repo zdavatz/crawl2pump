@@ -311,9 +311,17 @@ async fn optimize_thumbnails(rows: &mut [Row], db_path: &std::path::Path) {
         .await;
 
     for (i, data) in results {
-        if let Some(d) = data {
-            rows[i].listing.image = Some(d);
-        }
+        // Assign unconditionally — including the failure case (`None`).
+        // Distributor image-by-MPN URLs sometimes return HTTP 200 with
+        // an HTML "not found" page instead of a JPEG (e.g. Mouser's
+        // STM32U585AII6_SPL.jpg). `image::load_from_memory` then fails,
+        // and *keeping* the original URL makes Chrome render a
+        // broken-image glyph at print time. Dropping it to None lets
+        // the cross-offer fallback / SVG placeholder fire instead, so a
+        // card is never a broken tile. Every job's image is now either
+        // a verified inlined data: URL or None — no remote URLs survive
+        // to the render.
+        rows[i].listing.image = data;
     }
 }
 
@@ -407,10 +415,39 @@ fn render_html(
                 html_escape(name),
                 badges
             ));
+            // Cross-offer image fallback: if any offer for this part
+            // carries a real photo (after thumbnail inlining), reuse it
+            // for offers that have none — typically the price-less ST
+            // reference card for a bare sensor IC, which would otherwise
+            // render the generic placeholder right next to a sibling
+            // card showing the real part photo. The placeholder then
+            // only fires when *no* distributor found a photo.
+            // Only a verified-inlined data: URL is safe to share — a
+            // bare remote URL in the group might itself be a dead
+            // image-by-MPN link. After optimize_thumbnails, failed
+            // fetches are None, so in practice the group holds only
+            // data: URLs or None; this filter is the explicit contract.
+            let shared_img: Option<String> = group.iter().find_map(|r| {
+                r.listing
+                    .image
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| s.starts_with("data:"))
+                    .map(str::to_string)
+            });
             for r in &group {
+                let mut listing = r.listing.clone();
+                let has_own = listing
+                    .image
+                    .as_deref()
+                    .map(str::trim)
+                    .is_some_and(|s| !s.is_empty());
+                if !has_own {
+                    listing.image = shared_img.clone();
+                }
                 body.push_str(&render_card(
-                    &r.listing,
-                    freshness.get(&r.listing.url).copied(),
+                    &listing,
+                    freshness.get(&listing.url).copied(),
                 ));
             }
         }
