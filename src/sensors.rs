@@ -376,6 +376,31 @@ pub fn bom() -> Vec<Part> {
             ),
             note: "WiFi 6 / BLE / 802.15.4 XIAO, USB-C. OSS ESP-IDF.",
         },
+        // All-in-one: GNSS + IMU + magnetometer + WiFi on one USB-C
+        // PCB, so no external sensor/GPS module to plug in (the
+        // "single board, nothing to wire" answer). u-blox MIA-M10Q
+        // GNSS + QMI8658C 6-axis IMU + QMC6310 mag + ESP32-S3.
+        // oss_firmware: ESP-IDF / Arduino-ESP32 (Apache-2.0); the
+        // GNSS receiver runs u-blox's own firmware exactly like the
+        // bare `ublox-max-m10s` part above (already oss_firmware:true
+        // here) — consistent treatment. Not stocked by Mouser/DigiKey/
+        // Farnell; LilyGO sells direct (Shopify), so `direct_url` is
+        // the lookup path (vendor source → og:image/title/price).
+        Part {
+            key: "lilygo-tbeam-s3-supreme",
+            name: "LilyGO T-Beam S3 Supreme (GNSS + IMU + WiFi, USB-C)",
+            role: Role::Gps,
+            manufacturer: "LilyGO",
+            mpns: &["T-Beam S3 Supreme"],
+            connector: Connector::UsbC,
+            oss_firmware: true,
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.lilygo.cc/products/t-beam-supreme-meshtastic"),
+            note: "All-in-one: u-blox MIA-M10Q GNSS + QMI8658C 6-axis \
+                   IMU + QMC6310 mag + ESP32-S3 WiFi/BLE on one USB-C \
+                   board. Nothing to plug in. OSS ESP-IDF / Arduino.",
+        },
     ]
 }
 
@@ -408,10 +433,11 @@ mod tests {
         for p in &parts {
             assert_eq!(Role::from_label(p.role.label()), Some(p.role));
         }
-        // USB-C pluggable modules must run OSS firmware (hard rule).
+        // USB-C pluggable modules must run OSS firmware (hard rule —
+        // applies to ANY USB-C role: WiFi, GPS, MCU, …).
         for p in &parts {
-            if p.connector == Connector::UsbC && p.role == Role::Wifi {
-                assert!(p.oss_firmware, "{} USB-C WiFi must be OSS", p.key);
+            if p.connector == Connector::UsbC {
+                assert!(p.oss_firmware, "{} USB-C module must be OSS", p.key);
             }
         }
     }
