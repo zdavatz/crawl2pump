@@ -285,9 +285,12 @@ impl Part {
             | "seeed-xiao-esp32s3"
             | "seeed-xiao-esp32s3-sense"
             | "seeed-xiao-esp32c6" => "https://github.com/espressif/esp-idf",
-            "lilygo-tbeam-s3-supreme" => {
-                "https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series"
-            }
+            // Sold as a Meshtastic device (the "(M)" variant ships
+            // with it) — meshtastic/firmware is the actual flashable
+            // end-user OSS firmware. (LilyGo-LoRa-Series is only
+            // LilyGO's low-level hw examples/SDK, used to verify the
+            // spec — not what a buyer runs.)
+            "lilygo-tbeam-s3-supreme" => "https://github.com/meshtastic/firmware",
             // STEVAL-MKBOXPRO, STM32U585, LSM6DSV16X, LIS2MDL, LPS22DF,
             // STTS22H, STC3115, u-blox/SparkFun MAX-M10S → the recorder
             // firmware that drives them.

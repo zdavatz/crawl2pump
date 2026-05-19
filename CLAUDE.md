@@ -354,8 +354,11 @@ Architecture / invariants worth knowing before editing it:
   OSS firmware for STEVAL-MKBOXPRO + STM32U585 + every ST sensor IC +
   the u-blox/SparkFun GPS it reads — that repo is why this BOM
   exists); ESP32 USB-C modules → `espressif/esp-idf`; the LilyGO
-  all-in-one → `Xinyuan-LilyGO/LilyGo-LoRa-Series` (same repo whose hw
-  doc we verified its spec against). Every part is `oss_firmware:
+  all-in-one → `meshtastic/firmware` (sold as the "(M)" Meshtastic
+  variant and ships with it — link the flashable end-user firmware,
+  *not* LilyGo-LoRa-Series, which is only LilyGO's low-level hw
+  examples/SDK and is used elsewhere just to verify the spec). Every
+  part is `oss_firmware:
   true`, so the test asserts every part returns a `github.com` URL —
   the report never renders a part without a firmware link. `dimensions_cm()` returns `(L,B,H)` in cm for
   **all 17** parts (boards = enclosure/PCB, bare ICs = datasheet
