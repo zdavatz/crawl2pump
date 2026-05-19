@@ -330,6 +330,12 @@ T-Beam S3 Supreme — the one all-in-one board: GNSS + IMU + mag + baro
 hard requirement for the USB-C group — closed-blob-only modules are
 intentionally excluded.
 
+The BOM also carries a **`Distance / ToF`** part — an ST VL53L1X
+laser rangefinder (I²C/Qwiic, ~4 m) for measuring board height over
+water, the one channel neither board has on-board. It's solder-free
+pluggable into both the STEVAL's I²C bus and the LilyGO T-Beam S3
+Supreme's exposed I²C (SDA17/SCL18) via a Qwiic/STEMMA-QT breakout.
+
 Each part shows a **capability checkbox row** (USB-C · WiFi ·
 Bluetooth · GPS · Motion · SD-card) so you can scan the catalog for
 "what does this board actually have" at a glance — ☑ green where

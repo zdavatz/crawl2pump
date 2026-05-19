@@ -40,6 +40,8 @@ pub enum Role {
     Magnetometer,
     /// Barometric pressure sensor.
     Barometer,
+    /// Downward distance / time-of-flight sensor (height over water).
+    Distance,
     /// Temperature sensor.
     Temperature,
     /// Battery fuel gauge.
@@ -56,6 +58,7 @@ impl Role {
             Role::Imu => "IMU (Accel + Gyro)",
             Role::Magnetometer => "Magnetometer",
             Role::Barometer => "Barometer",
+            Role::Distance => "Distance / ToF",
             Role::Temperature => "Temperature",
             Role::FuelGauge => "Fuel Gauge",
         }
@@ -69,6 +72,7 @@ impl Role {
             Role::Imu,
             Role::Magnetometer,
             Role::Barometer,
+            Role::Distance,
             Role::Temperature,
             Role::FuelGauge,
         ]
@@ -85,8 +89,9 @@ impl Role {
             Role::Imu => 4,
             Role::Magnetometer => 5,
             Role::Barometer => 6,
-            Role::Temperature => 7,
-            Role::FuelGauge => 8,
+            Role::Distance => 7,
+            Role::Temperature => 8,
+            Role::FuelGauge => 9,
         }
     }
 }
@@ -260,6 +265,7 @@ impl Part {
             }
             "seeed-xiao-esp32s3-sense" => (2.1, 1.75, 0.65), // + cam/mic
             "lilygo-tbeam-s3-supreme" => (10.0, 3.3, 1.3),
+            "vl53l1x-tof" => (2.54, 2.54, 0.5), // SparkFun Qwiic 1×1"
             _ => return None,
         };
         Some(d)
@@ -618,6 +624,36 @@ pub fn bom() -> Vec<Part> {
                    baro/temp/humidity + microSD slot + GNSS (u-blox \
                    MAX-M10 or Quectel L76K, variant-dependent) on one \
                    USB-C board. OSS ESP-IDF / Arduino-ESP32.",
+        },
+        // Downward distance / ToF for height-over-water. ST VL53L1X
+        // (I²C, up to ~4 m), the ecosystem-consistent choice — same
+        // vendor as the recorder's other sensors, open ST/SparkFun/
+        // Pololu driver, stocked by all API distributors. Connector
+        // is Qwiic: it's a 2-wire I²C device on a Qwiic/STEMMA-QT
+        // breakout, so it plugs into the STEVAL's I²C bus *and* the
+        // LilyGO T-Beam S3 Supreme's exposed I²C (SDA17/SCL18). Note
+        // in the field: laser ToF reads water poorly (specular IR
+        // reflection) — angle it or expect noise; an ultrasonic /
+        // radar altimeter is the rugged alternative if this proves
+        // unreliable over open water.
+        Part {
+            key: "vl53l1x-tof",
+            name: "ST VL53L1X ToF (downward distance, height-over-water)",
+            role: Role::Distance,
+            manufacturer: "STMicroelectronics",
+            mpns: &["VL53L1CXV0FY/1", "VL53L1X"],
+            connector: Connector::Qwiic,
+            oss_firmware: true,
+            st_url: Some("https://www.st.com/en/imaging-and-photonics-solutions/vl53l1x.html"),
+            sparkfun_pid: Some("14722"),
+            direct_url: None,
+            note: "Laser ToF rangefinder, up to ~4 m, I²C/Qwiic — plugs \
+                   into the STEVAL I²C bus and the LilyGO T-Beam S3 \
+                   Supreme's external I²C (SDA17/SCL18). The \
+                   height-over-water sensor neither board has onboard. \
+                   Caveat: IR ToF is unreliable on flat water \
+                   (specular reflection); angle it or use ultrasonic / \
+                   radar for a rugged altimeter.",
         },
     ]
 }

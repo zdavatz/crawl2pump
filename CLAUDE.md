@@ -385,6 +385,21 @@ Architecture / invariants worth knowing before editing it:
   alternative. Resellers include CH shops Bastelgarage + ChipDepot
   (the `(M)` 868 MHz / Quectel L76K Meshtastic variant; ships with an
   11 cm LoRa antenna, onboard GNSS antenna, no 18650).
+- **`Role::Distance` + the `vl53l1x-tof` part** are the
+  height-over-water answer (neither board has a downward sensor
+  onboard). It's an ST VL53L1X — `Connector::Qwiic` because it's a
+  2-wire I²C device on a Qwiic/STEMMA-QT breakout, so it plugs
+  solder-free into the STEVAL's I²C bus *and* the LilyGO T-Beam S3
+  Supreme's exposed I²C (SDA17/SCL18, verified in the LilyGo-LoRa-
+  Series hw doc; firmware must power the sensor I²C rail first). ST
+  part ⇒ `st_url` + `mpns` (Mouser/Farnell stock it ~4.5 CHF) +
+  `sparkfun_pid` 14722 (the Qwiic breakout, ~30 USD). The note keeps
+  the honest field caveat: IR ToF reads flat water poorly (specular
+  reflection) — angle it, or an ultrasonic/radar altimeter is the
+  rugged alternative. Don't drop that caveat. New roles slot into
+  `Role::{label,from_label,order}` (Distance sits after Barometer);
+  `bom_is_well_formed` already round-trips every role label, so a new
+  role with no `from_label` entry fails the test.
 - **Six distributor sources, two kinds** (`src/sources/distributors/`):
   - *Scrape, no key:* `sparkfun` (Shopify-ish JSON-LD → real price +
     image), `vendor` (best-effort og:image fetch), `st`
