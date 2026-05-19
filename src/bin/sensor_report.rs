@@ -27,6 +27,27 @@ use std::path::PathBuf;
 use std::process::Command;
 
 const CHROME_MAC: &str = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+
+/// Resolve a usable Chrome/Chromium binary. `$CHROME` wins; otherwise probe
+/// the macOS app path then the common Linux binaries, returning the first
+/// that exists. Falls back to the macOS path so the error message is stable.
+fn chrome_binary() -> String {
+    if let Ok(env_path) = std::env::var("CHROME") {
+        return env_path;
+    }
+    let candidates = [
+        CHROME_MAC,
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+    ];
+    candidates
+        .iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .map(|p| p.to_string())
+        .unwrap_or_else(|| CHROME_MAC.into())
+}
 const SENSORS_DB: &str = "sqlite/sensors.db";
 const THUMB_W: u32 = 600;
 
@@ -201,7 +222,7 @@ async fn main() -> Result<()> {
     let html = render_html(&rows, &freshness, &summary, scan_at, args.oss_only, args.usbc_only);
     let html_path = output.with_extension("html");
     std::fs::write(&html_path, &html)?;
-    let chrome = std::env::var("CHROME").unwrap_or_else(|_| CHROME_MAC.into());
+    let chrome = chrome_binary();
     let status = Command::new(&chrome)
         .args([
             "--headless=new",

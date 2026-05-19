@@ -785,7 +785,14 @@ pub fn bom() -> Vec<Part> {
             connector: Connector::Battery,
             oss_firmware: true, // passive cell — no firmware
             st_url: None,
-            sparkfun_pid: None,
+            // SparkFun PRT-12895 (flat-top 18650 2600 mAh): the no-key
+            // SparkFun source ships JSON-LD with a real product photo +
+            // price, so this card gets an image. This is NOT an API
+            // offer — Mouser/DigiKey/Farnell still skip (no `mpns`), so
+            // the regulated-li-ion-shipping rationale below is unchanged;
+            // it just guarantees the card never falls back to the
+            // "no photo" placeholder (nkon.nl 403s every bot fetch).
+            sparkfun_pid: Some("12895"),
             direct_url: Some("https://www.nkon.nl/rechargeable/18650-size.html"),
             note: "NOT included with the LilyGO T-Beam S3 Supreme — \
                    buy separately. Must be FLAT-TOP, ∅18 × 65 mm \
