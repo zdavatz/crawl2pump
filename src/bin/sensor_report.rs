@@ -518,6 +518,47 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
     }
     Some(
         r#"<div class="guide" style="page-break-before:always">
+<h2 class="cat">Solderless alternative — bring-up only</h2>
+<p class="g-n">If you don't want to touch the iron yet (or you want to verify the wiring before committing to a permanent build), the BOM carries two cable options that let you plug into JP2 without soldering. <b>Caveat:</b> a vibrating pumpfoil board can wiggle the cable loose mid-session — use this for bring-up / development, switch to the soldered rig below for production.</p>
+
+<p class="g-h">Pick a cable path</p>
+<table class="wire">
+<tr><th>Path</th><th>Parts</th><th>Buyer experience</th></tr>
+<tr><td><b>A · Distributor-grade</b></td><td>Samtec FFSD-07-D-04.00-01-N + 1.27→2.54 mm SWD adapter PCB + 4× DuPont jumpers + 2.54 mm 7-pin header</td><td>Real CHF prices, 3 SKUs to assemble (~CHF 15 total). Adapter PCB is the only AliExpress-only piece (~CHF 3, no canonical MPN — search "Cortex SWD 14-pin adapter").</td></tr>
+<tr><td><b>B · Turnkey</b></td><td>Single 14-pin 1.27 mm → DuPont cable + 2.54 mm 7-pin header</td><td>One Amazon.de order (~CHF 8), card above shows the placeholder image since the category has no MPN. 2 SKUs.</td></tr>
+</table>
+<p class="g-n">Both paths need the same JP4 3.3 V power tap and the same 4 DuPont connections — the difference is only how you get from JP2's fine-pitch socket to standard 0.1″ DuPont leads.</p>
+
+<p class="g-h">Step 1 · JP4 power tap (3.3 V)</p>
+<ol>
+<li>The JP4 connector is the 7-pin 2.54 mm strip on the side of the board (Multicomp MC-SVT1-S07-G).</li>
+<li><b>Set the JP4 domain switch to 3 V</b> (not 1.8 V).</li>
+<li>Power on the box and <b>meter the JP4 3 V pin</b>: must read <b>3.25–3.40 V</b>. Power off again.</li>
+<li>Slip a standard <b>2.54 mm 7-pin female header strip</b> onto JP4 (no solder — slides on). DuPont jumper from the 3 V pin → GPS VCC.</li>
+</ol>
+
+<p class="g-h">Step 2 · JP2 data lines (UART4)</p>
+<ol>
+<li>Plug the JTAG cable into JP2 (FTSH-107 keyed/shrouded socket — only goes on one way).</li>
+<li>Wire 3 DuPont jumpers from the cable's DuPont side (or, on path A, from the adapter PCB's 2.54 mm side) to the <b>SparkFun MAX-M10S breakout's UART header</b>:</li>
+</ol>
+<table class="wire">
+<tr><th>STEVAL JP2 pin</th><th>Net (MCU)</th><th>→</th><th>SparkFun GPS pin</th></tr>
+<tr><td><b>13</b></td><td>UART4_RX / PA1</td><td>→</td><td><b>TX</b></td></tr>
+<tr><td><b>14</b></td><td>UART4_TX / PA0</td><td>→</td><td><b>RX</b></td></tr>
+<tr><td><b>7 or 11</b></td><td>GND</td><td>→</td><td><b>GND</b></td></tr>
+</table>
+<p class="g-n">Note the TX/RX crossover (each end's "TX" pairs with the other's "RX"). The SparkFun breakout's UART header has male 2.54 mm pins populated — female DuPont leads slide on directly. <b>Do not touch SWD pins (4 / 6 / 8 / 10 / 12)</b> — they're the debug bus; bridging one means bricked debug access.</p>
+
+<p class="g-h">Step 3 · Bring-up test</p>
+<ol>
+<li>Insert the SD card. Take the box <b>outdoors, clear sky</b>. Power on.</li>
+<li>Cold fix is typically reached in <b>~30–60 s</b>. Confirm with a growing <code>GpsNNN.csv</code> on the SD card, or the BLE SensorStream <code>gps_valid</code> flag, or the antenna-test buzzer build.</li>
+<li>No fix in a few minutes? <b>Swap pin 13 ↔ pin 14</b> — reversed TX/RX is by far the most common wiring mistake and swapping is harmless. Then re-check GND continuity and GPS VCC = 3.3 V under load.</li>
+</ol>
+
+<p class="g-n"><b>When to switch to soldering:</b> once bring-up works and you're ready for water trials. Vibration + spray + a loose cable will end a session early; the soldered rig below is the durable answer.</p>
+
 <h2 class="cat">Soldering the u-blox MAX-M10S GPS to the STEVAL-MKBOXPRO</h2>
 <p class="g-n">The MovementLogger firmware reads GPS over <b>UART4</b> on MCU pins <b>PA0 (TX) / PA1 (RX)</b> at <b>38400 baud, 8N1, 3.3 V logic</b>. The MAX-M10S is <b>not</b> on the box — it must be wired by hand to <b>JP2</b>, the 14-pin programming connector (Samtec FTSH-107-01-L-D, 1.27 mm pitch). Full source: <a href="https://github.com/zdavatz/movement_logger_firmware/blob/main/GPS_SOLDERING.md" target="_blank" rel="noopener">GPS_SOLDERING.md</a>.</p>
 
