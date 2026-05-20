@@ -592,22 +592,30 @@ Architecture / invariants worth knowing before editing it:
     qwiic-jumper-female,battery-18650 --output /tmp/build.pdf`
   - MovementLogger (STEVAL + GPS + antenna + enclosure):
     `--from-db --keys steval-mkboxpro,sparkfun-max-m10s,
-    ublox-max-m10s,samtec-ffsd-07-100mm,sparkfun-gps-antenna-sma,
+    ublox-max-m10s,arm-jtag-dupont-cable,sparkfun-gps-antenna-sma,
     sparkfun-ufl-sma-100mm,hammond-1554g2gycl --output
     /tmp/build-movement-logger.pdf`
   Both committed snapshots live in `PDF/build-lilygo-xm125.pdf` and
   `PDF/build-movement-logger.pdf` (force-added past `/PDF/` in
   `.gitignore`, same convention as `pumpfoil-report.pdf`).
-- **Solderless GPS bring-up — Samtec FFSD-07.** The MovementLogger
-  build's GPS soldering (GPS_SOLDERING.md) is the durable answer,
-  but a `samtec-ffsd-07-100mm` part is in the BOM as the
-  *bring-up* path: the Samtec FFSD-07-D-04.00-01-N is a 14-pin
-  1.27 mm IDC ribbon with shrouded sockets on both ends that
-  press-fits onto JP2 (FTSH-107) without solder. The buyer also
-  needs a 1.27 mm → 2.54 mm SWD adapter PCB and a 2.54 mm 7-pin
-  female header for JP4 (the note on the part covers this kit).
-  Don't promote this as the production answer — vibration on a
-  pumpfoil board will wiggle the cable loose. It's bring-up only.
+- **Solderless GPS bring-up — `arm-jtag-dupont-cable`.** The
+  MovementLogger build's GPS soldering (GPS_SOLDERING.md) is the
+  durable answer, but the BOM also carries an `arm-jtag-dupont-cable`
+  entry as the *bring-up* path: a generic 14-pin 1.27 mm → DuPont
+  cable that press-fits onto JP2 (FTSH-107) on one end and exposes
+  individual female DuPont leads on the other, which slide directly
+  onto the SparkFun MAX-M10S breakout's UART pins. **No canonical
+  distributor MPN exists for this category** — checked Mouser /
+  DigiKey / Farnell keyword and Olimex / Würth / SEGGER part numbers;
+  these cables are no-name Amazon / AliExpress products only. The
+  closest distributor-grade alternative is the Samtec
+  FFSD-07-D-04.00-01-N (CHF 9.21 DigiKey, also stocked) but it has
+  1.27 mm sockets on *both* ends and needs an extra adapter PCB +
+  jumpers to reach the GPS — three SKUs for one effective cable. We
+  link the Amazon.de search URL instead and accept that the rendered
+  card uses the placeholder image (no real product photo without an
+  ASIN). Don't promote this as the production answer — vibration on
+  a pumpfoil board will wiggle the cable loose. Bring-up only.
 
 ## SQLite persistence (`src/db.rs`)
 
