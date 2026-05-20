@@ -482,6 +482,98 @@ fn build_guide_html(rows: &[Row]) -> Option<String> {
     )
 }
 
+/// MovementLogger build: STEVAL-MKBOXPRO + an external u-blox MAX-M10S.
+/// Renders the GPS soldering walkthrough — mirrors `GPS_SOLDERING.md` in
+/// `movement_logger_firmware`. Wired into render_html as a **trailing**
+/// section (last page) since the user-facing flow is "scan the parts
+/// first, then do the soldering".
+fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
+    let has = |needle: &str| rows.iter().any(|r| r.part_name.contains(needle));
+    if !(has("STEVAL-MKBOXPRO") && has("MAX-M10S")) {
+        return None;
+    }
+    Some(
+        r#"<div class="guide" style="page-break-before:always">
+<h2 class="cat">Soldering the u-blox MAX-M10S GPS to the STEVAL-MKBOXPRO</h2>
+<p class="g-n">The MovementLogger firmware reads GPS over <b>UART4</b> on MCU pins <b>PA0 (TX) / PA1 (RX)</b> at <b>38400 baud, 8N1, 3.3 V logic</b>. The MAX-M10S is <b>not</b> on the box — it must be wired by hand to <b>JP2</b>, the 14-pin programming connector (Samtec FTSH-107-01-L-D, 1.27 mm pitch). Full source: <a href="https://github.com/zdavatz/movement_logger_firmware/blob/main/GPS_SOLDERING.md" target="_blank" rel="noopener">GPS_SOLDERING.md</a>.</p>
+
+<p class="g-h">Tools you need</p>
+<ul>
+<li>Fine-conical-tip iron, flux, magnification (10× loupe or microscope), tweezers, steady bench.</li>
+<li><b>30 AWG</b> enamelled / wire-wrap wire (≤ 0.5 mm), four lengths.</li>
+<li>Multimeter (continuity + DC volts).</li>
+<li>Kapton tape + a dab of hot glue for strain relief.</li>
+</ul>
+
+<p class="g-h">JP2 pinout — pin 1 = square pad / silk triangle</p>
+<table class="wire">
+<tr><th>Pin</th><th>Net</th><th>Use?</th></tr>
+<tr><td>1</td><td>1V8 rail (JTAG ref)</td><td><b>NOT</b> power — 1.8 V, weak</td></tr>
+<tr><td>4 / 6 / 8 / 10 / 12</td><td>SWDIO / SWCLK / SWO / JTDI / NRST</td><td>Leave alone (debug bus)</td></tr>
+<tr><td>7</td><td>GND</td><td>OK for GPS GND</td></tr>
+<tr><td>11</td><td>GND</td><td>OK for GPS GND</td></tr>
+<tr><td><b>13</b></td><td><b>UART4_RX (PA1)</b></td><td><b>GPS TX → here</b></td></tr>
+<tr><td><b>14</b></td><td><b>UART4_TX (PA0)</b></td><td><b>GPS RX → here</b></td></tr>
+</table>
+<p class="g-n">Pins 3, 5, 9 carry no signal — leave unconnected. <b>Meter-verify</b> pin 1 against the silkscreen triangle and continuity-check every pin before soldering — connector orientation differs between board builds.</p>
+
+<p class="g-h">Wiring — note the TX/RX crossover</p>
+<table class="wire">
+<tr><th>GPS pin</th><th>→</th><th>JP2 pin</th><th>Net (MCU)</th></tr>
+<tr><td><b>TX</b> (GPS out)</td><td>→</td><td><b>13</b></td><td>UART4_RX (PA1)</td></tr>
+<tr><td><b>RX</b> (GPS in)</td><td>→</td><td><b>14</b></td><td>UART4_TX (PA0)</td></tr>
+<tr><td><b>GND</b></td><td>→</td><td>7 or 11 (meter-verified)</td><td>GND</td></tr>
+<tr><td><b>VCC 3.3 V</b></td><td>→</td><td><b>JP4 3 V pin</b> (not JP2!)</td><td>Board 3 V rail</td></tr>
+</table>
+
+<p class="g-h">GPS power — 3.3 V from JP4</p>
+<ul>
+<li>JP4 is the 7-pin extension-board connector (Multicomp MC-SVT1-S07-G). Set its domain switch to <b>3 V</b> (not 1.8 V).</li>
+<li>Power the box and <b>meter the JP4 3 V pin</b> — must read <b>3.25–3.40 V</b> before connecting GPS VCC. Power down again before soldering VCC.</li>
+<li>GPS GND and box GND must be common — take GND from JP4 or a JP2 GND pin.</li>
+<li>No graceful shutdown: the Hall-sensor magnet cuts the whole supply rail at once (firmware F-PWR-5). The on-SD format tolerates it.</li>
+</ul>
+
+<p class="g-h">Safety — read before the iron is hot</p>
+<ul>
+<li><b>3.3 V logic only.</b> PA0/PA1 are <b>not 5 V tolerant.</b> A 5 V GPS breakout's TX into PA1 will destroy the MCU — level-shift or use a 3.3 V-native MAX-M10S carrier (e.g. the SparkFun breakout above).</li>
+<li><b>Never bridge to the SWD pins</b> (4/6/8/10/12) — solder bridge → bricked debug access.</li>
+<li>Keep each pad heated <b>&lt; 2 s</b>. FTSH-107 pads lift if cooked.</li>
+<li><b>Strain-relieve all four wires</b> with Kapton + hot glue close to JP2 — a tugged wire rips the pad off the PCB.</li>
+</ul>
+
+<p class="g-h">Procedure</p>
+<ol>
+<li><b>Power down completely</b> — switch S1 off, USB unplugged, LiPo disconnected.</li>
+<li><b>Locate JP2</b> (14-pin fine-pitch header by the MCU). Identify pin 1.</li>
+<li><b>Continuity-check before soldering</b> (meter, board off): JP2 pin 13 ↔ MCU PA1, JP2 pin 14 ↔ MCU PA0, candidate GND pin ↔ battery (−). Confirm, don't assume.</li>
+<li><b>Pre-tin</b> the three JP2 pads and the wire ends with flux.</li>
+<li><b>Solder the data wires:</b> pin 13 ← GPS TX, pin 14 ← GPS RX. Then <b>GND</b>.</li>
+<li><b>GPS VCC last:</b> with the board powered, confirm 3.3 V at the JP4 3 V pin, power down again, solder the VCC wire.</li>
+<li><b>Inspect under magnification</b> for bridges — especially pin 14 to pin 12 and onto the SWD pins.</li>
+<li><b>Strain-relieve</b> all four wires (Kapton + hot glue).</li>
+</ol>
+
+<p class="g-h">Bring-up test</p>
+<ol>
+<li>Insert the SD card, take the box <b>outdoors with clear sky</b>, power on.</li>
+<li>The firmware sends the u-blox UBX config on boot, then expects 10 Hz NMEA. First fix is typically reached within <b>~30–60 s cold</b>.</li>
+<li>Confirm a fix by <b>any</b> of: a growing <code>GpsNNN.csv</code> on the SD card · the BLE SensorStream <code>gps_valid</code> flag going set · (antenna-test build, <code>make GPS_ANTENNA_BEEP=1</code>) the buzzer beeping N times every 10 s with N = satellites.</li>
+</ol>
+
+<p class="g-h">No fix after several minutes outdoors? — in order of likelihood</p>
+<ol>
+<li><b>Swap the two data wires</b> (pin 13 ↔ pin 14). TX/RX reversed is the single most common wiring mistake and swapping is harmless to try.</li>
+<li>Re-check <b>GND</b> continuity (cold/again) and that GPS VCC really is 3.3 V <i>at the module</i> under load.</li>
+<li>Confirm the module is a 3.3 V part and actually powered (most MAX-M10S carriers have a power LED).</li>
+<li>Give it a longer cold-start with an unobstructed sky view; indoors it will never fix.</li>
+</ol>
+</div>
+"#
+        .to_string(),
+    )
+}
+
 fn render_html(
     rows: &[Row],
     freshness: &HashMap<String, Freshness>,
@@ -502,7 +594,12 @@ fn render_html(
     roles.sort_by_key(|r| r.order());
 
     let mut body = String::new();
-    let total = rows.len();
+    // Track the rows we actually render (one per part). Drives the
+    // header counts so "X Teile · Y neu · Z aktualisiert" reflects the
+    // PDF the user sees, not the wider DB (--keys + collapse used to
+    // leave the header showing the full-catalog "67 neu" / "10 Angebote"
+    // even on a focused 3-part build sheet).
+    let mut picks: Vec<&Row> = Vec::new();
     // Lead with a wiring/build guide when the rendered set is the
     // LilyGO + XM125 radar build (both present). It's the answer to
     // "how do I actually connect this so it works with battery +
@@ -628,7 +725,24 @@ fn render_html(
                     .filter(|s| s.starts_with("data:"))
                     .map(str::to_string)
             });
-            for r in &group {
+            // One card per part — pick the best offer (lowest price
+            // among those that have one; otherwise the first reference
+            // row). Earlier flows showed every distributor offer as a
+            // separate card, which made a 3-part build read like a
+            // 10-card catalog. Other offers stay in the DB; render
+            // is just collapsed.
+            let pick = group
+                .iter()
+                .filter(|r| r.listing.price.is_some())
+                .min_by(|a, b| {
+                    a.listing
+                        .price
+                        .partial_cmp(&b.listing.price)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .or_else(|| group.first());
+            if let Some(r) = pick {
+                picks.push(r);
                 let mut listing = r.listing.clone();
                 let has_own = listing
                     .image
@@ -646,11 +760,41 @@ fn render_html(
         }
     }
 
+    // Trailing build guide (last page) — appended after every parts
+    // section so the catalog reads "scan the parts first, then do the
+    // soldering". Currently the MovementLogger STEVAL + MAX-M10S build.
+    if let Some(g) = build_movement_logger_guide_html(rows) {
+        body.push_str(&g);
+    }
+
     let scope = match (oss_only, usbc_only) {
         (true, true) => " · OSS + USB-C only",
         (true, false) => " · OSS firmware only",
         (false, true) => " · USB-C pluggable only",
         _ => "",
+    };
+
+    // Header counts derived from the rendered picks, not the DB.
+    let total = picks.len();
+    let rendered_new = picks
+        .iter()
+        .filter(|r| matches!(freshness.get(&r.listing.url), Some(Freshness::New)))
+        .count();
+    let rendered_modified = picks
+        .iter()
+        .filter(|r| matches!(freshness.get(&r.listing.url), Some(Freshness::Modified)))
+        .count();
+    // The upsert-summary line ("touched · price changes") is meaningful
+    // only for a scan that just upserted. In --from-db / --keys focused
+    // builds it's always 0/0 noise — show it only when at least one
+    // upsert-side number is non-zero.
+    let upsert_line = if summary.updated_count + summary.price_changes > 0 {
+        format!(
+            "  · {} touched · {} price changes",
+            summary.updated_count, summary.price_changes
+        )
+    } else {
+        String::new()
     };
 
     format!(
@@ -713,17 +857,16 @@ fn render_html(
 </head>
 <body>
 <h1>MovementLogger — Sensor &amp; Module Catalog</h1>
-<div class="sub">{total} Angebote{scope} · {today} · BOM aus movement_logger_firmware · via crawl2pump</div>
+<div class="sub">{total} Teile{scope} · {today} · BOM aus movement_logger_firmware · via crawl2pump</div>
 <div class="diff">
   <span class="pill pill-new">{} neu (7 Tage)</span>
-  <span class="pill pill-modified">{} aktualisiert</span>
-  · {} touched · {} price changes
+  <span class="pill pill-modified">{} aktualisiert</span>{upsert_line}
 </div>
 {body}
 </body>
 </html>
 "#,
-        summary.new_count, summary.modified_count, summary.updated_count, summary.price_changes,
+        rendered_new, rendered_modified,
     )
 }
 

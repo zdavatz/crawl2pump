@@ -48,6 +48,10 @@ pub enum Role {
     FuelGauge,
     /// Battery cell (the 18650 that powers the LilyGO).
     Battery,
+    /// Waterproof / weatherproof enclosure. Polycarbonate or ABS only —
+    /// the GPS receiver and (where present) the radar must be able to
+    /// see through the wall, so metal/carbon shells are excluded.
+    Case,
 }
 
 impl Role {
@@ -64,6 +68,7 @@ impl Role {
             Role::Temperature => "Temperature",
             Role::FuelGauge => "Fuel Gauge",
             Role::Battery => "Battery / Power",
+            Role::Case => "Enclosure",
         }
     }
     pub fn from_label(s: &str) -> Option<Self> {
@@ -79,6 +84,7 @@ impl Role {
             Role::Temperature,
             Role::FuelGauge,
             Role::Battery,
+            Role::Case,
         ]
         .into_iter()
         .find(|r| r.label() == s)
@@ -97,6 +103,7 @@ impl Role {
             Role::Temperature => 8,
             Role::FuelGauge => 9,
             Role::Battery => 10,
+            Role::Case => 11,
         }
     }
 }
@@ -117,6 +124,14 @@ pub enum Connector {
     /// Not a connector — a power cell (the 18650). Kept so the
     /// battery can be a first-class BOM part without faking a bus.
     Battery,
+    /// Not a connector — a passive enclosure (project / junction box).
+    /// Kept so an enclosure can be a first-class BOM part without
+    /// faking a bus.
+    Enclosure,
+    /// RF coax (SMA / U.FL). Used for GPS antennas and their pigtails —
+    /// they're physically a connector, not a host bus, so
+    /// `is_pluggable()` stays false.
+    Coax,
 }
 
 impl Connector {
@@ -127,6 +142,8 @@ impl Connector {
             Connector::Qwiic => "Qwiic / I²C",
             Connector::UsbC => "USB-C",
             Connector::Battery => "18650 cell",
+            Connector::Enclosure => "enclosure",
+            Connector::Coax => "SMA / U.FL",
         }
     }
     pub fn is_pluggable(self) -> bool {
@@ -289,6 +306,12 @@ impl Part {
             "sparkfun-xm125-radar" => (5.08, 2.54, 0.5), // 1.0×2.0" board
             "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
             "battery-18650" => (6.5, 1.8, 1.8), // ∅18 × 65 mm cylinder
+            "hammond-1554g2gycl" => (12.0, 9.0, 6.0), // external 1554G2 size
+            // Active mag-mount GPS antenna: 40×40×13 mm puck + 3 m
+            // coax. Listed dimensions are the puck.
+            "sparkfun-gps-antenna-sma" => (4.0, 4.0, 1.3),
+            // U.FL→SMA pigtail: 100 mm flex with two coax connectors.
+            "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
             _ => return None,
         };
         Some(d)
@@ -306,10 +329,16 @@ impl Part {
     /// test enforces `Some` + a github.com URL so the report never
     /// renders a part without a firmware link.
     pub fn firmware_repo(&self) -> Option<&'static str> {
-        // Passive accessories (cables) have no firmware concept.
+        // Passive accessories (cables, enclosures, antennas) have no
+        // firmware concept.
         if matches!(
             self.key,
-            "qwiic-cable-100mm" | "qwiic-jumper-female" | "battery-18650"
+            "qwiic-cable-100mm"
+                | "qwiic-jumper-female"
+                | "battery-18650"
+                | "hammond-1554g2gycl"
+                | "sparkfun-gps-antenna-sma"
+                | "sparkfun-ufl-sma-100mm"
         ) {
             return None;
         }
@@ -517,7 +546,51 @@ pub fn bom() -> Vec<Part> {
             st_url: None,
             sparkfun_pid: Some("18037"),
             direct_url: None,
-            note: "Recommended MAX-M10S carrier. Open-hardware breakout.",
+            note: "Recommended MAX-M10S carrier. Open-hardware breakout. \
+                   Has an onboard chip antenna that works through the \
+                   polycarbonate case, plus a U.FL connector for an \
+                   external active antenna (see the two antenna parts \
+                   below) if the signal needs a boost.",
+        },
+        // Optional external GPS antenna kit — improves fix time and
+        // multipath rejection vs. the breakout's onboard chip antenna.
+        // Mount the magnetic base on a non-metal part of the deck or
+        // the case lid; route the U.FL→SMA pigtail through a glanded
+        // hole if you want it outside the sealed box. The SparkFun
+        // source supplies real image + price for both parts.
+        Part {
+            key: "sparkfun-gps-antenna-sma",
+            name: "GPS/GNSS Magnetic Mount Antenna 3 m (active, SMA)",
+            role: Role::Gps,
+            manufacturer: "SparkFun",
+            mpns: &["GPS-14986"],
+            connector: Connector::Coax,
+            oss_firmware: true, // passive RF — no firmware
+            st_url: None,
+            sparkfun_pid: Some("14986"),
+            direct_url: None,
+            note: "Active GPS antenna (~28 dB LNA, 3 m RG-174 coax, SMA \
+                   male). Magnetic base — sits on the board's non-metal \
+                   top or the case lid for best sky view. Needs a U.FL \
+                   → SMA pigtail to mate with the MAX-M10S breakout's \
+                   U.FL connector — see next part.",
+        },
+        Part {
+            key: "sparkfun-ufl-sma-100mm",
+            name: "Interface Cable SMA → U.FL, 100 mm (pigtail)",
+            role: Role::Gps,
+            manufacturer: "SparkFun",
+            mpns: &["CAB-09145"],
+            connector: Connector::Coax,
+            oss_firmware: true, // passive coax — no firmware
+            st_url: None,
+            sparkfun_pid: Some("9145"),
+            direct_url: None,
+            note: "100 mm pigtail: U.FL female (plugs into the SparkFun \
+                   MAX-M10S breakout) ↔ SMA female bulkhead (mates with \
+                   the antenna above's SMA male). Buy with the magnetic \
+                   antenna or skip both if the onboard chip antenna is \
+                   enough.",
         },
         // ───────── USB-C pluggable, OSS-firmware modules ─────────
         // Selection rule: USB-C connector AND fully open-source
@@ -803,6 +876,49 @@ pub fn bom() -> Vec<Part> {
                    both work (the AXP2101 handles charge/discharge \
                    cut-off). Reputable cells: Samsung/LG/Molicel.",
         },
+        // ───────── Enclosure: the box that holds the build ─────────
+        // Hammond 1554G2GYCL — IP66 polycarbonate project box, 120×90×60
+        // mm external, **clear PC lid** (sealed with screws + gasket).
+        // Picked because:
+        //  · polymer (PC) ⇒ RF-transparent: onboard GPS and any radar
+        //    work through the wall (a metal/carbon case would block both)
+        //  · clear lid ⇒ user can read LEDs and pass the Hall-sensor
+        //    magnet over the (sealed) box to flip the supply rail
+        //    without opening it (firmware design F-PWR-5)
+        //  · IP66 ⇒ rated for jets of water (sufficient for splash and
+        //    submersion-on-water-board duty)
+        //  · ~110×80×52 mm usable interior ⇒ STEVAL-MKBOXPRO (63×40×20)
+        //    + SparkFun MAX-M10S breakout (25×25×6) + UART wiring
+        //    with airspace to spare
+        // Mouser/DigiKey/Farnell all stock the Hammond 1554 line; the
+        // API distributors give CHF pricing via DigiKey CH + Farnell CH.
+        // The `vendor` source also fetches og:image from Hammond's
+        // product page so the card always shows a real photo even if a
+        // distributor's image link is offline.
+        Part {
+            key: "hammond-1554g2gycl",
+            name: "Hammond 1554G2GYCL — IP66 PC enclosure, clear lid (120×90×60 mm)",
+            role: Role::Case,
+            manufacturer: "Hammond Manufacturing",
+            mpns: &["1554G2GYCL"],
+            connector: Connector::Enclosure,
+            oss_firmware: true, // passive PC box — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some(
+                "https://www.hammfg.com/electronics/small-case/plastic/1554",
+            ),
+            note: "Polycarbonate IP66 project box, external 120 × 90 × 60 \
+                   mm, clear PC lid. Lid sealed with O-ring gasket and \
+                   four corner screws. RF-transparent so onboard GPS \
+                   (and any radar) reads through the wall. The Hall \
+                   sensor reads a passing magnet through the lid, so \
+                   you can power-cycle the recorder without opening the \
+                   box. Leave the wall un-drilled to keep the seal \
+                   intact and charge via Qi wireless through the wall \
+                   (the STEVAL supports it). If the LPS22DF barometer \
+                   needs ambient pressure, add a Gore-type vent.",
+        },
     ]
 }
 
@@ -891,7 +1007,12 @@ mod tests {
                 None => assert!(
                     matches!(
                         p.key,
-                        "qwiic-cable-100mm" | "qwiic-jumper-female" | "battery-18650"
+                        "qwiic-cable-100mm"
+                            | "qwiic-jumper-female"
+                            | "battery-18650"
+                            | "hammond-1554g2gycl"
+                            | "sparkfun-gps-antenna-sma"
+                            | "sparkfun-ufl-sma-100mm"
                     ),
                     "{} unexpectedly has no firmware_repo",
                     p.key
