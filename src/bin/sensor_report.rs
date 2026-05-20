@@ -521,6 +521,13 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
 <h2 class="cat">Solderless alternative — bring-up only</h2>
 <p class="g-n">If you don't want to touch the iron yet (or you want to verify the wiring before committing to a permanent build), the BOM carries two cable options that let you plug into JP2 without soldering. <b>Caveat:</b> a vibrating pumpfoil board can wiggle the cable loose mid-session — use this for bring-up / development, switch to the soldered rig below for production.</p>
 
+<p class="g-h">Reference videos (watch first)</p>
+<ul>
+<li><a href="https://youtu.be/tq_RoaPLahk" target="_blank" rel="noopener">ControllersTech — GPS Module and STM32 (NEO-6M)</a>: generic STM32 + u-blox GPS over UART. NEO-6M but the wiring is identical to MAX-M10S (TX↔RX crossover, GND, 3.3 V). Watch this one if you watch one.</li>
+<li><a href="https://youtu.be/Yh8pLKs7aaY" target="_blank" rel="noopener">SparkFun — MAX-M10S Product Showcase</a>: the specific GPS breakout from this BOM (PRT-18037). Shows the U.FL connector and the UART header pins you'll connect to.</li>
+</ul>
+<p class="g-n">There is no exact "STEVAL-MKBOXPRO + solderless JTAG cable + MAX-M10S" video — that combination is bespoke to this build. The two videos above cover the load-bearing concepts (UART wiring + the specific GPS module).</p>
+
 <p class="g-h">Pick a cable path</p>
 <table class="wire">
 <tr><th>Path</th><th>Parts</th><th>Buyer experience</th></tr>
