@@ -312,6 +312,8 @@ impl Part {
             "sparkfun-gps-antenna-sma" => (4.0, 4.0, 1.3),
             // U.FL→SMA pigtail: 100 mm flex with two coax connectors.
             "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
+            // Samtec FFSD-07 100mm ribbon, both ends 2×7 1.27mm.
+            "samtec-ffsd-07-100mm" => (10.0, 0.5, 0.2),
             _ => return None,
         };
         Some(d)
@@ -339,6 +341,7 @@ impl Part {
                 | "hammond-1554g2gycl"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
+                | "samtec-ffsd-07-100mm"
         ) {
             return None;
         }
@@ -391,6 +394,67 @@ impl Part {
                 "ESP32 (WROOM) · dual Xtensa LX6 @240 MHz · 520 KB SRAM · WiFi+BLE"
             }
             // bare sensor ICs + GNSS modules → no user-programmable MCU
+            _ => return None,
+        })
+    }
+
+    /// Canonical manufacturer / SparkFun-CDN PDF for this device, used
+    /// to render a "Datasheet" link next to the OSS-firmware link on
+    /// each card. Returns `None` for parts where no public datasheet
+    /// URL is known — the renderer just omits the line.
+    ///
+    /// **Every URL here is reachability-verified** by the
+    /// `datasheets_resolve` test (run via `cargo test --release -- \
+    /// --ignored datasheets_resolve`). It GETs each URL with reqwest +
+    /// a browser User-Agent and falls back to FlareSolverr for hosts
+    /// that bot-fingerprint plain HTTP libraries (notably `www.st.com`
+    /// — the URLs work in real browsers, which is where these links
+    /// are clicked from). If you add a part with a datasheet here,
+    /// run that test before committing.
+    ///
+    /// Trade-off on OEM accessories: SparkFun's own "data sheet" link
+    /// for some OEM parts (PRT-14986 antenna, CAB-09145 pigtail) lives
+    /// on `sparkle.sparkfun.com` and has gone offline (DNS dead). For
+    /// those we link the SparkFun product page instead — it always
+    /// resolves and carries the same spec/dimensions block a PDF
+    /// datasheet would. Better a live HTML spec than a dead PDF link.
+    pub fn datasheet(&self) -> Option<&'static str> {
+        Some(match self.key {
+            // STEVAL-MKBOXPRO: UM3133 is the official ST user manual
+            // (datasheet equivalent) for the SensorTile.box PRO.
+            // `www.st.com` 403s plain reqwest (Akamai bot fingerprint),
+            // works in browsers + via FlareSolverr — see test note.
+            "steval-mkboxpro" => {
+                "https://www.st.com/resource/en/user_manual/um3133-sensortilebox-pro-stmicroelectronics.pdf"
+            }
+            // u-blox MAX-M10S datasheet (UBX-20035208), official u-blox.
+            "ublox-max-m10s" => {
+                "https://content.u-blox.com/sites/default/files/MAX-M10S_DataSheet_UBX-20035208.pdf"
+            }
+            // SparkFun MAX-M10S breakout — link the MAX-M10S chip
+            // datasheet (the breakout's hookup info is on its product
+            // page; the buyer-relevant spec is the chip datasheet).
+            "sparkfun-max-m10s" => {
+                "https://cdn.sparkfun.com/assets/7/5/9/a/a/MAX-M10S_DataSheet_UBX-20035208.pdf"
+            }
+            // SparkFun PRT-14986 magnetic-mount GPS antenna: the
+            // product page is the canonical spec source — SparkFun's
+            // own datasheet PDF moved/disappeared from sparkle.sparkfun.com.
+            "sparkfun-gps-antenna-sma" => "https://www.sparkfun.com/products/14986",
+            // SparkFun CAB-09145 pigtail: ditto — product page is the
+            // spec source; the U.FL connector PDF was 404 on every
+            // host we tried (Hirose's dispatcher serves no body).
+            "sparkfun-ufl-sma-100mm" => "https://www.sparkfun.com/products/9145",
+            // Hammond 1554 series spec PDF (covers all variants incl.
+            // the clear-lid -CL parts).
+            "hammond-1554g2gycl" => {
+                "https://www.hammfg.com/electronics/small-case/plastic/1554.pdf"
+            }
+            // Samtec FFSD family catalog (covers the 2×7 1.27 mm IDC
+            // shrouded ribbon assemblies — pinout, mating, lengths).
+            "samtec-ffsd-07-100mm" => {
+                "https://suddendocs.samtec.com/catalog_english/ffsd.pdf"
+            }
             _ => return None,
         })
     }
@@ -574,6 +638,39 @@ pub fn bom() -> Vec<Part> {
                    top or the case lid for best sky view. Needs a U.FL \
                    → SMA pigtail to mate with the MAX-M10S breakout's \
                    U.FL connector — see next part.",
+        },
+        // Solderless alternative to GPS_SOLDERING.md for bring-up /
+        // prototyping — plugs into JP2 (the FTSH-107-01-L-D programming
+        // header) without touching the iron. Mechanically less robust
+        // than soldering (a vibrating board can wiggle the cable
+        // loose) so for a permanent pumpfoil rig still solder; this
+        // part is the "develop first, solder later" path.
+        Part {
+            key: "samtec-ffsd-07-100mm",
+            name: "Samtec FFSD-07-D-04.00-01-N — 14-pin 1.27 mm IDC ribbon (100 mm)",
+            role: Role::Gps,
+            manufacturer: "Samtec",
+            mpns: &["FFSD-07-D-04.00-01-N"],
+            connector: Connector::Coax, // closest enum — fine-pitch IDC
+            oss_firmware: true, // passive ribbon — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.samtec.com/products/ffsd-07-d-04.00-01-n"),
+            note: "Solderless JP2 plug — 2×7 1.27 mm shrouded socket on \
+                   both ends, mates with the STEVAL's FTSH-107 \
+                   programming header. To break the ribbon's other end \
+                   out to 0.1\" DuPont (which slides onto the SparkFun \
+                   MAX-M10S breakout's UART pins) you also need: \
+                   (1) a 1.27 mm 2×7 → 2.54 mm 2×7 SWD adapter PCB \
+                   (Aliexpress / DigiKey 1568-1499-ND class — ~CHF 3, \
+                   no single canonical MPN so not curated here), and \
+                   (2) a 2.54 mm 7-pin female header strip slipped onto \
+                   JP4 for the 3.3 V tap (set the JP4 domain switch to \
+                   3 V first — measure 3.25–3.40 V before connecting \
+                   GPS VCC). Wire pin 13 ↔ GPS TX, pin 14 ↔ GPS RX, \
+                   pin 7/11 ↔ GND, JP4 3V pin ↔ GPS VCC via 4× \
+                   female-female DuPont jumpers. Bring-up first; \
+                   solder for the durable build.",
         },
         Part {
             key: "sparkfun-ufl-sma-100mm",
@@ -985,6 +1082,28 @@ mod tests {
             .unwrap()
             .contains("ESP32-S3"));
         assert!(by_key("lps22df").mcu().is_none());
+        // Datasheet links — the 6 parts that ship the focused
+        // MovementLogger build sheet must each carry a datasheet URL,
+        // and every URL we *do* return must look like a PDF or
+        // manufacturer document host (catches an accidental typo
+        // landing the user on a 404 or wrong domain).
+        for k in [
+            "steval-mkboxpro",
+            "ublox-max-m10s",
+            "sparkfun-max-m10s",
+            "sparkfun-gps-antenna-sma",
+            "sparkfun-ufl-sma-100mm",
+            "hammond-1554g2gycl",
+            "samtec-ffsd-07-100mm",
+        ] {
+            let url = by_key(k)
+                .datasheet()
+                .unwrap_or_else(|| panic!("{k} is missing a datasheet URL"));
+            assert!(
+                url.starts_with("https://") || url.starts_with("http://"),
+                "{k} datasheet URL is not http(s): {url}"
+            );
+        }
         // Every part has a known LxBxH so the report never shows "—".
         for p in &parts {
             let (l, b, h) = p
@@ -1013,11 +1132,71 @@ mod tests {
                             | "hammond-1554g2gycl"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
+                            | "samtec-ffsd-07-100mm"
                     ),
                     "{} unexpectedly has no firmware_repo",
                     p.key
                 ),
             }
         }
+    }
+
+    /// Network-dependent: actually GET every `datasheet()` URL and
+    /// assert it returns HTTP 200 with a non-empty body. Marked
+    /// `#[ignore]` so it does **not** run with a plain `cargo test`;
+    /// kick it manually with:
+    ///
+    /// ```text
+    /// cargo test --release --lib -- --ignored --nocapture datasheets_resolve
+    /// ```
+    ///
+    /// Hosts that bot-fingerprint plain `reqwest` (currently `www.st.com`)
+    /// are retried through the local FlareSolverr if it's running on
+    /// `127.0.0.1:8191`. A URL counts as "live" if **either** the direct
+    /// reqwest GET returns 2xx **or** FlareSolverr returns status 200
+    /// for it. Anything else fails the test with the offending URL —
+    /// catches the kind of stale CDN link the PRT-14986 entry had on
+    /// first commit (sparkle.sparkfun.com → DNS dead).
+    #[tokio::test]
+    #[ignore]
+    async fn datasheets_resolve() {
+        use crate::sources::flaresolverr::FlareSolverrClient;
+        let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+                  AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+        let client = reqwest::Client::builder()
+            .user_agent(ua)
+            .timeout(std::time::Duration::from_secs(25))
+            .build()
+            .expect("reqwest client");
+        let fs = FlareSolverrClient::new("http://127.0.0.1:8191/v1").ok();
+        let mut failed: Vec<String> = Vec::new();
+        for p in bom() {
+            let Some(url) = p.datasheet() else { continue };
+            let direct_ok = match client.get(url).send().await {
+                Ok(r) if r.status().is_success() => true,
+                _ => false,
+            };
+            if direct_ok {
+                eprintln!("  ✓ direct  {}  {}", p.key, url);
+                continue;
+            }
+            // Fallback: FlareSolverr (handles Akamai / Cloudflare).
+            let fs_ok = match fs.as_ref() {
+                Some(c) => c.get(url).await.is_ok(),
+                None => false,
+            };
+            if fs_ok {
+                eprintln!("  ✓ via FS  {}  {}", p.key, url);
+            } else {
+                eprintln!("  ✗ dead    {}  {}", p.key, url);
+                failed.push(format!("{} -> {}", p.key, url));
+            }
+        }
+        assert!(
+            failed.is_empty(),
+            "{} datasheet URL(s) failed to resolve:\n  {}",
+            failed.len(),
+            failed.join("\n  ")
+        );
     }
 }

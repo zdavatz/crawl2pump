@@ -345,8 +345,8 @@ Architecture / invariants worth knowing before editing it:
   has all six (confirmed against the LilyGo-LoRa-Series hardware doc,
   not the marketing page — its GNSS is variant-dependent: u-blox
   MAX-M10 *or* Quectel L76K).
-- **`Part::dimensions_cm()`, `Part::resellers()` and
-  `Part::firmware_repo()` follow the exact same keyed-`match self.key`
+- **`Part::dimensions_cm()`, `Part::resellers()`, `Part::firmware_repo()`
+  and `Part::datasheet()` follow the exact same keyed-`match self.key`
   pattern** as `features()` — one table each, no per-`Part`-literal
   field, all asserted in `bom_is_well_formed`. `firmware_repo()`
   returns the canonical OSS-firmware GitHub repo: the catch-all arm is
@@ -521,10 +521,93 @@ Architecture / invariants worth knowing before editing it:
   e.g. `--from-db --keys lilygo-tbeam-s3-supreme,sparkfun-xm125-radar,
   qwiic-jumper-female --output /tmp/build.pdf`.
 - Render groups by `Role` (section) → part (sub-heading with OSS /
-  USB-C / connector tag) → distributor offer cards, price ascending
-  with no-price (reference) rows last. Thumbnails are fetched +
-  resized + base64-inlined exactly like `pumpfoil_report` (minus the
-  AVIF/magick fallback — distributor photos are plain JPEG/PNG/WebP).
+  USB-C / connector tag) → **one card per part** (the cheapest
+  distributor offer wins, ties broken by source order; price-less
+  reference rows are last-resort). Earlier the loop emitted one card
+  per offer, which turned a 3-part build into a 10-card catalog
+  ("just one piece per item" — Peter, on the first focused build
+  PDF). Other offers stay in the DB; render is just collapsed.
+  Header counts (`X Teile · Y neu · Z aktualisiert`) are derived
+  from the **rendered picks**, not the full DB — otherwise a
+  `--keys` focused build still shows the catalog-wide "67 neu". The
+  upsert tail line ("touched · price changes") is suppressed when
+  both are zero (always the case in `--from-db`), so it doesn't
+  read as a misleading 0/0 on a focused build. Thumbnails are
+  fetched + resized + base64-inlined exactly like `pumpfoil_report`
+  (minus the AVIF/magick fallback — distributor photos are plain
+  JPEG/PNG/WebP).
+- **Build-guide sections wrap the catalog.** Two variants today,
+  selected automatically from the rendered part set:
+  - `build_guide_html` (LilyGO + XM125) is **prepended** before the
+    parts — the user needs the wiring diagram *before* shopping.
+  - `build_movement_logger_guide_html` (STEVAL + MAX-M10S) is
+    **appended** to the last page (`page-break-before:always`) —
+    GPS_SOLDERING.md mirrored from `movement_logger_firmware`.
+    Soldering is the *commitment step* after the parts are in hand;
+    it belongs after the catalog, not before it.
+  When you add a new build guide, pick the placement that matches
+  the workflow — wiring/integration → lead, soldering/permanent
+  attachment → trail.
+- **`chrome_binary()` probes Linux Chrome paths.** `sensor_report`'s
+  print-to-pdf step used to fall back to the hardcoded macOS Chrome
+  path (`/Applications/Google Chrome.app/.../Google Chrome`) if
+  `$CHROME` wasn't set — silent fail on Linux because the binary
+  doesn't exist and `Command::status()` errors are swallowed,
+  leaving a stale PDF from the last run. The probe order is
+  `$CHROME → CHROME_MAC → /usr/bin/google-chrome-stable →
+  /usr/bin/google-chrome → chromium → chromium-browser`, first that
+  exists wins. Don't revert to `$CHROME`-or-macOS-only.
+- **`Role::Case` + `Connector::Enclosure` + `Connector::Coax`** were
+  added with the Hammond 1554G2GYCL clear-lid PC enclosure and the
+  SparkFun PRT-14986 / CAB-09145 GPS-antenna kit. The enclosure
+  must be **polymer** (PC / ABS) — a metal/carbon case blocks GPS
+  and any radar; CLAUDE.md's earlier "RF-transparent" guidance now
+  has an enum-level encoding. `Connector::Coax` covers SMA / U.FL
+  and stays `is_pluggable() = false` (it's a connector, not a host
+  bus). Don't drop the polymer-only intent of `Role::Case`.
+- **`Part::datasheet()`** returns the canonical manufacturer /
+  distributor-CDN PDF URL keyed by `self.key`, same keyed-table
+  pattern as the others. **Two rules** that took two iterations
+  to nail down:
+  1. **Verify the URL with `datasheets_resolve` before commit.**
+     The test is `#[ignore]`d (network-dependent); invoke it with
+     `cargo test --release --lib -- --ignored --nocapture
+     datasheets_resolve`. It GETs each URL via reqwest with a
+     Safari User-Agent and falls back to FlareSolverr on
+     `127.0.0.1:8191` for hosts that bot-fingerprint plain HTTP
+     libraries (currently only `www.st.com` — ST UM3133 is
+     reachable via FS / a real browser but 000s from raw curl).
+     The first cut shipped a `sparkle.sparkfun.com` URL that had
+     DNS-died — caught the second time because the test was added.
+     Don't add a `datasheet()` entry without running the test.
+  2. **For OEM accessories with no public datasheet PDF, link the
+     product page.** SparkFun PRT-14986 (antenna) and CAB-09145
+     (pigtail) have no live standalone datasheet PDFs anymore —
+     SparkFun's own product page is the canonical spec source.
+     A live HTML spec beats a dead PDF link. Don't try harder to
+     find a "real" datasheet PDF and ship a 404 in the process.
+- **`--keys` focused build sheets — production examples:**
+  - LilyGO + XM125 radar + jumper + 18650:
+    `--from-db --keys lilygo-tbeam-s3-supreme,sparkfun-xm125-radar,
+    qwiic-jumper-female,battery-18650 --output /tmp/build.pdf`
+  - MovementLogger (STEVAL + GPS + antenna + enclosure):
+    `--from-db --keys steval-mkboxpro,sparkfun-max-m10s,
+    ublox-max-m10s,samtec-ffsd-07-100mm,sparkfun-gps-antenna-sma,
+    sparkfun-ufl-sma-100mm,hammond-1554g2gycl --output
+    /tmp/build-movement-logger.pdf`
+  Both committed snapshots live in `PDF/build-lilygo-xm125.pdf` and
+  `PDF/build-movement-logger.pdf` (force-added past `/PDF/` in
+  `.gitignore`, same convention as `pumpfoil-report.pdf`).
+- **Solderless GPS bring-up — Samtec FFSD-07.** The MovementLogger
+  build's GPS soldering (GPS_SOLDERING.md) is the durable answer,
+  but a `samtec-ffsd-07-100mm` part is in the BOM as the
+  *bring-up* path: the Samtec FFSD-07-D-04.00-01-N is a 14-pin
+  1.27 mm IDC ribbon with shrouded sockets on both ends that
+  press-fits onto JP2 (FTSH-107) without solder. The buyer also
+  needs a 1.27 mm → 2.54 mm SWD adapter PCB and a 2.54 mm 7-pin
+  female header for JP4 (the note on the part covers this kit).
+  Don't promote this as the production answer — vibration on a
+  pumpfoil board will wiggle the cable loose. It's bring-up only.
 
 ## SQLite persistence (`src/db.rs`)
 

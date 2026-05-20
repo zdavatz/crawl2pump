@@ -101,6 +101,8 @@ struct Row {
     dimensions: Option<(f32, f32, f32)>,
     /// Canonical OSS-firmware GitHub repo (from the BOM part).
     firmware_repo: Option<&'static str>,
+    /// Manufacturer datasheet PDF URL (from the BOM part), if known.
+    datasheet: Option<&'static str>,
     /// Host-MCU comparable one-liner (from the BOM part), if any.
     mcu: Option<&'static str>,
     listing: Listing,
@@ -242,7 +244,7 @@ async fn main() -> Result<()> {
 }
 
 fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
-    let (oss, connector, features, resellers, dimensions, firmware_repo, mcu) = meta
+    let (oss, connector, features, resellers, dimensions, firmware_repo, datasheet, mcu) = meta
         .get(o.part_name)
         .map(|(p,)| {
             (
@@ -252,10 +254,20 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
                 p.resellers(),
                 p.dimensions_cm(),
                 p.firmware_repo(),
+                p.datasheet(),
                 p.mcu(),
             )
         })
-        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None, None));
+        .unwrap_or((
+            false,
+            Connector::Soldered,
+            &[][..],
+            &[][..],
+            None,
+            None,
+            None,
+            None,
+        ));
     Row {
         role: o.role,
         part_name: o.part_name.to_string(),
@@ -265,6 +277,7 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
         resellers,
         dimensions,
         firmware_repo,
+        datasheet,
         mcu,
         listing: o.listing,
     }
@@ -292,7 +305,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         .unwrap_or(&s.title)
         .trim()
         .to_string();
-    let (oss, connector, features, resellers, dimensions, firmware_repo, mcu) = meta
+    let (oss, connector, features, resellers, dimensions, firmware_repo, datasheet, mcu) = meta
         .get(part_name.as_str())
         .map(|(p,)| {
             (
@@ -302,10 +315,20 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
                 p.resellers(),
                 p.dimensions_cm(),
                 p.firmware_repo(),
+                p.datasheet(),
                 p.mcu(),
             )
         })
-        .unwrap_or((false, Connector::Soldered, &[][..], &[][..], None, None, None));
+        .unwrap_or((
+            false,
+            Connector::Soldered,
+            &[][..],
+            &[][..],
+            None,
+            None,
+            None,
+            None,
+        ));
     let listing = Listing {
         source: s.source,
         brand: s.brand,
@@ -333,6 +356,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         resellers,
         dimensions,
         firmware_repo,
+        datasheet,
         mcu,
         listing,
     })
@@ -676,6 +700,16 @@ fn render_html(
                     html_escape(mcu)
                 ));
             }
+            // Manufacturer datasheet PDF for this device. Rendered as
+            // a friendly "Datasheet (PDF)" label rather than the raw
+            // URL because some of these URLs are long (SparkFun CDN
+            // hashes, ST resource paths). Only the parts that ship one.
+            if let Some(ds) = head.datasheet {
+                body.push_str(&format!(
+                    r#"<div class="ds"><span class="ds-l">Datasheet:</span> <a href="{0}" target="_blank" rel="noopener">{0}</a></div>"#,
+                    html_escape(ds)
+                ));
+            }
             // OSS firmware repo for this device (every BOM part is
             // open-firmware, so this always renders). One line per
             // part, like the feature/buy rows.
@@ -827,6 +861,9 @@ fn render_html(
   .fw {{ font-size: 8.5pt; margin: 0 0 2mm; }}
   .fw-l {{ font-weight: 700; color: #0e6132; margin-right: 1mm; }}
   .fw a {{ color: #0a58ca; text-decoration: none; word-break: break-all; }}
+  .ds {{ font-size: 8.5pt; margin: 0 0 2mm; }}
+  .ds-l {{ font-weight: 700; color: #6c4d00; margin-right: 1mm; }}
+  .ds a {{ color: #0a58ca; text-decoration: none; word-break: break-all; }}
   .mcu {{ font-size: 8.5pt; margin: 0 0 2mm; color: #222; }}
   .mcu-l {{ font-weight: 700; color: #6a1b9a; margin-right: 1mm; }}
   .guide {{ border: 1px solid #c5d4f3; background: #f5f8ff; border-radius: 2mm; padding: 3mm 4mm; margin: 0 0 6mm; break-inside: avoid; }}

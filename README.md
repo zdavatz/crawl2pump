@@ -362,10 +362,20 @@ modules, Meshtastic firmware for the LilyGO all-in-one). Boards with
 a user-programmable host MCU additionally show an **`MCU:` spec
 line** (chip · core · clock · flash/RAM · trait) so you can compare
 chips directly — e.g. the STEVAL-MKBOXPRO's ultra-low-power
-STM32U585 Cortex-M33 vs the LilyGO's dual-core ESP32-S3. Feature,
-dimension, reseller, firmware-repo and MCU data are single keyed
-tables in `src/sensors.rs` (`Part::features()` / `dimensions_cm()`
-/ `resellers()` / `firmware_repo()` / `mcu()`), all unit-tested.
+STM32U585 Cortex-M33 vs the LilyGO's dual-core ESP32-S3. Each card
+also carries a **`Datasheet:` link** to the manufacturer / SparkFun
+CDN PDF (or, for OEM accessories with no standalone datasheet PDF
+anymore, the SparkFun product page itself — a live HTML spec block
+beats a dead PDF link). Feature, dimension, reseller, firmware-repo,
+datasheet and MCU data are single keyed tables in `src/sensors.rs`
+(`Part::features()` / `dimensions_cm()` / `resellers()` /
+`firmware_repo()` / `datasheet()` / `mcu()`), all unit-tested. The
+datasheet URLs are reachability-verified by an opt-in network test:
+`cargo test --release --lib -- --ignored --nocapture
+datasheets_resolve` GETs each link with a browser User-Agent and
+falls back to a local FlareSolverr (port 8191) for Akamai-fingerprinted
+hosts (`www.st.com`), so a stale CDN URL fails the test instead of
+shipping a 404 in the PDF.
 
 Every card always shows an image: a real product photo where one is
 reachable without a key (SparkFun and Seeed JSON-LD/og:image, u-blox
@@ -384,7 +394,30 @@ are configured (Farnell in particular fills most of them).
 ./target/release/sensor_report --oss-only      # only open-source-firmware parts
 ./target/release/sensor_report --usbc-only     # only USB-C pluggable modules
 ./target/release/sensor_report --from-db       # re-render from DB without re-crawling
+
+# Focused build sheets via --keys (one card per part, cheapest offer wins,
+# trailing build-guide section on the last page where applicable):
+./target/release/sensor_report --from-db --keys \
+    lilygo-tbeam-s3-supreme,sparkfun-xm125-radar,qwiic-jumper-female,battery-18650 \
+    --output PDF/build-lilygo-xm125.pdf
+./target/release/sensor_report --from-db --keys \
+    steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,samtec-ffsd-07-100mm,\
+sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl \
+    --output PDF/build-movement-logger.pdf
 ```
+
+The second focused build is the **MovementLogger** kit
+([movement_logger_firmware](https://github.com/zdavatz/movement_logger_firmware)
++ [movement_logger_desktop](https://github.com/zdavatz/movement_logger_desktop)):
+STEVAL-MKBOXPRO host + u-blox MAX-M10S GPS + SparkFun breakout +
+external active SMA antenna + U.FL→SMA pigtail + a Hammond 1554G2GYCL
+**IP66 clear-lid polycarbonate enclosure** (RF-transparent so the
+onboard GPS works through the wall; the clear lid lets the Hall-
+sensor magnet flip the supply rail without opening the box). The
+`samtec-ffsd-07-100mm` is the **solderless bring-up cable** for
+JP2 — useful during development; the production rig still solders.
+The PDF's last page is the GPS soldering walkthrough mirrored from
+`movement_logger_firmware/GPS_SOLDERING.md`.
 
 Six distributor sources, two kinds:
 
