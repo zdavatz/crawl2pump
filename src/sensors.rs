@@ -312,6 +312,8 @@ impl Part {
             "sparkfun-gps-antenna-sma" => (4.0, 4.0, 1.3),
             // U.FL→SMA pigtail: 100 mm flex with two coax connectors.
             "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
+            // Samtec FFSD-07 100 mm ribbon (1.27 mm both ends).
+            "samtec-ffsd-07-100mm" => (10.0, 0.5, 0.2),
             // Generic 14-pin JTAG/SWD-to-DuPont cable, ~100 mm.
             "arm-jtag-dupont-cable" => (10.0, 0.5, 0.2),
             _ => return None,
@@ -341,6 +343,7 @@ impl Part {
                 | "hammond-1554g2gycl"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
+                | "samtec-ffsd-07-100mm"
                 | "arm-jtag-dupont-cable"
         ) {
             return None;
@@ -449,6 +452,11 @@ impl Part {
             // the clear-lid -CL parts).
             "hammond-1554g2gycl" => {
                 "https://www.hammfg.com/electronics/small-case/plastic/1554.pdf"
+            }
+            // Samtec FFSD family catalog (covers the 2×7 1.27 mm IDC
+            // shrouded ribbon assemblies — pinout, mating, lengths).
+            "samtec-ffsd-07-100mm" => {
+                "https://suddendocs.samtec.com/catalog_english/ffsd.pdf"
             }
             // Generic JTAG/SWD-to-DuPont cable has no canonical PDF
             // datasheet — no MPN, no manufacturer. The note + the
@@ -637,22 +645,41 @@ pub fn bom() -> Vec<Part> {
                    → SMA pigtail to mate with the MAX-M10S breakout's \
                    U.FL connector — see next part.",
         },
-        // Solderless alternative to GPS_SOLDERING.md for bring-up /
-        // prototyping — plugs into JP2 (the FTSH-107-01-L-D programming
-        // header) without touching the iron. Mechanically less robust
-        // than soldering (a vibrating board can wiggle the cable
-        // loose) so for a permanent pumpfoil rig still solder; this
-        // part is the "develop first, solder later" path.
+        // Solderless GPS bring-up — two options, both in the BOM so
+        // the buyer picks based on preference.
         //
-        // **No canonical distributor MPN** — turnkey 14-pin 1.27 mm
-        // → 0.1" DuPont cables are exclusively Amazon / AliExpress
-        // products (no-name OEMs; checked Mouser / DigiKey / Farnell
-        // keyword + the obvious vendors Olimex / Würth / SEGGER, no
-        // matches). The closest distributor-grade part is the Samtec
-        // FFSD-07-D-04.00-01-N (1.27 mm both ends), but it needs a
-        // separate adapter PCB to break out to DuPont — three SKUs
-        // for one effective cable. Buyer-friendlier to link the EU
-        // search and accept "no real-photo card" (placeholder fires).
+        // OPTION A (distributor-grade): Samtec FFSD-07-D-04.00-01-N,
+        // 14-pin 1.27 mm IDC ribbon, 1.27 mm socket on BOTH ends.
+        // Real DigiKey/Mouser/Farnell stock + photo + CHF 9.21. Plugs
+        // into JP2 cleanly, but the other end is still 1.27 mm — so
+        // the buyer ALSO needs a 1.27→2.54 mm adapter PCB + DuPont
+        // jumpers to reach the GPS. Three SKUs, distributor-tracked.
+        Part {
+            key: "samtec-ffsd-07-100mm",
+            name: "Samtec FFSD-07-D-04.00-01-N — 14-pin 1.27 mm IDC ribbon (100 mm)",
+            role: Role::Gps,
+            manufacturer: "Samtec",
+            mpns: &["FFSD-07-D-04.00-01-N"],
+            connector: Connector::Coax, // closest enum — fine-pitch IDC
+            oss_firmware: true, // passive ribbon — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.samtec.com/products/ffsd-07-d-04.00-01-n"),
+            note: "Distributor-grade path: real CHF price + photo from \
+                   Mouser/DigiKey/Farnell, plugs solderlessly onto JP2 \
+                   (the FTSH-107 programming header). Caveat: the other \
+                   end is also 1.27 mm — you'll need a 1.27→2.54 mm \
+                   SWD adapter PCB (~CHF 3 on AliExpress, no canonical \
+                   distributor MPN) and 4× female-female DuPont jumpers \
+                   to bridge to the SparkFun MAX-M10S breakout's UART \
+                   pins. Then a 2.54 mm 7-pin female header on JP4 for \
+                   the 3.3 V tap. Single-SKU alternative below.",
+        },
+        // OPTION B (turnkey): generic 14-pin 1.27 mm → DuPont cable —
+        // exactly what the buyer needs in one product, but only sold
+        // on Amazon/AliExpress (no Mouser/DigiKey/Farnell MPN exists
+        // for this category — checked the obvious vendors). Card
+        // renders with the SVG placeholder; accepted trade-off.
         Part {
             key: "arm-jtag-dupont-cable",
             name: "ARM Cortex JTAG/SWD 14-pin Cable (1.27 mm → 0.1\" DuPont, ~100 mm)",
@@ -1100,6 +1127,7 @@ mod tests {
             "sparkfun-gps-antenna-sma",
             "sparkfun-ufl-sma-100mm",
             "hammond-1554g2gycl",
+            "samtec-ffsd-07-100mm",
         ] {
             let url = by_key(k)
                 .datasheet()
@@ -1137,6 +1165,7 @@ mod tests {
                             | "hammond-1554g2gycl"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
+                            | "samtec-ffsd-07-100mm"
                             | "arm-jtag-dupont-cable"
                     ),
                     "{} unexpectedly has no firmware_repo",

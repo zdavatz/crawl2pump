@@ -401,8 +401,9 @@ are configured (Farnell in particular fills most of them).
     lilygo-tbeam-s3-supreme,sparkfun-xm125-radar,qwiic-jumper-female,battery-18650 \
     --output PDF/build-lilygo-xm125.pdf
 ./target/release/sensor_report --from-db --keys \
-    steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,arm-jtag-dupont-cable,\
-sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl \
+    steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,samtec-ffsd-07-100mm,\
+arm-jtag-dupont-cable,sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,\
+hammond-1554g2gycl \
     --output PDF/build-movement-logger.pdf
 ```
 
@@ -414,11 +415,17 @@ external active SMA antenna + U.FL→SMA pigtail + a Hammond 1554G2GYCL
 **IP66 clear-lid polycarbonate enclosure** (RF-transparent so the
 onboard GPS works through the wall; the clear lid lets the Hall-
 sensor magnet flip the supply rail without opening the box). The
-`arm-jtag-dupont-cable` is the **solderless bring-up cable** for
-JP2 — a generic 14-pin 1.27 mm → DuPont jumper cable sold on
-Amazon / AliExpress (no Mouser/DigiKey MPN exists for this category,
-so the BOM entry links a representative Amazon.de search). Useful
-during development; the production rig still solders.
+For the JP2 **solderless bring-up cable** the BOM offers two cards
+so the buyer can pick: `samtec-ffsd-07-100mm` is the
+distributor-grade path (Samtec FFSD-07-D-04.00-01-N from DigiKey at
+CHF 9.21, real product photo, but it's 1.27 mm on both ends so you
+also need a 1.27→2.54 mm SWD adapter PCB + DuPont jumpers — three
+SKUs to assemble); `arm-jtag-dupont-cable` is the single-SKU
+turnkey path (generic Amazon.de / AliExpress cable with 1.27 mm
+socket on one end and female DuPont leads on the other — no
+canonical Mouser/DigiKey MPN exists for the category, so the card
+shows the SVG placeholder image). Useful during development; the
+production rig still solders.
 The PDF's last page is the GPS soldering walkthrough mirrored from
 `movement_logger_firmware/GPS_SOLDERING.md`.
 

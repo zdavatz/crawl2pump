@@ -592,30 +592,34 @@ Architecture / invariants worth knowing before editing it:
     qwiic-jumper-female,battery-18650 --output /tmp/build.pdf`
   - MovementLogger (STEVAL + GPS + antenna + enclosure):
     `--from-db --keys steval-mkboxpro,sparkfun-max-m10s,
-    ublox-max-m10s,arm-jtag-dupont-cable,sparkfun-gps-antenna-sma,
-    sparkfun-ufl-sma-100mm,hammond-1554g2gycl --output
-    /tmp/build-movement-logger.pdf`
+    ublox-max-m10s,samtec-ffsd-07-100mm,arm-jtag-dupont-cable,
+    sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,
+    hammond-1554g2gycl --output /tmp/build-movement-logger.pdf`
   Both committed snapshots live in `PDF/build-lilygo-xm125.pdf` and
   `PDF/build-movement-logger.pdf` (force-added past `/PDF/` in
   `.gitignore`, same convention as `pumpfoil-report.pdf`).
-- **Solderless GPS bring-up — `arm-jtag-dupont-cable`.** The
+- **Solderless GPS bring-up — two BOM cards, buyer's choice.** The
   MovementLogger build's GPS soldering (GPS_SOLDERING.md) is the
-  durable answer, but the BOM also carries an `arm-jtag-dupont-cable`
-  entry as the *bring-up* path: a generic 14-pin 1.27 mm → DuPont
-  cable that press-fits onto JP2 (FTSH-107) on one end and exposes
-  individual female DuPont leads on the other, which slide directly
-  onto the SparkFun MAX-M10S breakout's UART pins. **No canonical
-  distributor MPN exists for this category** — checked Mouser /
-  DigiKey / Farnell keyword and Olimex / Würth / SEGGER part numbers;
-  these cables are no-name Amazon / AliExpress products only. The
-  closest distributor-grade alternative is the Samtec
-  FFSD-07-D-04.00-01-N (CHF 9.21 DigiKey, also stocked) but it has
-  1.27 mm sockets on *both* ends and needs an extra adapter PCB +
-  jumpers to reach the GPS — three SKUs for one effective cable. We
-  link the Amazon.de search URL instead and accept that the rendered
-  card uses the placeholder image (no real product photo without an
-  ASIN). Don't promote this as the production answer — vibration on
-  a pumpfoil board will wiggle the cable loose. Bring-up only.
+  durable answer; for bring-up the BOM carries **both** options:
+  - **`samtec-ffsd-07-100mm`** — Samtec FFSD-07-D-04.00-01-N, real
+    DigiKey/Mouser/Farnell stock (CHF 9.21 DigiKey), real product
+    photo, distributor-tracked. 1.27 mm sockets on *both* ends, so
+    the buyer ALSO needs a 1.27→2.54 mm SWD adapter PCB + DuPont
+    jumpers — three SKUs to assemble equivalent functionality.
+  - **`arm-jtag-dupont-cable`** — generic Amazon / AliExpress turnkey
+    (1.27 mm socket → female DuPont leads in one cable, ~CHF 8). No
+    canonical distributor MPN exists for this category (checked
+    Mouser / DigiKey / Farnell keyword + Olimex / Würth / SEGGER
+    part numbers, no matches). Card renders with the SVG placeholder
+    (no ASIN ⇒ no og:image); accepted trade-off since a specific
+    ASIN would go stale in months.
+  Why both: the buyer who already shops at DigiKey/Mouser prefers
+  the distributor path even with the assembly overhead; the buyer
+  who just wants the cable in one Amazon order takes the generic.
+  Don't drop one to "clean up" the catalog — they cover different
+  shopping preferences. Don't promote either as the production
+  answer — vibration on a pumpfoil board will wiggle the cable
+  loose. Bring-up only.
 
 ## SQLite persistence (`src/db.rs`)
 
