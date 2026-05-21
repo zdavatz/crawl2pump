@@ -1000,7 +1000,7 @@ fn render_card(l: &Listing, freshness: Option<Freshness>) -> String {
     let desc = l
         .description
         .as_deref()
-        .map(|s| html_escape(&shorten(s, 240)))
+        .map(|s| html_escape(&shorten(s, 900)))
         .unwrap_or_default();
     let stock = match l.available {
         Some(true) => " · in stock",

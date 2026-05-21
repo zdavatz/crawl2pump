@@ -890,28 +890,44 @@ pub fn bom() -> Vec<Part> {
             direct_url: Some(
                 "https://de.aliexpress.com/item/1005011846708876.html",
             ),
-            note: "Single-SKU turnkey alternative to the 4-SKU \
+            note: "**PIN CHOICE IS CRITICAL — wrong pins can brick \
+                   SWD debug or destroy GPS.** Use ONLY 3 of the 14 \
+                   wires: \
+                   • **pin 13** (UART4_RX on STEVAL) → GPS **TX** \
+                   • **pin 14** (UART4_TX on STEVAL) → GPS **RX** \
+                   • **pin 7 or 11** (GND) → GPS **GND** \
+                   ALL OTHER PINS carry SWD/JTAG signals — \
+                   **do NOT touch** (bridging any of them can \
+                   permanently lock out debug access or damage the \
+                   GPS). Identify pin 1 by the red/blue stripe on the \
+                   ribbon (standard IDC marking — pin 1 is on the \
+                   same side as the marked wire). The header is \
+                   2-row × 7-col: odd pins (1,3,5,7,9,11,13) on one \
+                   row, even pins (2,4,6,8,10,12,14) on the other; \
+                   pin 13/14 are the LAST pair at the far end of the \
+                   connector. If unsure, multimeter continuity test: \
+                   STEVAL off, probe JP2 pin 1 silkscreen marker \
+                   against each wire end. \
+                   \
+                   GPS VCC (3.3 V) comes from JP4, NOT JP2 — use the \
+                   Samtec SSW-107-01-G-S header card below + one F/F \
+                   DuPont from the SparkFun PRT-12796 pack. \
+                   \
+                   Single-SKU turnkey alternative to the 4-SKU \
                    Samtec-based path (also in the BOM). One end: \
                    14-pin 1.27 mm shrouded IDC socket (mates with \
-                   STEVAL JP2's FTSH-107 programming header — keyed, \
-                   only goes on one way). Other end: 14× female \
-                   DuPont crimped terminals; the listing includes \
-                   14 single-pin DuPont housings you can snap on for \
-                   strain relief. 30 cm length. **MUST select the \
-                   2X7P variant** (\"Farbe: 2X7P\" in the listing) — \
-                   the same product also ships in 6/8/10/12/16/20/26 \
-                   pin variants. Price CHF 9.69 + CHF 4.65 shipping = \
-                   ~CHF 14 delivered to CH; 2–3 week shipping from \
-                   China. Pin map identical to the Samtec note above: \
-                   JP2 pin 13 → GPS TX, pin 14 → GPS RX, pin 7 or 11 \
-                   → GPS GND, and a separate JP4 3.3 V tap for GPS \
-                   VCC (still needs the Samtec SSW-107 header below). \
-                   Bring-up only — vibration on the foilboard wiggles \
-                   the cable loose; solder the production rig. Item \
-                   ID 1005011846708876 has been stable in the AliExpress \
-                   catalog for months, but if it drops, search \
-                   \"14 Pin 1.27mm SWD to Dupont Cable\" — the category \
-                   is widely re-listed by other sellers.",
+                   STEVAL JP2's FTSH-107 header — keyed). Other end: \
+                   14× DuPont female terminals; listing ships 14 \
+                   single-pin DuPont housings for strain relief. \
+                   30 cm length. **MUST select 2X7P variant** \
+                   (\"Farbe: 2X7P\" in the listing). CHF 9.69 + CHF \
+                   4.65 shipping = ~CHF 14 to CH, 2–3 weeks from \
+                   China. Bring-up only — vibration on the foilboard \
+                   wiggles the cable loose; solder for production. \
+                   Item 1005011846708876 has been stable, but if it \
+                   drops, search \"14 Pin 1.27mm SWD to Dupont Cable\". \
+                   Full pin-table + visual walkthrough in the trailing \
+                   build guide (GPS_SOLDERING.md mirror).",
         },
         // Solderless-assembly ancillary #1 — F/F DuPont jumpers used
         // both at the adapter-PCB → GPS-breakout link and at the JP4
