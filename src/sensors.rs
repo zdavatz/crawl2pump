@@ -324,6 +324,12 @@ impl Part {
             "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
             "battery-18650" => (6.5, 1.8, 1.8), // ∅18 × 65 mm cylinder
             "hammond-1554g2gycl" => (12.0, 9.0, 6.0), // external 1554G2 size
+            // SERPAC RBF53 — smaller-footprint sibling of the RBF63.
+            // External 4.72 × 3.15 in × N. Same C10/C16/C22 depth
+            // codes. C10 (40 mm) ships in the MovementLogger build —
+            // STEVAL + breakout fit cleanly in the ~108 × 65 mm
+            // interior, no excess case length to flop around.
+            "serpac-rbf53-c10-clear" => (12.0, 8.0, 4.0),
             // SERPAC RBF63 — external 6.30 × 3.15 × N inches. Three
             // depths in the BOM: C10 = 1.59" (shallow), C16 = 2.17"
             // (medium), C22 = 3.35" (deep).
@@ -372,6 +378,7 @@ impl Part {
                 | "qwiic-jumper-female"
                 | "battery-18650"
                 | "hammond-1554g2gycl"
+                | "serpac-rbf53-c10-clear"
                 | "serpac-rbf63-c10-clear"
                 | "serpac-rbf63-c16-clear"
                 | "serpac-rbf63-c22-clear"
@@ -520,6 +527,8 @@ impl Part {
             // g; C22 deep ≈ 165 g. All three estimated from
             // wall-thickness/footprint scaling against the Hammond
             // 1554G2 reference (154 g for 120 × 90 × 60 mm).
+            // RBF53 C10 ≈ 75 g — smaller footprint, same wall stock.
+            "serpac-rbf53-c10-clear" => 75.0,
             "serpac-rbf63-c10-clear" => 105.0,
             "serpac-rbf63-c16-clear" => 130.0,
             "serpac-rbf63-c22-clear" => 165.0,
@@ -1297,6 +1306,43 @@ pub fn bom() -> Vec<Part> {
         // to the SERPAC RBF series page for og:image if Mouser's CDN
         // image isn't usable. Same `Role::Case` / `Connector::Enclosure`
         // / `firmware_repo: None` (passive box) convention as Hammond.
+        // RBF53 — smaller-footprint sibling, 120 × 80 mm vs RBF63's
+        // 160 × 80 mm. Same IP67 polycarbonate / clear-lid / metal
+        // inserts. The MovementLogger STEVAL + SparkFun MAX-M10S
+        // breakout side-by-side need ~88 × 40 mm, so RBF53's ~108 ×
+        // 65 mm interior is the no-flop fit. For the Pi-Zero stack
+        // RBF53 is also wide enough (Pi/HAT footprint is 65 × 30
+        // mm), but the GPS-HAT + PiSugar charge port + cable routing
+        // are easier with RBF63's longer interior. Hence RBF53 in
+        // the MovementLogger PDF, RBF63 still default in the
+        // Pi-Zero PDF.
+        Part {
+            key: "serpac-rbf53-c10-clear",
+            name: "SERPAC RBF53P06C10C — IP67 PC enclosure, clear lid (120 × 80 × 40 mm)",
+            role: Role::Case,
+            manufacturer: "SERPAC",
+            mpns: &["RBF53P06C10C"],
+            connector: Connector::Enclosure,
+            oss_firmware: true, // passive PC box — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.serpac.com/product-by-series/rbf-series.html"),
+            note: "Polycarbonate IP67 project box, external 120 × 80 \
+                   × 40 mm (4.72 × 3.15 × 1.59 in), clear PC lid \
+                   sealed with perimeter O-ring + stainless-steel \
+                   screws into metal inserts. IP67 = submersion to \
+                   1 m for 30 min, the right call for a foilboard \
+                   recorder that will go under during wipeouts. \
+                   Smaller footprint than the RBF63 line — the \
+                   MovementLogger (STEVAL 63 × 40 mm + SparkFun \
+                   MAX-M10S breakout 25 × 25 mm side-by-side ≈ 88 × \
+                   40 mm) fits cleanly inside the ~108 × 65 mm \
+                   interior with no excess case length to flop \
+                   around. RF-transparent (GPS works through the \
+                   wall), Hall-sensor magnet flips through the lid, \
+                   Qi-charge through the wall — same tricks as the \
+                   Hammond and the RBF63 line.",
+        },
         Part {
             key: "serpac-rbf63-c10-clear",
             name: "SERPAC RBF63P06C10C — IP67 PC enclosure, clear lid (160 × 80 × 40 mm)",
@@ -1490,6 +1536,7 @@ mod tests {
                             | "qwiic-jumper-female"
                             | "battery-18650"
                             | "hammond-1554g2gycl"
+                            | "serpac-rbf53-c10-clear"
                             | "serpac-rbf63-c10-clear"
                             | "serpac-rbf63-c16-clear"
                             | "serpac-rbf63-c22-clear"
