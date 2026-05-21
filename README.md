@@ -442,13 +442,30 @@ a Linux-SBC alternative to the STEVAL/LilyGO embedded paths: Pi Zero
 2 W host + PiSugar 3 (5000 mAh UPS HAT, USB-C charge, snap-on pogo
 pins so no soldering) + Waveshare L76X Multi-GNSS HAT (Quectel L76B
 over UART → gpsd) + the same SparkFun magnetic antenna and U.FL→SMA
-pigtail as the MovementLogger build + the Hammond 1554G2GYCL
-enclosure. Total build weight ≈ 320 g. Wins over the embedded
-options when you need real Linux tooling (gpsd / Python / GStreamer
-/ custom services); loses on boot time (~30 s vs <1 s) and on
-SD-card-corruption risk under hard power-cut (the PiSugar's
-`pisugar-server` daemon mitigates this with a clean low-battery
-shutdown). Connector::Gpio for the 40-pin Pi HAT header.
+pigtail as the MovementLogger build. Total build weight ≈ 320 g.
+Wins over the embedded options when you need real Linux tooling
+(gpsd / Python / GStreamer / custom services); loses on boot time
+(~30 s vs <1 s) and on SD-card-corruption risk under hard power-cut
+(the PiSugar's `pisugar-server` daemon mitigates this with a clean
+low-battery shutdown). Connector::Gpio for the 40-pin Pi HAT header.
+
+The Pi-Zero build PDF carries **three enclosure options side-by-side**
+so the buyer picks by use-case rather than the BOM forcing one:
+- **Hammond 1554G2GYCL** (120 × 90 × 60 mm, **IP66**, ~CHF 23 via
+  DigiKey CH) — splash and water-jet rated. The "stationary mount"
+  pick: cockpit / dashboard / mast-foot above the waterline.
+- **SERPAC RBF63P06C16C** (160 × 80 × 55 mm, **IP67**, ~CHF 25 via
+  Mouser) — submersible to 1 m / 30 min. The "foilboard mount" pick:
+  wipeout-proof. Comfortable fit for the Pi-Zero + HAT stack.
+- **SERPAC RBF63P06C22C** (160 × 80 × 85 mm, **IP67**, ~CHF 28 via
+  Mouser) — same IP67 in the deeper variant. Reserve for a thicker
+  LiPo (10 000 mAh PiSugar Pro) or extra GPIO HATs.
+
+All three are polycarbonate (RF-transparent so GPS works through the
+wall) and clear-lid (Hall-sensor-magnet flips the power rail through
+the closed lid; Qi charging works through the wall too). The IP66
+Hammond is **not submersible** — choose SERPAC if the box will
+actually go under during use.
 
 Six distributor sources, two kinds:
 

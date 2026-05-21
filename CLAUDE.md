@@ -575,6 +575,26 @@ Architecture / invariants worth knowing before editing it:
   has an enum-level encoding. `Connector::Coax` covers SMA / U.FL
   and stays `is_pluggable() = false` (it's a connector, not a host
   bus). Don't drop the polymer-only intent of `Role::Case`.
+- **IP rating is a `Role::Case` selection axis, not a quality grade.**
+  The BOM ships three case options that are all polycarbonate /
+  clear-lid / RF-transparent but split on IP rating:
+  - **Hammond 1554G2GYCL** — IP66 (splash/water-jet, NOT
+    submersible). Stationary mount only — cockpit dashboard, garden
+    box, mast-foot above the waterline.
+  - **SERPAC RBF63P06C16C / C22C** — IP67 (submersion 1 m / 30 min).
+    The pick for any build that will actually go under during use
+    (foilboard, kayak deck, anywhere a wipeout puts the case
+    underwater). The C16 / C22 suffix is depth: C16 = 55 mm
+    (Pi-Zero-stack-clean fit), C22 = 85 mm (reserve for thicker
+    LiPo / extra HATs). Don't pick `Connector::Enclosure` IP66
+    parts for water-sports use cases — IP66 *sounds* close to IP67
+    but the spec is "water jets" not "submersion", and the
+    difference shows up the first time the box goes under. The
+    Hammond's clear-lid / Hall-magnet / Qi-charge tricks all
+    transfer to the SERPAC RBF series unchanged. The Hammond stays
+    in the BOM because it's stocked at DigiKey CH (the SERPAC line
+    is Mouser-only), so the DigiKey-CH-only buyer still has an
+    option — but the note must steer water-sports use to the SERPAC.
 - **`Connector::Gpio`** is the 40-pin GPIO header on Raspberry Pi /
   compatible SBCs — Pi Zero 2 W itself plus snap-on HATs (Waveshare
   L76X GPS HAT, PiSugar 3 UPS HAT). `is_pluggable() = true` because
