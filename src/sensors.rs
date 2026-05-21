@@ -341,10 +341,12 @@ impl Part {
             "sparkfun-gps-antenna-sma" => (4.0, 4.0, 1.3),
             // U.FL→SMA pigtail: 100 mm flex with two coax connectors.
             "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
-            // Samtec FFSD-07 100 mm ribbon (1.27 mm both ends).
-            "samtec-ffsd-07-100mm" => (10.0, 0.5, 0.2),
             // AliExpress generic FC ribbon 1.27mm → 2.54mm DuPont,
-            // 30 cm length (Vino Electronic 1005011846708876).
+            // 30 cm length (Vino Electronic 1005011846708876). This
+            // single-SKU cable supersedes the earlier Samtec FFSD-07
+            // + adapter-PCB + DuPont-jumpers stack for the JP2 data
+            // path; the Samtec entry was removed once the AliExpress
+            // listing was verified as stable.
             "arm-jtag-dupont-cable" => (30.0, 0.5, 0.3),
             // SparkFun PRT-12796 — 20× F/F DuPont jumpers (6 in ≈ 152 mm).
             "sparkfun-jumper-ff-6in" => (15.0, 4.0, 0.3), // bundled width
@@ -390,7 +392,6 @@ impl Part {
                 | "serpac-rbf63-c22-clear"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
-                | "samtec-ffsd-07-100mm"
                 | "arm-jtag-dupont-cable"
                 | "sparkfun-jumper-ff-6in"
                 | "samtec-ssw-107-female-header"
@@ -510,7 +511,6 @@ impl Part {
             "sparkfun-gps-antenna-sma" => 80.0,
             // Pigtails, ribbons, jumper sets.
             "sparkfun-ufl-sma-100mm" => 3.0,
-            "samtec-ffsd-07-100mm" => 3.0,
             // AliExpress turnkey FC 1.27→2.54 DuPont cable, 30 cm,
             // 14× DuPont housings included.
             "arm-jtag-dupont-cable" => 7.0,
@@ -611,11 +611,6 @@ impl Part {
             // the clear-lid -CL parts).
             "hammond-1554g2gycl" => {
                 "https://www.hammfg.com/electronics/small-case/plastic/1554.pdf"
-            }
-            // Samtec FFSD family catalog (covers the 2×7 1.27 mm IDC
-            // shrouded ribbon assemblies — pinout, mating, lengths).
-            "samtec-ffsd-07-100mm" => {
-                "https://suddendocs.samtec.com/catalog_english/ffsd.pdf"
             }
             // Raspberry Pi Zero 2 W official product brief PDF
             // (datasheets.raspberrypi.com — Pi Foundation CDN).
@@ -821,51 +816,6 @@ pub fn bom() -> Vec<Part> {
         // Solderless GPS bring-up — two options, both in the BOM so
         // the buyer picks based on preference.
         //
-        // Solderless GPS bring-up — the Samtec FFSD-07 is the
-        // distributor-tracked anchor of a 3-SKU assembly (the buyer
-        // also needs an adapter PCB + DuPont jumpers + JP4 header to
-        // actually reach the GPS breakout). The "one-cable turnkey"
-        // ARM-JTAG-to-DuPont product was tracked here previously as
-        // its own Part — but a six-distributor survey (DigiKey, Mouser,
-        // Farnell, Distrelec, ChipDepot, Bastelgarage) plus Amazon DE
-        // confirmed no Western-brand single-SKU exists in this
-        // category. The product lives only as volatile Chinese OEM
-        // listings on AliExpress, so we don't track it as a
-        // first-class Part — the assembly recipe in the note below is
-        // the honest answer.
-        Part {
-            key: "samtec-ffsd-07-100mm",
-            name: "Samtec FFSD-07-D-04.00-01-N — 14-pin 1.27 mm IDC ribbon (100 mm)",
-            role: Role::Gps,
-            manufacturer: "Samtec",
-            mpns: &["FFSD-07-D-04.00-01-N"],
-            connector: Connector::Coax, // closest enum — fine-pitch IDC
-            oss_firmware: true, // passive ribbon — no firmware
-            st_url: None,
-            sparkfun_pid: None,
-            direct_url: Some("https://www.samtec.com/products/ffsd-07-d-04.00-01-n"),
-            note: "Solderless JP2 plug (the FTSH-107 programming \
-                   header). 1.27 mm shrouded sockets on BOTH ends, so \
-                   to actually reach the SparkFun MAX-M10S breakout \
-                   you build a 4-SKU assembly: (1) **this cable** \
-                   (DigiKey CHF 9.21, real photo) for the JP2 plug; \
-                   (2) a **1.27 → 2.54 mm SWD adapter PCB** (~CHF 3 \
-                   on AliExpress, no canonical Mouser/DigiKey MPN — \
-                   the entire Western-distributor catalog was \
-                   surveyed and this category is generic OEM only); \
-                   (3) **4× female-female DuPont jumpers** for the \
-                   adapter PCB → GPS breakout pins (Bastelgarage \
-                   ~CHF 4 / 10 Stk); (4) **2.54 mm 7-pin female \
-                   header** onto JP4 for the 3.3 V tap (~CHF 1, \
-                   meter 3.25–3.40 V before connecting!). Pin map: \
-                   JP2 pin 13 → GPS TX, pin 14 → GPS RX, pin 7 or 11 \
-                   → GPS GND (crossover: STEVAL TX → GPS RX). Single \
-                   AliExpress search term that surfaces this category \
-                   end-to-end: \"14 Pin 1.27mm SWD to Dupont Cable\" \
-                   — typically CHF 5, seller volatile. Bring-up only; \
-                   solder the production rig (see GPS_SOLDERING.md \
-                   in the trailing build guide).",
-        },
         // AliExpress single-SKU turnkey: collapses the entire 4-SKU
         // solderless assembly (FFSD-07 + adapter-PCB + DuPont jumpers
         // + DuPont housings) into ONE finished cable. The product was
@@ -913,8 +863,7 @@ pub fn bom() -> Vec<Part> {
                    Samtec SSW-107-01-G-S header card below + one F/F \
                    DuPont from the SparkFun PRT-12796 pack. \
                    \
-                   Single-SKU turnkey alternative to the 4-SKU \
-                   Samtec-based path (also in the BOM). One end: \
+                   Single-SKU turnkey solderless cable. One end: \
                    14-pin 1.27 mm shrouded IDC socket (mates with \
                    STEVAL JP2's FTSH-107 header — keyed). Other end: \
                    14× DuPont female terminals; listing ships 14 \
@@ -1613,7 +1562,6 @@ mod tests {
             "sparkfun-gps-antenna-sma",
             "sparkfun-ufl-sma-100mm",
             "hammond-1554g2gycl",
-            "samtec-ffsd-07-100mm",
         ] {
             let url = by_key(k)
                 .datasheet()
@@ -1660,7 +1608,6 @@ mod tests {
                             | "serpac-rbf63-c22-clear"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
-                            | "samtec-ffsd-07-100mm"
                             | "arm-jtag-dupont-cable"
                             | "sparkfun-jumper-ff-6in"
                             | "samtec-ssw-107-female-header"

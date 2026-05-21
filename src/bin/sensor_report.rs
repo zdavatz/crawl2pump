@@ -528,7 +528,7 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
     Some(
         r#"<div class="guide" style="page-break-before:always">
 <h2 class="cat">Solderless alternative — bring-up only</h2>
-<p class="g-n">If you don't want to touch the iron yet (or you want to verify the wiring before committing to a permanent build), the BOM anchors a solderless 4-SKU assembly on one distributor-tracked Part (<code>samtec-ffsd-07-100mm</code>) that lets you plug into JP2 without soldering. <b>Caveat:</b> a vibrating pumpfoil board can wiggle the cable loose mid-session — use this for bring-up / development, switch to the soldered rig below for production.</p>
+<p class="g-n">If you don't want to touch the iron yet (or you want to verify the wiring before committing to a permanent build), the BOM ships a single-SKU AliExpress turnkey cable that plugs into JP2 without soldering, plus a 2-part power-tap kit for JP4. <b>Caveat:</b> a vibrating pumpfoil board can wiggle the cable loose mid-session — use this for bring-up / development, switch to the soldered rig below for production.</p>
 
 <p class="g-h">Reference videos (watch first)</p>
 <ul>
@@ -538,15 +538,14 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
 </ul>
 <p class="g-n">There is no exact "STEVAL-MKBOXPRO + solderless JTAG cable + MAX-M10S" video — that combination is bespoke to this build. The two videos above cover the load-bearing concepts (UART wiring + the specific GPS module).</p>
 
-<p class="g-h">Shopping list (4 SKUs, ~CHF 17 total)</p>
+<p class="g-h">Shopping list (3 SKUs, ~CHF 19 total)</p>
 <table class="wire">
 <tr><th>#</th><th>Part</th><th>Where / Price</th></tr>
-<tr><td>1</td><td><b>Samtec FFSD-07-D-04.00-01-N</b> — 14-pin 1.27 mm IDC ribbon, 100 mm <i>(BOM card above)</i></td><td>DigiKey CH · ~CHF 9</td></tr>
-<tr><td>2</td><td><b>1.27 → 2.54 mm SWD adapter PCB</b> — the only piece without a Western-brand SKU (survey of DigiKey + Mouser + Farnell + Distrelec + ChipDepot + Bastelgarage + Amazon DE all came back empty)</td><td>AliExpress · ~CHF 3 · search "Cortex SWD 14-pin 1.27 to 2.54 adapter"</td></tr>
-<tr><td>3</td><td><b>SparkFun PRT-12796</b> — F/F DuPont jumper wires, 6 in (20-pack; you need 4) <i>(BOM card above)</i></td><td>DigiKey CH · ~CHF 4</td></tr>
-<tr><td>4</td><td><b>Samtec SSW-107-01-G-S</b> — 1×7 female header strip, 0.1″ pitch (slips onto JP4 for the 3.3 V tap) <i>(BOM card above)</i></td><td>DigiKey CH · ~CHF 1</td></tr>
+<tr><td>1</td><td><b>AliExpress FC 14-pin Cable</b> — 1.27 mm IDC → DuPont female, 30 cm, <b>select 2X7P variant</b> <i>(BOM card above)</i>. Handles the JP2 ↔ GPS data path end-to-end (TX, RX, GND on 3 of 14 wires; the others stay unused).</td><td>AliExpress item 1005011846708876 · CHF 9.69 + CHF 4.65 shipping = ~CHF 14 · 2–3 weeks to CH</td></tr>
+<tr><td>2</td><td><b>Samtec SSW-107-01-G-S</b> — 1×7 female header strip, 0.1″ pitch <i>(BOM card above)</i>. Slips onto JP4 to expose the 3.3 V tap for GPS VCC.</td><td>DigiKey CH · ~CHF 1</td></tr>
+<tr><td>3</td><td><b>SparkFun PRT-12796</b> — F/F DuPont jumper wires, 6 in (20-pack; you only need 1 for the JP4 → GPS VCC link) <i>(BOM card above)</i>. The other 19 stay in your maker bin.</td><td>DigiKey CH · ~CHF 4</td></tr>
 </table>
-<p class="g-n"><b>Why this isn't a single SKU:</b> a 14-pin 1.27 mm shrouded socket → loose 2.54 mm female DuPont cable is exactly what the buyer wants in one piece, but the category isn't stocked by any Western distributor (DigiKey, Mouser, Farnell, Distrelec, ChipDepot, Bastelgarage all checked); only generic Chinese OEM listings on Amazon/AliExpress fill it (~CHF 5–8, seller volatile). If you want to skip the adapter PCB + DuPonts, an AliExpress search for "14 Pin 1.27mm SWD to Dupont Cable" surfaces the single-cable version — but the BOM doesn't track it because no listing stays stable long enough.</p>
+<p class="g-n"><b>Earlier BOM iteration carried an all-DigiKey 4-SKU path</b> (Samtec FFSD-07 + 1.27→2.54 adapter PCB + DuPont jumpers + this header) for buyers who refuse to wait for AliExpress shipping. The Samtec FFSD-07 was dropped once the AliExpress listing was browser-verified as stable with a real product photo and a 14-pin 2X7P variant — the AliExpress cable is now the canonical solderless data path. If the AliExpress listing ever dies, the all-DigiKey assembly recipe is in the git log (commit ada0363 + parent for the Samtec note).</p>
 
 <p class="g-h">Step 1 · JP4 power tap (3.3 V)</p>
 <ol>

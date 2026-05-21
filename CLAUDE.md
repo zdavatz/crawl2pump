@@ -651,7 +651,7 @@ Architecture / invariants worth knowing before editing it:
     qwiic-jumper-female,battery-18650 --output /tmp/build.pdf`
   - MovementLogger (STEVAL + GPS + antenna + enclosure):
     `--from-db --keys steval-mkboxpro,sparkfun-max-m10s,
-    ublox-max-m10s,samtec-ffsd-07-100mm,sparkfun-jumper-ff-6in,
+    ublox-max-m10s,arm-jtag-dupont-cable,sparkfun-jumper-ff-6in,
     samtec-ssw-107-female-header,sparkfun-gps-antenna-sma,
     sparkfun-ufl-sma-100mm,hammond-1554g2gycl,
     serpac-rbf53-c10-clear
@@ -670,36 +670,49 @@ Architecture / invariants worth knowing before editing it:
   `PDF/build-movement-logger.pdf`, `PDF/build-pi-zero.pdf`
   (force-added past `/PDF/` in `.gitignore`, same convention as
   `pumpfoil-report.pdf`).
-- **Solderless GPS bring-up — one BOM card + 3 ancillary SKUs.** The
-  MovementLogger build's GPS soldering (GPS_SOLDERING.md) is the
-  durable production answer; for bring-up the BOM anchors a 4-SKU
-  assembly on one distributor-tracked Part: **`samtec-ffsd-07-100mm`**
-  (Samtec FFSD-07-D-04.00-01-N, DigiKey CHF 9.21, real photo). The
-  Samtec has 1.27 mm sockets on *both* ends so to reach the GPS
-  breakout you also need (a) a 1.27→2.54 mm SWD adapter PCB
-  (~CHF 3 AliExpress, no canonical MPN), (b) 4× female-female
-  DuPont jumpers (Bastelgarage ~CHF 4 / 10 Stk), (c) a 2.54 mm 7-pin
-  female header for the JP4 3.3 V tap (~CHF 1). The note on the
-  Samtec card walks the buyer through the pin-by-pin mapping.
+- **Solderless GPS bring-up — one AliExpress cable + 2 DigiKey
+  ancillaries.** The MovementLogger build's GPS soldering
+  (GPS_SOLDERING.md) is the durable production answer; for bring-up
+  the BOM anchors a 3-SKU solderless path:
+  1. **`arm-jtag-dupont-cable`** — AliExpress item 1005011846708876
+     (Vino Electronic), 14-pin 1.27 mm IDC socket → 14× DuPont female
+     leads, 30 cm, **2X7P variant** mandatory. CHF 9.69 + CHF 4.65
+     shipping = ~CHF 14, 2–3 weeks to CH. Handles the JP2 ↔ GPS data
+     path (TX/RX/GND on 3 of the 14 wires).
+  2. **`samtec-ssw-107-female-header`** — Samtec SSW-107-01-G-S, 1×7
+     0.1″ female header. Slips onto JP4 to expose the 3.3 V tap.
+     DigiKey CH ~CHF 1.
+  3. **`sparkfun-jumper-ff-6in`** — SparkFun PRT-12796, 20-pack F/F
+     DuPont jumpers. Only 1 needed (JP4 3.3 V → GPS VCC); the other
+     19 stay in the buyer's bin. DigiKey CH ~CHF 4.
 
-  **Why we tracked only one Part:** an earlier BOM carried a second
-  Part `arm-jtag-dupont-cable` — supposedly the "single-SKU turnkey"
-  alternative (1.27 mm socket on one end, 14× DuPont female leads on
-  the other, ~CHF 8 from Amazon/AliExpress). A six-distributor
-  survey (**DigiKey, Mouser, Farnell, Distrelec, ChipDepot,
-  Bastelgarage**) plus an Amazon DE / AliExpress sweep confirmed
-  this product **only exists as volatile generic Chinese OEM
-  listings** — no Western brand sells it. Tracking it as a
-  first-class Part meant a card with an Amazon search URL as the
-  `direct_url`, no `og:image`, and a generic placeholder image —
-  worse signal than just documenting the AliExpress search term in
-  the Samtec note. Removed in commit at the same time as this
-  invariant rewrote.
+  **Six-distributor survey legacy:** the `arm-jtag-dupont-cable`
+  card was dropped in commit 64d34f1 after a DigiKey + Mouser +
+  Farnell + Distrelec + ChipDepot + Bastelgarage sweep confirmed
+  no Western brand stocks a 14-pin 1.27 mm → DuPont cable as a
+  single SKU. At that point the BOM anchored a 4-SKU Samtec FFSD-07
+  + adapter PCB + jumpers + header recipe instead. A later
+  claude-in-chrome browser session (2026-05-21) verified that the
+  AliExpress listing IS stable with a real product photo, so the
+  arm-jtag-dupont-cable was re-added in commit b0fd34e with the
+  AliExpress URL, and the Samtec FFSD-07 was dropped (this
+  invariant rewrote) because the AliExpress cable supersedes it
+  end-to-end for the data path.
 
-  If a Western brand ever does fill this gap (look for SEGGER,
-  Olimex, Adafruit, SparkFun, Pimoroni adding a 14-pin Cortex →
-  DuPont cable), add it back as a Part with a real MPN — but don't
-  re-add a placeholder card chasing a product that doesn't exist.
+  **Don't re-add the Samtec FFSD-07** unless the AliExpress listing
+  dies AND no replacement product surfaces in the OEM catalog. The
+  all-DigiKey 4-SKU assembly recipe is preserved in the git log
+  (commit ada0363 + parent for the Samtec note text and shopping
+  list) so it can be revived if needed.
+
+  **Pin warning is load-bearing:** JP2 carries SWD debug signals on
+  most pins. The arm-jtag-dupont-cable Part `note` leads with the
+  3-wire pin map (13 = UART4_RX → GPS TX, 14 = UART4_TX → GPS RX,
+  7 or 11 = GND) and the warning that ALL OTHER pins are SWD and
+  must not be touched. Renderer's shorten() limit was bumped from
+  240 → 900 chars specifically so this warning fits on the card
+  (was getting cut mid-sentence at 240). Don't lower it back.
+
   Don't promote any solderless option as the production answer —
   vibration on a pumpfoil board will wiggle the connection loose.
   Bring-up only.

@@ -405,8 +405,8 @@ are configured (Farnell in particular fills most of them).
     lilygo-tbeam-s3-supreme,sparkfun-xm125-radar,qwiic-jumper-female,battery-18650 \
     --output PDF/build-lilygo-xm125.pdf
 ./target/release/sensor_report --from-db --keys \
-    steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,samtec-ffsd-07-100mm,\
-sparkfun-jumper-ff-6in,samtec-ssw-107-female-header,\
+    steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,\
+arm-jtag-dupont-cable,sparkfun-jumper-ff-6in,samtec-ssw-107-female-header,\
 sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl,\
 serpac-rbf53-c10-clear \
     --output PDF/build-movement-logger.pdf
@@ -424,17 +424,19 @@ external active SMA antenna + U.FL→SMA pigtail + a Hammond 1554G2GYCL
 **IP66 clear-lid polycarbonate enclosure** (RF-transparent so the
 onboard GPS works through the wall; the clear lid lets the Hall-
 sensor magnet flip the supply rail without opening the box). The
-For the JP2 **solderless bring-up cable** the BOM ships one card —
-`samtec-ffsd-07-100mm` (Samtec FFSD-07-D-04.00-01-N from DigiKey at
-CHF 9.21, real product photo) — anchoring a 4-SKU assembly: the
-Samtec ribbon plus a 1.27→2.54 mm SWD adapter PCB (~CHF 3
-AliExpress), 4× female-female DuPont jumpers (Bastelgarage ~CHF 4),
-and a 2.54 mm 7-pin female header for the JP4 3.3 V tap (~CHF 1).
-A six-distributor survey (DigiKey, Mouser, Farnell, Distrelec,
-ChipDepot, Bastelgarage) plus Amazon DE confirmed no Western brand
-sells a single-SKU "14-pin 1.27 mm → female DuPont" cable that
-would collapse this to one product — that category lives only as
-volatile AliExpress OEM listings. Useful during development; the
+For the JP2 **solderless bring-up cable** the BOM ships the
+`arm-jtag-dupont-cable` card — a Vino Electronic AliExpress listing
+(item 1005011846708876, 2X7P variant, ~CHF 14 delivered to CH) that
+provides a finished 14-pin 1.27 mm shrouded IDC socket → 14× DuPont
+female terminals in one cable. Plus two DigiKey ancillaries for the
+JP4 3.3 V tap that the AliExpress cable doesn't reach: Samtec
+SSW-107-01-G-S female header (~CHF 1) and SparkFun PRT-12796 F/F
+DuPont jumpers (20-pack, ~CHF 4 — only 1 needed for VCC, the rest
+stay in your maker bin). A six-distributor survey (DigiKey, Mouser,
+Farnell, Distrelec, ChipDepot, Bastelgarage) confirmed no Western
+brand stocks the AliExpress-equivalent single-SKU cable; the
+listing was browser-verified as stable with a real product photo
+before adding it to the BOM. Useful during development; the
 production rig still solders.
 The PDF's last page is the GPS soldering walkthrough mirrored from
 `movement_logger_firmware/GPS_SOLDERING.md`.
