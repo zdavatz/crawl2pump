@@ -343,6 +343,9 @@ impl Part {
             "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
             // Samtec FFSD-07 100 mm ribbon (1.27 mm both ends).
             "samtec-ffsd-07-100mm" => (10.0, 0.5, 0.2),
+            // AliExpress generic FC ribbon 1.27mm → 2.54mm DuPont,
+            // 30 cm length (Vino Electronic 1005011846708876).
+            "arm-jtag-dupont-cable" => (30.0, 0.5, 0.3),
             // SparkFun PRT-12796 — 20× F/F DuPont jumpers (6 in ≈ 152 mm).
             "sparkfun-jumper-ff-6in" => (15.0, 4.0, 0.3), // bundled width
             // Samtec SSW-107-01-G-S — 1×7 female header 0.1" pitch
@@ -388,6 +391,7 @@ impl Part {
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
                 | "samtec-ffsd-07-100mm"
+                | "arm-jtag-dupont-cable"
                 | "sparkfun-jumper-ff-6in"
                 | "samtec-ssw-107-female-header"
         ) {
@@ -507,6 +511,9 @@ impl Part {
             // Pigtails, ribbons, jumper sets.
             "sparkfun-ufl-sma-100mm" => 3.0,
             "samtec-ffsd-07-100mm" => 3.0,
+            // AliExpress turnkey FC 1.27→2.54 DuPont cable, 30 cm,
+            // 14× DuPont housings included.
+            "arm-jtag-dupont-cable" => 7.0,
             // SparkFun PRT-12796 20-pack of 6" F/F jumpers ≈ 25 g per pack.
             "sparkfun-jumper-ff-6in" => 25.0,
             // Samtec SSW-107-01-G-S 1x7 female header — tiny, ~0.5 g.
@@ -858,6 +865,53 @@ pub fn bom() -> Vec<Part> {
                    — typically CHF 5, seller volatile. Bring-up only; \
                    solder the production rig (see GPS_SOLDERING.md \
                    in the trailing build guide).",
+        },
+        // AliExpress single-SKU turnkey: collapses the entire 4-SKU
+        // solderless assembly (FFSD-07 + adapter-PCB + DuPont jumpers
+        // + DuPont housings) into ONE finished cable. The product was
+        // dropped from an earlier BOM iteration because no Western
+        // distributor stocked it — verified via claude-in-chrome
+        // browser session on 2026-05-21 that AliExpress item ID
+        // 1005011846708876 (Vino Electronic) has been the stable
+        // listing for this category, with a real product photo and a
+        // 14-pin "2X7P" variant at CHF 9.69 + CHF 4.65 shipping. The
+        // `vendor` source picks up the og:image from alicdn.com so
+        // the card renders with the real product photo.
+        Part {
+            key: "arm-jtag-dupont-cable",
+            name: "AliExpress FC 14-pin Cable — 1.27 mm IDC → DuPont female, 30 cm (2X7P variant)",
+            role: Role::Gps,
+            manufacturer: "Vino Electronic Connect. (AliExpress)",
+            mpns: &[], // generic OEM, no canonical Western MPN
+            connector: Connector::Coax, // closest enum — fine-pitch IDC
+            oss_firmware: true, // passive cable — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some(
+                "https://de.aliexpress.com/item/1005011846708876.html",
+            ),
+            note: "Single-SKU turnkey alternative to the 4-SKU \
+                   Samtec-based path (also in the BOM). One end: \
+                   14-pin 1.27 mm shrouded IDC socket (mates with \
+                   STEVAL JP2's FTSH-107 programming header — keyed, \
+                   only goes on one way). Other end: 14× female \
+                   DuPont crimped terminals; the listing includes \
+                   14 single-pin DuPont housings you can snap on for \
+                   strain relief. 30 cm length. **MUST select the \
+                   2X7P variant** (\"Farbe: 2X7P\" in the listing) — \
+                   the same product also ships in 6/8/10/12/16/20/26 \
+                   pin variants. Price CHF 9.69 + CHF 4.65 shipping = \
+                   ~CHF 14 delivered to CH; 2–3 week shipping from \
+                   China. Pin map identical to the Samtec note above: \
+                   JP2 pin 13 → GPS TX, pin 14 → GPS RX, pin 7 or 11 \
+                   → GPS GND, and a separate JP4 3.3 V tap for GPS \
+                   VCC (still needs the Samtec SSW-107 header below). \
+                   Bring-up only — vibration on the foilboard wiggles \
+                   the cable loose; solder the production rig. Item \
+                   ID 1005011846708876 has been stable in the AliExpress \
+                   catalog for months, but if it drops, search \
+                   \"14 Pin 1.27mm SWD to Dupont Cable\" — the category \
+                   is widely re-listed by other sellers.",
         },
         // Solderless-assembly ancillary #1 — F/F DuPont jumpers used
         // both at the adapter-PCB → GPS-breakout link and at the JP4
@@ -1591,6 +1645,7 @@ mod tests {
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
                             | "samtec-ffsd-07-100mm"
+                            | "arm-jtag-dupont-cable"
                             | "sparkfun-jumper-ff-6in"
                             | "samtec-ssw-107-female-header"
                     ),
