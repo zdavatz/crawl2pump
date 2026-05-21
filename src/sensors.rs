@@ -324,6 +324,10 @@ impl Part {
             "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
             "battery-18650" => (6.5, 1.8, 1.8), // ∅18 × 65 mm cylinder
             "hammond-1554g2gycl" => (12.0, 9.0, 6.0), // external 1554G2 size
+            // SERPAC RBF63 — external 6.30 × 3.15 × N inches.
+            // C16 = 2.17" depth (medium), C22 = 3.35" depth (deep).
+            "serpac-rbf63-c16-clear" => (16.0, 8.0, 5.5),
+            "serpac-rbf63-c22-clear" => (16.0, 8.0, 8.5),
             // Active mag-mount GPS antenna: 40×40×13 mm puck + 3 m
             // coax. Listed dimensions are the puck.
             "sparkfun-gps-antenna-sma" => (4.0, 4.0, 1.3),
@@ -366,6 +370,8 @@ impl Part {
                 | "qwiic-jumper-female"
                 | "battery-18650"
                 | "hammond-1554g2gycl"
+                | "serpac-rbf63-c16-clear"
+                | "serpac-rbf63-c22-clear"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
                 | "samtec-ffsd-07-100mm"
@@ -506,6 +512,13 @@ impl Part {
             // rounded to 154 g consistent with the value quoted in the
             // weight discussion above.
             "hammond-1554g2gycl" => 154.0,
+            // SERPAC RBF63 (polycarbonate enclosure + metal inserts +
+            // stainless screws): C16 medium-depth ≈ 130 g; C22
+            // deep-depth ≈ 165 g. Both estimates from
+            // wall-thickness/footprint scaling against the Hammond
+            // 1554G2 reference (154 g for 120×90×60 mm).
+            "serpac-rbf63-c16-clear" => 130.0,
+            "serpac-rbf63-c22-clear" => 165.0,
             // Pi-build parts: Pi Foundation publishes 9.3 g for Pi Zero
             // 2 W bare PCB; with the GPIO header soldered it climbs to
             // ~11 g (Pimoroni / Adafruit measurements).
@@ -1261,7 +1274,70 @@ pub fn bom() -> Vec<Part> {
                    box. Leave the wall un-drilled to keep the seal \
                    intact and charge via Qi wireless through the wall \
                    (the STEVAL supports it). If the LPS22DF barometer \
-                   needs ambient pressure, add a Gore-type vent.",
+                   needs ambient pressure, add a Gore-type vent. \
+                   IP66 — splash and water-jet rated, NOT submersible. \
+                   If the box is mounted on a foilboard that will \
+                   wipeout-submerge, prefer the SERPAC RBF63 (IP67) \
+                   below.",
+        },
+        // SERPAC RBF63 — the foilboard-submersible upgrade over the
+        // Hammond IP66. Same polycarbonate (RF-transparent), same
+        // clear-lid trick (Hall sensor through the wall, Qi-charging
+        // through the wall), but with IP67 perimeter seal — rated for
+        // submersion to 1 m for 30 min, exactly what a wipeout puts the
+        // box through. Two depth variants in the BOM so the buyer
+        // matches the Pi-Zero-stack height (~30 mm) against the case
+        // internal depth: C16 fits cleanly with ~15 mm cable headroom,
+        // C22 has reserve for wiring + a larger battery / additional
+        // HATs. Mouser stocks the line; the `vendor` source falls back
+        // to the SERPAC RBF series page for og:image if Mouser's CDN
+        // image isn't usable. Same `Role::Case` / `Connector::Enclosure`
+        // / `firmware_repo: None` (passive box) convention as Hammond.
+        Part {
+            key: "serpac-rbf63-c16-clear",
+            name: "SERPAC RBF63P06C16C — IP67 PC enclosure, clear lid (160 × 80 × 55 mm)",
+            role: Role::Case,
+            manufacturer: "SERPAC",
+            mpns: &["RBF63P06C16C"],
+            connector: Connector::Enclosure,
+            oss_firmware: true, // passive PC box — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.serpac.com/product-by-series/rbf-series.html"),
+            note: "Polycarbonate IP67 project box, external 160 × 80 × \
+                   55 mm (6.30 × 3.15 × 2.17 in), clear PC lid sealed \
+                   with perimeter O-ring + stainless-steel screws into \
+                   metal inserts. IP67 = rated for submersion to 1 m \
+                   for 30 min — the Hammond is only IP66 \
+                   (splash/water-jet, NOT submersible), so this is the \
+                   pick for a Pi-Zero / MovementLogger box that will \
+                   actually go under during a foilboard wipeout. Same \
+                   RF-transparent / Hall-sensor-through-the-wall / \
+                   Qi-charge-through-the-wall properties as the \
+                   Hammond. Comfortable fit for the Pi-Zero + PiSugar \
+                   + GPS-HAT stack (~30 mm tall) with ~15 mm cable \
+                   headroom. Add a Gore vent if the LPS22DF barometer \
+                   needs ambient pressure.",
+        },
+        Part {
+            key: "serpac-rbf63-c22-clear",
+            name: "SERPAC RBF63P06C22C — IP67 PC enclosure, clear lid (160 × 80 × 85 mm)",
+            role: Role::Case,
+            manufacturer: "SERPAC",
+            mpns: &["RBF63P06C22C"],
+            connector: Connector::Enclosure,
+            oss_firmware: true, // passive PC box — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.serpac.com/product-by-series/rbf-series.html"),
+            note: "Same IP67 polycarbonate enclosure as the C16 above \
+                   but in the deeper 85 mm variant (3.35 in depth) — \
+                   gives ~45 mm headroom above the Pi-Zero stack, \
+                   enough for a thicker LiPo (10 000 mAh PiSugar Pro, \
+                   18650 holder, etc.) or an extra HAT stacked higher \
+                   on the GPIO. Pick C22 over C16 if the build will \
+                   grow; pick C16 if you want the slimmest profile on \
+                   the board.",
         },
     ]
 }
@@ -1382,6 +1458,8 @@ mod tests {
                             | "qwiic-jumper-female"
                             | "battery-18650"
                             | "hammond-1554g2gycl"
+                            | "serpac-rbf63-c16-clear"
+                            | "serpac-rbf63-c22-clear"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
                             | "samtec-ffsd-07-100mm"
