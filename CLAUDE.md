@@ -575,26 +575,34 @@ Architecture / invariants worth knowing before editing it:
   has an enum-level encoding. `Connector::Coax` covers SMA / U.FL
   and stays `is_pluggable() = false` (it's a connector, not a host
   bus). Don't drop the polymer-only intent of `Role::Case`.
-- **IP rating is a `Role::Case` selection axis, not a quality grade.**
-  The BOM ships three case options that are all polycarbonate /
-  clear-lid / RF-transparent but split on IP rating:
-  - **Hammond 1554G2GYCL** — IP66 (splash/water-jet, NOT
-    submersible). Stationary mount only — cockpit dashboard, garden
-    box, mast-foot above the waterline.
-  - **SERPAC RBF63P06C16C / C22C** — IP67 (submersion 1 m / 30 min).
-    The pick for any build that will actually go under during use
-    (foilboard, kayak deck, anywhere a wipeout puts the case
-    underwater). The C16 / C22 suffix is depth: C16 = 55 mm
-    (Pi-Zero-stack-clean fit), C22 = 85 mm (reserve for thicker
-    LiPo / extra HATs). Don't pick `Connector::Enclosure` IP66
-    parts for water-sports use cases — IP66 *sounds* close to IP67
-    but the spec is "water jets" not "submersion", and the
-    difference shows up the first time the box goes under. The
-    Hammond's clear-lid / Hall-magnet / Qi-charge tricks all
-    transfer to the SERPAC RBF series unchanged. The Hammond stays
-    in the BOM because it's stocked at DigiKey CH (the SERPAC line
-    is Mouser-only), so the DigiKey-CH-only buyer still has an
-    option — but the note must steer water-sports use to the SERPAC.
+- **`Role::Case` selection has TWO axes: IP rating, and footprint
+  per build.** The BOM ships cases on both axes; don't collapse them
+  to one knob.
+  - **IP axis (66 vs 67):** Hammond 1554G2GYCL = IP66 (splash /
+    water-jet, **NOT submersible**), Stationary mount only — cockpit
+    / dashboard / mast-foot above the waterline. SERPAC RBF series
+    = IP67 (submersion 1 m / 30 min) — the pick for any build that
+    will go under (foilboard, kayak deck). Don't pick IP66 for
+    water-sports — IP66 *sounds* close to IP67 but the spec is
+    "water jets" not "submersion", and the difference shows up the
+    first time the case is submerged. The Hammond's clear-lid /
+    Hall-magnet / Qi-charge tricks all transfer to the SERPAC RBF
+    line unchanged. The Hammond stays in the BOM because it's
+    stocked at DigiKey CH (the SERPAC RBF63 is Mouser-only — RBF53
+    *is* DigiKey-stocked, so that's the no-trade-off pick for the
+    MovementLogger).
+  - **Footprint axis (RBF53 vs RBF63):** SERPAC ships seven RBF
+    sizes (RBF22 / 32 / 33 / 53 / 55 / 63 / 65). The BOM tracks two:
+    **RBF53** (120 × 80 mm, MovementLogger PDF default — STEVAL +
+    breakout side-by-side ≈ 88 × 40 mm, no excess case length) and
+    **RBF63** (160 × 80 mm, Pi-Zero PDF default — longer interior
+    helps with GPS-HAT + PiSugar charge port + cable routing).
+    Adding another footprint = one Part entry + arms in
+    `dimensions_cm` / `weight_g` + firmware_repo allow-None set
+    update; same keyed-table pattern as the rest. Depth suffix
+    (C10 = 40 mm, C16 = 55 mm, C22 = 85 mm) is independent of
+    footprint — RBF53 / RBF63 / RBF55 all share the same three
+    depth codes.
 - **`Connector::Gpio`** is the 40-pin GPIO header on Raspberry Pi /
   compatible SBCs — Pi Zero 2 W itself plus snap-on HATs (Waveshare
   L76X GPS HAT, PiSugar 3 UPS HAT). `is_pluggable() = true` because

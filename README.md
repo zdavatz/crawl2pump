@@ -449,23 +449,32 @@ Wins over the embedded options when you need real Linux tooling
 (the PiSugar's `pisugar-server` daemon mitigates this with a clean
 low-battery shutdown). Connector::Gpio for the 40-pin Pi HAT header.
 
-The Pi-Zero build PDF carries **three enclosure options side-by-side**
-so the buyer picks by use-case rather than the BOM forcing one:
-- **Hammond 1554G2GYCL** (120 × 90 × 60 mm, **IP66**, ~CHF 23 via
-  DigiKey CH) — splash and water-jet rated. The "stationary mount"
-  pick: cockpit / dashboard / mast-foot above the waterline.
-- **SERPAC RBF63P06C16C** (160 × 80 × 55 mm, **IP67**, ~CHF 25 via
-  Mouser) — submersible to 1 m / 30 min. The "foilboard mount" pick:
-  wipeout-proof. Comfortable fit for the Pi-Zero + HAT stack.
-- **SERPAC RBF63P06C22C** (160 × 80 × 85 mm, **IP67**, ~CHF 28 via
-  Mouser) — same IP67 in the deeper variant. Reserve for a thicker
-  LiPo (10 000 mAh PiSugar Pro) or extra GPIO HATs.
+**Case selection is per-build**, since the STEVAL-MKBOXPRO and the
+Pi-Zero stack have very different footprints and stack heights:
 
-All three are polycarbonate (RF-transparent so GPS works through the
-wall) and clear-lid (Hall-sensor-magnet flips the power rail through
-the closed lid; Qi charging works through the wall too). The IP66
-Hammond is **not submersible** — choose SERPAC if the box will
-actually go under during use.
+- **MovementLogger PDF** ships with the **SERPAC RBF53P06C10C**
+  (120 × 80 × 40 mm, **IP67**, ~CHF 22 via DigiKey CH) — the no-flop
+  fit for the STEVAL (63 × 40 mm) + SparkFun MAX-M10S breakout
+  (25 × 25 mm) side-by-side stack, total ~88 × 40 × 25 mm.
+- **Pi-Zero PDF** ships with **three RBF63 depth options**
+  (160 × 80 × {40/55/85} mm, **IP67**, ~CHF 25–28 via Mouser) — the
+  longer interior helps with GPS-HAT + PiSugar charge port + cable
+  routing. C10 is the slimmest profile (tight fit), C16 a no-rework
+  drop-in, C22 has reserve for a thicker LiPo or extra HATs.
+- Both PDFs additionally carry the **Hammond 1554G2GYCL**
+  (120 × 90 × 60 mm, **IP66**, ~CHF 23 via DigiKey CH) as the
+  stationary-mount alternative — splash and water-jet rated but
+  **NOT submersible**, so use it only for builds above the
+  waterline (cockpit / dashboard / mast-foot, not the foilboard
+  itself).
+
+All cases in the BOM are polycarbonate (RF-transparent so GPS works
+through the wall) and clear-lid (Hall-sensor magnet flips the power
+rail through the closed lid; Qi charging works through the wall too).
+The SERPAC RBF line has seven footprint sizes (RBF22 / 32 / 33 / 53
+/ 55 / 63 / 65) — the BOM tracks the two that match the STEVAL and
+Pi-Zero builds; others are one match arm away in `sensors.rs` if a
+future build needs them.
 
 Six distributor sources, two kinds:
 
