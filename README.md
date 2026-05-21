@@ -406,6 +406,7 @@ are configured (Farnell in particular fills most of them).
     --output PDF/build-lilygo-xm125.pdf
 ./target/release/sensor_report --from-db --keys \
     steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,samtec-ffsd-07-100mm,\
+sparkfun-jumper-ff-6in,samtec-ssw-107-female-header,\
 sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl,\
 serpac-rbf53-c10-clear \
     --output PDF/build-movement-logger.pdf

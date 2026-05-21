@@ -343,6 +343,11 @@ impl Part {
             "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
             // Samtec FFSD-07 100 mm ribbon (1.27 mm both ends).
             "samtec-ffsd-07-100mm" => (10.0, 0.5, 0.2),
+            // SparkFun PRT-12796 — 20× F/F DuPont jumpers (6 in ≈ 152 mm).
+            "sparkfun-jumper-ff-6in" => (15.0, 4.0, 0.3), // bundled width
+            // Samtec SSW-107-01-G-S — 1×7 female header 0.1" pitch
+            // (7 × 2.54 mm = 17.8 mm long, ~8.5 mm tall, ~2.5 mm wide).
+            "samtec-ssw-107-female-header" => (1.8, 0.85, 0.25),
             // Raspberry Pi Zero 2 W: 65 × 30 × 5 mm PCB.
             "rpi-zero-2-w" => (6.5, 3.0, 0.5),
             // PiSugar 3 for Zero: matches Pi Zero footprint (65 × 30 mm),
@@ -383,6 +388,8 @@ impl Part {
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
                 | "samtec-ffsd-07-100mm"
+                | "sparkfun-jumper-ff-6in"
+                | "samtec-ssw-107-female-header"
         ) {
             return None;
         }
@@ -500,6 +507,10 @@ impl Part {
             // Pigtails, ribbons, jumper sets.
             "sparkfun-ufl-sma-100mm" => 3.0,
             "samtec-ffsd-07-100mm" => 3.0,
+            // SparkFun PRT-12796 20-pack of 6" F/F jumpers ≈ 25 g per pack.
+            "sparkfun-jumper-ff-6in" => 25.0,
+            // Samtec SSW-107-01-G-S 1x7 female header — tiny, ~0.5 g.
+            "samtec-ssw-107-female-header" => 0.5,
             "qwiic-cable-100mm" => 2.0,
             "qwiic-jumper-female" => 3.0,
             // Espressif / SparkFun ESP32 DevKits.
@@ -847,6 +858,59 @@ pub fn bom() -> Vec<Part> {
                    — typically CHF 5, seller volatile. Bring-up only; \
                    solder the production rig (see GPS_SOLDERING.md \
                    in the trailing build guide).",
+        },
+        // Solderless-assembly ancillary #1 — F/F DuPont jumpers used
+        // both at the adapter-PCB → GPS-breakout link and at the JP4
+        // 3.3 V tap. SparkFun PRT-12796 ships as a 20-pack and is
+        // DigiKey-stocked (real photo + price).
+        Part {
+            key: "sparkfun-jumper-ff-6in",
+            name: "SparkFun PRT-12796 — F/F DuPont jumper wires, 6 in (20 Pack)",
+            role: Role::Gps,
+            manufacturer: "SparkFun",
+            mpns: &["PRT-12796"],
+            connector: Connector::Coax, // closest enum — passive wire
+            oss_firmware: true, // passive wire — no firmware
+            st_url: None,
+            sparkfun_pid: Some("12796"),
+            direct_url: None,
+            note: "Female-to-female DuPont jumper wires, 6 in (~150 mm), \
+                   20-pack. Used in the solderless GPS bring-up for: \
+                   (a) 3× links between the 1.27→2.54 mm SWD adapter \
+                   PCB's 2.54 mm side and the SparkFun MAX-M10S \
+                   breakout's UART header (TX/RX/GND); (b) 1× link \
+                   from the JP4 7-pin female header's 3.3 V pin to \
+                   the GPS VCC pin. You need 4 jumpers from the pack; \
+                   the rest stay in your bin for the next project. \
+                   Also useful for any future I²C / Qwiic-jumper \
+                   experiments on the LilyGO build.",
+        },
+        // Solderless-assembly ancillary #2 — 1×7 female header strip
+        // that slips onto the STEVAL's JP4 power header (no soldering)
+        // and gives 2.54 mm pin access to its 3.3 V tap. Samtec
+        // SSW-107-01-G-S is the canonical DigiKey-stocked SKU.
+        Part {
+            key: "samtec-ssw-107-female-header",
+            name: "Samtec SSW-107-01-G-S — 1×7 female header strip, 0.1\" pitch (JP4 power tap)",
+            role: Role::Gps,
+            manufacturer: "Samtec",
+            mpns: &["SSW-107-01-G-S"],
+            connector: Connector::Coax, // closest enum — passive header
+            oss_firmware: true, // passive header — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some(
+                "https://www.samtec.com/products/ssw-107-01-g-s",
+            ),
+            note: "1×7 gold-plated through-hole socket strip on 2.54 mm \
+                   (0.1\") pitch. Slips onto JP4, the STEVAL's 7-pin \
+                   power header — no soldering, friction-fit. Before \
+                   plugging anything in: **set the JP4 domain switch \
+                   to 3 V** (not 1.8 V) and meter the 3 V pin under \
+                   power; must read 3.25–3.40 V. Then DuPont-jumper \
+                   the 3 V pin to the SparkFun MAX-M10S breakout's \
+                   VCC pin. The strip's other 6 pins stay accessible \
+                   for GND tapping or for future signal-monitoring.",
         },
         Part {
             key: "sparkfun-ufl-sma-100mm",
@@ -1527,6 +1591,8 @@ mod tests {
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
                             | "samtec-ffsd-07-100mm"
+                            | "sparkfun-jumper-ff-6in"
+                            | "samtec-ssw-107-female-header"
                     ),
                     "{} unexpectedly has no firmware_repo",
                     p.key

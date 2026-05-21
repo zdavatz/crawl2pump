@@ -541,10 +541,10 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
 <p class="g-h">Shopping list (4 SKUs, ~CHF 17 total)</p>
 <table class="wire">
 <tr><th>#</th><th>Part</th><th>Where / Price</th></tr>
-<tr><td>1</td><td><b>Samtec FFSD-07-D-04.00-01-N</b> — 14-pin 1.27 mm IDC ribbon, 100 mm (the BOM card above)</td><td>DigiKey CH · ~CHF 9</td></tr>
-<tr><td>2</td><td><b>1.27 → 2.54 mm SWD adapter PCB</b> (no canonical Mouser/DigiKey MPN exists; survey of DigiKey + Mouser + Farnell + Distrelec + ChipDepot + Bastelgarage + Amazon DE found no Western-brand SKU for this category)</td><td>AliExpress · ~CHF 3 · search "Cortex SWD 14-pin 1.27 to 2.54 adapter"</td></tr>
-<tr><td>3</td><td><b>4× female-female DuPont jumpers</b>, ~10 cm</td><td>Bastelgarage · ~CHF 4 / 10 Stk</td></tr>
-<tr><td>4</td><td><b>2.54 mm 7-pin female header strip</b> — slides onto JP4 for the 3.3 V power tap</td><td>any electronics shop · ~CHF 1</td></tr>
+<tr><td>1</td><td><b>Samtec FFSD-07-D-04.00-01-N</b> — 14-pin 1.27 mm IDC ribbon, 100 mm <i>(BOM card above)</i></td><td>DigiKey CH · ~CHF 9</td></tr>
+<tr><td>2</td><td><b>1.27 → 2.54 mm SWD adapter PCB</b> — the only piece without a Western-brand SKU (survey of DigiKey + Mouser + Farnell + Distrelec + ChipDepot + Bastelgarage + Amazon DE all came back empty)</td><td>AliExpress · ~CHF 3 · search "Cortex SWD 14-pin 1.27 to 2.54 adapter"</td></tr>
+<tr><td>3</td><td><b>SparkFun PRT-12796</b> — F/F DuPont jumper wires, 6 in (20-pack; you need 4) <i>(BOM card above)</i></td><td>DigiKey CH · ~CHF 4</td></tr>
+<tr><td>4</td><td><b>Samtec SSW-107-01-G-S</b> — 1×7 female header strip, 0.1″ pitch (slips onto JP4 for the 3.3 V tap) <i>(BOM card above)</i></td><td>DigiKey CH · ~CHF 1</td></tr>
 </table>
 <p class="g-n"><b>Why this isn't a single SKU:</b> a 14-pin 1.27 mm shrouded socket → loose 2.54 mm female DuPont cable is exactly what the buyer wants in one piece, but the category isn't stocked by any Western distributor (DigiKey, Mouser, Farnell, Distrelec, ChipDepot, Bastelgarage all checked); only generic Chinese OEM listings on Amazon/AliExpress fill it (~CHF 5–8, seller volatile). If you want to skip the adapter PCB + DuPonts, an AliExpress search for "14 Pin 1.27mm SWD to Dupont Cable" surfaces the single-cable version — but the BOM doesn't track it because no listing stays stable long enough.</p>
 

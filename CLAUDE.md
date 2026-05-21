@@ -651,7 +651,8 @@ Architecture / invariants worth knowing before editing it:
     qwiic-jumper-female,battery-18650 --output /tmp/build.pdf`
   - MovementLogger (STEVAL + GPS + antenna + enclosure):
     `--from-db --keys steval-mkboxpro,sparkfun-max-m10s,
-    ublox-max-m10s,samtec-ffsd-07-100mm,sparkfun-gps-antenna-sma,
+    ublox-max-m10s,samtec-ffsd-07-100mm,sparkfun-jumper-ff-6in,
+    samtec-ssw-107-female-header,sparkfun-gps-antenna-sma,
     sparkfun-ufl-sma-100mm,hammond-1554g2gycl,
     serpac-rbf53-c10-clear
     --output /tmp/build-movement-logger.pdf`
