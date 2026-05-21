@@ -324,8 +324,10 @@ impl Part {
             "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
             "battery-18650" => (6.5, 1.8, 1.8), // ∅18 × 65 mm cylinder
             "hammond-1554g2gycl" => (12.0, 9.0, 6.0), // external 1554G2 size
-            // SERPAC RBF63 — external 6.30 × 3.15 × N inches.
-            // C16 = 2.17" depth (medium), C22 = 3.35" depth (deep).
+            // SERPAC RBF63 — external 6.30 × 3.15 × N inches. Three
+            // depths in the BOM: C10 = 1.59" (shallow), C16 = 2.17"
+            // (medium), C22 = 3.35" (deep).
+            "serpac-rbf63-c10-clear" => (16.0, 8.0, 4.0),
             "serpac-rbf63-c16-clear" => (16.0, 8.0, 5.5),
             "serpac-rbf63-c22-clear" => (16.0, 8.0, 8.5),
             // Active mag-mount GPS antenna: 40×40×13 mm puck + 3 m
@@ -370,6 +372,7 @@ impl Part {
                 | "qwiic-jumper-female"
                 | "battery-18650"
                 | "hammond-1554g2gycl"
+                | "serpac-rbf63-c10-clear"
                 | "serpac-rbf63-c16-clear"
                 | "serpac-rbf63-c22-clear"
                 | "sparkfun-gps-antenna-sma"
@@ -513,10 +516,11 @@ impl Part {
             // weight discussion above.
             "hammond-1554g2gycl" => 154.0,
             // SERPAC RBF63 (polycarbonate enclosure + metal inserts +
-            // stainless screws): C16 medium-depth ≈ 130 g; C22
-            // deep-depth ≈ 165 g. Both estimates from
+            // stainless screws): C10 shallow ≈ 105 g; C16 medium ≈ 130
+            // g; C22 deep ≈ 165 g. All three estimated from
             // wall-thickness/footprint scaling against the Hammond
-            // 1554G2 reference (154 g for 120×90×60 mm).
+            // 1554G2 reference (154 g for 120 × 90 × 60 mm).
+            "serpac-rbf63-c10-clear" => 105.0,
             "serpac-rbf63-c16-clear" => 130.0,
             "serpac-rbf63-c22-clear" => 165.0,
             // Pi-build parts: Pi Foundation publishes 9.3 g for Pi Zero
@@ -1294,6 +1298,29 @@ pub fn bom() -> Vec<Part> {
         // image isn't usable. Same `Role::Case` / `Connector::Enclosure`
         // / `firmware_repo: None` (passive box) convention as Hammond.
         Part {
+            key: "serpac-rbf63-c10-clear",
+            name: "SERPAC RBF63P06C10C — IP67 PC enclosure, clear lid (160 × 80 × 40 mm)",
+            role: Role::Case,
+            manufacturer: "SERPAC",
+            mpns: &["RBF63P06C10C"],
+            connector: Connector::Enclosure,
+            oss_firmware: true, // passive PC box — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.serpac.com/product-by-series/rbf-series.html"),
+            note: "Same IP67 polycarbonate enclosure as the C16/C22 \
+                   below in the shallow 40 mm variant (1.59 in depth) — \
+                   the slimmest profile on the foilboard. **Tight** for \
+                   the standard Pi-Zero + PiSugar + GPS-HAT stack: \
+                   ~30 mm interior depth vs ~30–35 mm stack height \
+                   (Pi 5 mm + PiSugar 10 mm + GPS HAT 10 mm + GPIO \
+                   stack pins ~10 mm). Works if you use low-profile \
+                   stack headers (omit the spacer pins, the HATs sit \
+                   flush) or skip one HAT. For a no-rework drop-in \
+                   pick C16. Same RF-transparent / Hall-magnet / \
+                   Qi-charge properties as the deeper variants.",
+        },
+        Part {
             key: "serpac-rbf63-c16-clear",
             name: "SERPAC RBF63P06C16C — IP67 PC enclosure, clear lid (160 × 80 × 55 mm)",
             role: Role::Case,
@@ -1458,6 +1485,7 @@ mod tests {
                             | "qwiic-jumper-female"
                             | "battery-18650"
                             | "hammond-1554g2gycl"
+                            | "serpac-rbf63-c10-clear"
                             | "serpac-rbf63-c16-clear"
                             | "serpac-rbf63-c22-clear"
                             | "sparkfun-gps-antenna-sma"
