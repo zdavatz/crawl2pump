@@ -1310,15 +1310,20 @@ pub fn bom() -> Vec<Part> {
             direct_url: Some("https://www.serpac.com/product-by-series/rbf-series.html"),
             note: "Same IP67 polycarbonate enclosure as the C16/C22 \
                    below in the shallow 40 mm variant (1.59 in depth) — \
-                   the slimmest profile on the foilboard. **Tight** for \
-                   the standard Pi-Zero + PiSugar + GPS-HAT stack: \
-                   ~30 mm interior depth vs ~30–35 mm stack height \
-                   (Pi 5 mm + PiSugar 10 mm + GPS HAT 10 mm + GPIO \
-                   stack pins ~10 mm). Works if you use low-profile \
-                   stack headers (omit the spacer pins, the HATs sit \
-                   flush) or skip one HAT. For a no-rework drop-in \
-                   pick C16. Same RF-transparent / Hall-magnet / \
-                   Qi-charge properties as the deeper variants.",
+                   the slimmest profile on the foilboard. Per-build \
+                   fit: \
+                   (a) **MovementLogger** (STEVAL-MKBOXPRO 20 mm + \
+                   SparkFun MAX-M10S breakout 6 mm beside it, total \
+                   stack ~25–30 mm) — fits cleanly in the ~30 mm \
+                   interior, this is the right pick. DigiKey CH \
+                   stocks it directly. \
+                   (b) **Pi-Zero recorder** (Pi 5 mm + PiSugar 10 mm \
+                   + GPS HAT 10 mm + GPIO stack pins ~10 mm = 30–35 \
+                   mm) — borderline; use low-profile stack headers \
+                   (omit the spacer pins, the HATs sit flush) or skip \
+                   one HAT. For a no-rework drop-in pick C16. \
+                   Same RF-transparent / Hall-magnet / Qi-charge \
+                   properties as the deeper variants.",
         },
         Part {
             key: "serpac-rbf63-c16-clear",
