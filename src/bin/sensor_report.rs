@@ -534,6 +534,7 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
 <ul>
 <li><a href="https://youtu.be/tq_RoaPLahk" target="_blank" rel="noopener">ControllersTech — GPS Module and STM32 (NEO-6M)</a>: generic STM32 + u-blox GPS over UART. NEO-6M but the wiring is identical to MAX-M10S (TX↔RX crossover, GND, 3.3 V). Watch this one if you watch one.</li>
 <li><a href="https://youtu.be/Yh8pLKs7aaY" target="_blank" rel="noopener">SparkFun — MAX-M10S Product Showcase</a>: the specific GPS breakout from this BOM (PRT-18037). Shows the U.FL connector and the UART header pins you'll connect to.</li>
+<li><a href="https://youtu.be/1pXZ6rzDlzo?t=693" target="_blank" rel="noopener">Chris Park — STM32 + u-blox UART NMEA, <b>wiring from 11:33</b></a>: the closest-fit hookup demo. Uses M8N (same pinout as the MAX-M10S), shows 4 DuPont female leads plugged onto VCC/GND/TX/RX on the GPS module. Translate directly to the STEVAL: JP4 → 3 V & GND, JP2 → TX/RX (crossover: STEVAL TX → GPS RX, STEVAL RX → GPS TX).</li>
 </ul>
 <p class="g-n">There is no exact "STEVAL-MKBOXPRO + solderless JTAG cable + MAX-M10S" video — that combination is bespoke to this build. The two videos above cover the load-bearing concepts (UART wiring + the specific GPS module).</p>
 
