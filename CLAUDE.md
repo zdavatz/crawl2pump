@@ -651,9 +651,10 @@ Architecture / invariants worth knowing before editing it:
     qwiic-jumper-female,battery-18650 --output /tmp/build.pdf`
   - MovementLogger (STEVAL + GPS + antenna + enclosure):
     `--from-db --keys steval-mkboxpro,sparkfun-max-m10s,
-    ublox-max-m10s,samtec-ffsd-07-100mm,arm-jtag-dupont-cable,
-    sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,
-    hammond-1554g2gycl --output /tmp/build-movement-logger.pdf`
+    ublox-max-m10s,samtec-ffsd-07-100mm,sparkfun-gps-antenna-sma,
+    sparkfun-ufl-sma-100mm,hammond-1554g2gycl,
+    serpac-rbf53-c10-clear
+    --output /tmp/build-movement-logger.pdf`
   - Raspberry Pi Zero 2 W recorder (Linux-SBC alternative):
     `--from-db --keys rpi-zero-2-w,pisugar-3-5000mah,
     waveshare-l76x-gps-hat,sparkfun-gps-antenna-sma,
@@ -668,28 +669,39 @@ Architecture / invariants worth knowing before editing it:
   `PDF/build-movement-logger.pdf`, `PDF/build-pi-zero.pdf`
   (force-added past `/PDF/` in `.gitignore`, same convention as
   `pumpfoil-report.pdf`).
-- **Solderless GPS bring-up — two BOM cards, buyer's choice.** The
+- **Solderless GPS bring-up — one BOM card + 3 ancillary SKUs.** The
   MovementLogger build's GPS soldering (GPS_SOLDERING.md) is the
-  durable answer; for bring-up the BOM carries **both** options:
-  - **`samtec-ffsd-07-100mm`** — Samtec FFSD-07-D-04.00-01-N, real
-    DigiKey/Mouser/Farnell stock (CHF 9.21 DigiKey), real product
-    photo, distributor-tracked. 1.27 mm sockets on *both* ends, so
-    the buyer ALSO needs a 1.27→2.54 mm SWD adapter PCB + DuPont
-    jumpers — three SKUs to assemble equivalent functionality.
-  - **`arm-jtag-dupont-cable`** — generic Amazon / AliExpress turnkey
-    (1.27 mm socket → female DuPont leads in one cable, ~CHF 8). No
-    canonical distributor MPN exists for this category (checked
-    Mouser / DigiKey / Farnell keyword + Olimex / Würth / SEGGER
-    part numbers, no matches). Card renders with the SVG placeholder
-    (no ASIN ⇒ no og:image); accepted trade-off since a specific
-    ASIN would go stale in months.
-  Why both: the buyer who already shops at DigiKey/Mouser prefers
-  the distributor path even with the assembly overhead; the buyer
-  who just wants the cable in one Amazon order takes the generic.
-  Don't drop one to "clean up" the catalog — they cover different
-  shopping preferences. Don't promote either as the production
-  answer — vibration on a pumpfoil board will wiggle the cable
-  loose. Bring-up only.
+  durable production answer; for bring-up the BOM anchors a 4-SKU
+  assembly on one distributor-tracked Part: **`samtec-ffsd-07-100mm`**
+  (Samtec FFSD-07-D-04.00-01-N, DigiKey CHF 9.21, real photo). The
+  Samtec has 1.27 mm sockets on *both* ends so to reach the GPS
+  breakout you also need (a) a 1.27→2.54 mm SWD adapter PCB
+  (~CHF 3 AliExpress, no canonical MPN), (b) 4× female-female
+  DuPont jumpers (Bastelgarage ~CHF 4 / 10 Stk), (c) a 2.54 mm 7-pin
+  female header for the JP4 3.3 V tap (~CHF 1). The note on the
+  Samtec card walks the buyer through the pin-by-pin mapping.
+
+  **Why we tracked only one Part:** an earlier BOM carried a second
+  Part `arm-jtag-dupont-cable` — supposedly the "single-SKU turnkey"
+  alternative (1.27 mm socket on one end, 14× DuPont female leads on
+  the other, ~CHF 8 from Amazon/AliExpress). A six-distributor
+  survey (**DigiKey, Mouser, Farnell, Distrelec, ChipDepot,
+  Bastelgarage**) plus an Amazon DE / AliExpress sweep confirmed
+  this product **only exists as volatile generic Chinese OEM
+  listings** — no Western brand sells it. Tracking it as a
+  first-class Part meant a card with an Amazon search URL as the
+  `direct_url`, no `og:image`, and a generic placeholder image —
+  worse signal than just documenting the AliExpress search term in
+  the Samtec note. Removed in commit at the same time as this
+  invariant rewrote.
+
+  If a Western brand ever does fill this gap (look for SEGGER,
+  Olimex, Adafruit, SparkFun, Pimoroni adding a 14-pin Cortex →
+  DuPont cable), add it back as a Part with a real MPN — but don't
+  re-add a placeholder card chasing a product that doesn't exist.
+  Don't promote any solderless option as the production answer —
+  vibration on a pumpfoil board will wiggle the connection loose.
+  Bring-up only.
 
 ## SQLite persistence (`src/db.rs`)
 

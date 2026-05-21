@@ -406,8 +406,8 @@ are configured (Farnell in particular fills most of them).
     --output PDF/build-lilygo-xm125.pdf
 ./target/release/sensor_report --from-db --keys \
     steval-mkboxpro,sparkfun-max-m10s,ublox-max-m10s,samtec-ffsd-07-100mm,\
-arm-jtag-dupont-cable,sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,\
-hammond-1554g2gycl \
+sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl,\
+serpac-rbf53-c10-clear \
     --output PDF/build-movement-logger.pdf
 ./target/release/sensor_report --from-db --keys \
     rpi-zero-2-w,pisugar-3-5000mah,waveshare-l76x-gps-hat,\
@@ -423,16 +423,17 @@ external active SMA antenna + U.FL→SMA pigtail + a Hammond 1554G2GYCL
 **IP66 clear-lid polycarbonate enclosure** (RF-transparent so the
 onboard GPS works through the wall; the clear lid lets the Hall-
 sensor magnet flip the supply rail without opening the box). The
-For the JP2 **solderless bring-up cable** the BOM offers two cards
-so the buyer can pick: `samtec-ffsd-07-100mm` is the
-distributor-grade path (Samtec FFSD-07-D-04.00-01-N from DigiKey at
-CHF 9.21, real product photo, but it's 1.27 mm on both ends so you
-also need a 1.27→2.54 mm SWD adapter PCB + DuPont jumpers — three
-SKUs to assemble); `arm-jtag-dupont-cable` is the single-SKU
-turnkey path (generic Amazon.de / AliExpress cable with 1.27 mm
-socket on one end and female DuPont leads on the other — no
-canonical Mouser/DigiKey MPN exists for the category, so the card
-shows the SVG placeholder image). Useful during development; the
+For the JP2 **solderless bring-up cable** the BOM ships one card —
+`samtec-ffsd-07-100mm` (Samtec FFSD-07-D-04.00-01-N from DigiKey at
+CHF 9.21, real product photo) — anchoring a 4-SKU assembly: the
+Samtec ribbon plus a 1.27→2.54 mm SWD adapter PCB (~CHF 3
+AliExpress), 4× female-female DuPont jumpers (Bastelgarage ~CHF 4),
+and a 2.54 mm 7-pin female header for the JP4 3.3 V tap (~CHF 1).
+A six-distributor survey (DigiKey, Mouser, Farnell, Distrelec,
+ChipDepot, Bastelgarage) plus Amazon DE confirmed no Western brand
+sells a single-SKU "14-pin 1.27 mm → female DuPont" cable that
+would collapse this to one product — that category lives only as
+volatile AliExpress OEM listings. Useful during development; the
 production rig still solders.
 The PDF's last page is the GPS soldering walkthrough mirrored from
 `movement_logger_firmware/GPS_SOLDERING.md`.
