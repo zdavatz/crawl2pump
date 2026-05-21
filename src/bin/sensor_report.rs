@@ -99,6 +99,9 @@ struct Row {
     resellers: &'static [(&'static str, &'static str)],
     /// Physical (L, B, H) in cm (from the BOM part).
     dimensions: Option<(f32, f32, f32)>,
+    /// Approximate mass in grams (from the BOM part). Foilboard
+    /// mount-position planning needs gram precision.
+    weight_g: Option<f32>,
     /// Canonical OSS-firmware GitHub repo (from the BOM part).
     firmware_repo: Option<&'static str>,
     /// Manufacturer datasheet PDF URL (from the BOM part), if known.
@@ -244,30 +247,32 @@ async fn main() -> Result<()> {
 }
 
 fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
-    let (oss, connector, features, resellers, dimensions, firmware_repo, datasheet, mcu) = meta
-        .get(o.part_name)
-        .map(|(p,)| {
-            (
-                p.oss_firmware,
-                p.connector,
-                p.features(),
-                p.resellers(),
-                p.dimensions_cm(),
-                p.firmware_repo(),
-                p.datasheet(),
-                p.mcu(),
-            )
-        })
-        .unwrap_or((
-            false,
-            Connector::Soldered,
-            &[][..],
-            &[][..],
-            None,
-            None,
-            None,
-            None,
-        ));
+    let (oss, connector, features, resellers, dimensions, weight_g, firmware_repo, datasheet, mcu) =
+        meta.get(o.part_name)
+            .map(|(p,)| {
+                (
+                    p.oss_firmware,
+                    p.connector,
+                    p.features(),
+                    p.resellers(),
+                    p.dimensions_cm(),
+                    p.weight_g(),
+                    p.firmware_repo(),
+                    p.datasheet(),
+                    p.mcu(),
+                )
+            })
+            .unwrap_or((
+                false,
+                Connector::Soldered,
+                &[][..],
+                &[][..],
+                None,
+                None,
+                None,
+                None,
+                None,
+            ));
     Row {
         role: o.role,
         part_name: o.part_name.to_string(),
@@ -276,6 +281,7 @@ fn offer_to_row(o: SensorOffer, meta: &HashMap<&str, (&Part,)>) -> Row {
         features,
         resellers,
         dimensions,
+        weight_g,
         firmware_repo,
         datasheet,
         mcu,
@@ -305,30 +311,32 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         .unwrap_or(&s.title)
         .trim()
         .to_string();
-    let (oss, connector, features, resellers, dimensions, firmware_repo, datasheet, mcu) = meta
-        .get(part_name.as_str())
-        .map(|(p,)| {
-            (
-                p.oss_firmware,
-                p.connector,
-                p.features(),
-                p.resellers(),
-                p.dimensions_cm(),
-                p.firmware_repo(),
-                p.datasheet(),
-                p.mcu(),
-            )
-        })
-        .unwrap_or((
-            false,
-            Connector::Soldered,
-            &[][..],
-            &[][..],
-            None,
-            None,
-            None,
-            None,
-        ));
+    let (oss, connector, features, resellers, dimensions, weight_g, firmware_repo, datasheet, mcu) =
+        meta.get(part_name.as_str())
+            .map(|(p,)| {
+                (
+                    p.oss_firmware,
+                    p.connector,
+                    p.features(),
+                    p.resellers(),
+                    p.dimensions_cm(),
+                    p.weight_g(),
+                    p.firmware_repo(),
+                    p.datasheet(),
+                    p.mcu(),
+                )
+            })
+            .unwrap_or((
+                false,
+                Connector::Soldered,
+                &[][..],
+                &[][..],
+                None,
+                None,
+                None,
+                None,
+                None,
+            ));
     let listing = Listing {
         source: s.source,
         brand: s.brand,
@@ -355,6 +363,7 @@ fn stored_to_row(s: StoredListing, meta: &HashMap<&str, (&Part,)>) -> Option<Row
         features,
         resellers,
         dimensions,
+        weight_g,
         firmware_repo,
         datasheet,
         mcu,
@@ -730,11 +739,23 @@ fn render_html(
                 ));
             }
             if let Some((l, b, h)) = head.dimensions {
-                feats.push_str(&format!(
-                    r#"<span class="dim">L×B×H {} × {} × {} cm</span>"#,
+                let mut dim_text = format!(
+                    "L×B×H {} × {} × {} cm",
                     fmt_cm(l),
                     fmt_cm(b),
                     fmt_cm(h)
+                );
+                if let Some(g) = head.weight_g {
+                    dim_text.push_str(&format!(" · {} g", fmt_g(g)));
+                }
+                feats.push_str(&format!(r#"<span class="dim">{}</span>"#, dim_text));
+            } else if let Some(g) = head.weight_g {
+                // No dimensions but a known weight — still render the
+                // gram column so foilboard-balance planning has a
+                // number to work with.
+                feats.push_str(&format!(
+                    r#"<span class="dim">{} g</span>"#,
+                    fmt_g(g)
                 ));
             }
             feats.push_str("</div>");
@@ -1058,6 +1079,20 @@ fn fmt_cm(v: f32) -> String {
     let s = format!("{:.2}", v);
     let s = s.trim_end_matches('0').trim_end_matches('.');
     s.to_string()
+}
+
+/// Format a gram weight: ≥1 g → up to 1 decimal trimmed (94.0 → "94",
+/// 2.5 → "2.5"), <1 g → 2 decimals (0.05 → "0.05", 0.6 → "0.60").
+/// Keeps the column visually tight for boards (most are 1–200 g) while
+/// still showing the package-body weight of bare SMD ICs.
+fn fmt_g(v: f32) -> String {
+    if v >= 1.0 {
+        let s = format!("{:.1}", v);
+        let s = s.trim_end_matches('0').trim_end_matches('.');
+        s.to_string()
+    } else {
+        format!("{:.2}", v)
+    }
 }
 
 /// Inline SVG placeholder (base64 data URL — no network, never fails)

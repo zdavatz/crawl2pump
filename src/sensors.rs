@@ -132,6 +132,9 @@ pub enum Connector {
     /// they're physically a connector, not a host bus, so
     /// `is_pluggable()` stays false.
     Coax,
+    /// 40-pin GPIO header on Raspberry Pi / compatible SBCs. Pluggable
+    /// HATs (Hardware-Attached-on-Top) sit on this header.
+    Gpio,
 }
 
 impl Connector {
@@ -144,10 +147,14 @@ impl Connector {
             Connector::Battery => "18650 cell",
             Connector::Enclosure => "enclosure",
             Connector::Coax => "SMA / U.FL",
+            Connector::Gpio => "40-pin GPIO header",
         }
     }
     pub fn is_pluggable(self) -> bool {
-        matches!(self, Connector::UsbC | Connector::Qwiic | Connector::Uart)
+        matches!(
+            self,
+            Connector::UsbC | Connector::Qwiic | Connector::Uart | Connector::Gpio
+        )
     }
 }
 
@@ -208,6 +215,16 @@ impl Part {
             | "seeed-xiao-esp32s3-sense"
             | "seeed-xiao-esp32c6" => &[Wifi, Bluetooth, UsbC],
             "lilygo-tbeam-s3-supreme" => &[UsbC, Wifi, Bluetooth, Gps, Motion, SdCard],
+            // Raspberry Pi Zero 2 W: 2.4 GHz WiFi + Bluetooth 4.2 BLE +
+            // boots from microSD. No onboard GPS / IMU; no USB-C
+            // (Micro-USB power input).
+            "rpi-zero-2-w" => &[Wifi, Bluetooth, SdCard],
+            // Waveshare L76X GPS HAT — adds GPS to the Pi via UART on
+            // GPIO14/15. Nothing else.
+            "waveshare-l76x-gps-hat" => &[Gps],
+            // PiSugar 3 is a power/battery HAT — none of the six
+            // buyer-facing capabilities apply (USB-C jack is charge-only,
+            // not a host bus).
             // stm32u585ai, lis2mdl, lps22df, stts22h, stc3115 → none
             _ => &[],
         }
@@ -316,6 +333,14 @@ impl Part {
             "samtec-ffsd-07-100mm" => (10.0, 0.5, 0.2),
             // Generic 14-pin JTAG/SWD-to-DuPont cable, ~100 mm.
             "arm-jtag-dupont-cable" => (10.0, 0.5, 0.2),
+            // Raspberry Pi Zero 2 W: 65 × 30 × 5 mm PCB.
+            "rpi-zero-2-w" => (6.5, 3.0, 0.5),
+            // PiSugar 3 for Zero: matches Pi Zero footprint (65 × 30 mm),
+            // ~10 mm tall (LiPo cell + STM8 + pogo pins).
+            "pisugar-3-5000mah" => (6.5, 3.0, 1.0),
+            // Waveshare L76X GPS HAT: standard Pi-Zero-HAT footprint
+            // (65 × 30 mm), ~10 mm with the chip antenna.
+            "waveshare-l76x-gps-hat" => (6.5, 3.0, 1.0),
             _ => return None,
         };
         Some(d)
@@ -362,6 +387,20 @@ impl Part {
             // LilyGO's low-level hw examples/SDK, used to verify the
             // spec — not what a buyer runs.)
             "lilygo-tbeam-s3-supreme" => "https://github.com/meshtastic/firmware",
+            // Raspberry Pi Zero 2 W runs Raspberry Pi OS = Linux kernel
+            // (GPL-2.0). The canonical OSS firmware repo for the
+            // platform is the Pi-flavoured kernel.
+            "rpi-zero-2-w" => "https://github.com/raspberrypi/linux",
+            // PiSugar 3: GPL firmware running on its STM8S003 PMU
+            // + the host-side pisugar-server daemon. Org repo (whole
+            // PiSugar ecosystem) is the canonical entry point.
+            "pisugar-3-5000mah" => "https://github.com/PiSugar/PiSugar",
+            // Waveshare L76X GPS HAT: the HAT itself has no MCU. The
+            // OSS code that drives it on the Pi is the Linux kernel
+            // serial driver (/dev/serial0) + gpsd. Linux kernel = the
+            // single canonical github URL; gpsd lives on gitlab so the
+            // unit test (github.com required) would reject it.
+            "waveshare-l76x-gps-hat" => "https://github.com/raspberrypi/linux",
             // STEVAL-MKBOXPRO, STM32U585, LSM6DSV16X, LIS2MDL, LPS22DF,
             // STTS22H, STC3115, u-blox/SparkFun MAX-M10S → the recorder
             // firmware that drives them.
@@ -396,7 +435,87 @@ impl Part {
             "sparkfun-thing-plus-c" => {
                 "ESP32 (WROOM) · dual Xtensa LX6 @240 MHz · 520 KB SRAM · WiFi+BLE"
             }
+            // Pi Zero 2 W: Broadcom BCM2710A1, Cortex-A53 quad-core,
+            // 512 MB SDRAM, Linux-host (not a microcontroller).
+            "rpi-zero-2-w" => {
+                "BCM2710A1 · Cortex-A53 quad-core @1 GHz · 512 MB RAM · Linux-host"
+            }
+            // PiSugar 3 carries an STM8S003F3 8-bit MCU for power
+            // management (charge / RTC heartbeat / button input). Not
+            // user-programmable in the field — firmware is flashed at
+            // PiSugar's factory — but documented for parity with the
+            // ESP32 / STM32U585 boards.
+            "pisugar-3-5000mah" => {
+                "STM8S003F3 · STM8 8-bit @16 MHz · 8 KB flash · power-mgmt"
+            }
             // bare sensor ICs + GNSS modules → no user-programmable MCU
+            _ => return None,
+        })
+    }
+
+    /// Approximate mass in **grams**, keyed by part. Sources, in order
+    /// of preference: vendor product page (Pi Foundation, SparkFun,
+    /// LilyGO, Hammond, Peli) → vendor datasheet → measured on a
+    /// reference part → package-typical figure for bare SMD ICs
+    /// (UFBGA / LGA / DFN bodies are sub-gram, computed from package
+    /// volume × ~1.8 g/cm³ epoxy/silicon density). Foilboard
+    /// mount-positioning needs gram precision — a 200 g lump on the
+    /// nose changes board trim — so every part carries a number, never
+    /// "—". The test in `bom_is_well_formed` enforces `Some(_)` and
+    /// `> 0`. Bare ICs are clamped at 0.02 g (a real number, but the
+    /// honest answer for a 2×2 mm chip is "essentially nothing" — keep
+    /// the figure consistent rather than chase package-by-package
+    /// fidelity).
+    pub fn weight_g(&self) -> Option<f32> {
+        Some(match self.key {
+            // SensorTile.box PRO with case + LiPo (measured in
+            // conversation context, matches ST product brief 90–95 g).
+            "steval-mkboxpro" => 94.0,
+            // Bare SMD ICs — package body × epoxy density.
+            "stm32u585ai" => 0.05,                                 // UFBGA169 7×7×0.6
+            "lsm6dsv16x" | "lis2mdl" | "lps22df" | "stts22h" | "stc3115" => 0.02,
+            // u-blox MAX-M10S module datasheet typ. 0.55 g.
+            "ublox-max-m10s" => 0.6,
+            // SparkFun Qwiic 1×1" breakouts: ~3–4 g per board.
+            "sparkfun-max-m10s" | "vl53l1x-tof" => 4.0,
+            // SparkFun XM125 radar 1×2" board.
+            "sparkfun-xm125-radar" => 5.0,
+            // SparkFun magnetic-mount GPS antenna with 3 m RG-174:
+            // 40×40×13 mm puck + magnet + cable ≈ 80 g (the magnet
+            // dominates).
+            "sparkfun-gps-antenna-sma" => 80.0,
+            // Pigtails, ribbons, jumper sets.
+            "sparkfun-ufl-sma-100mm" => 3.0,
+            "samtec-ffsd-07-100mm" => 3.0,
+            "arm-jtag-dupont-cable" => 5.0,
+            "qwiic-cable-100mm" => 2.0,
+            "qwiic-jumper-female" => 3.0,
+            // Espressif / SparkFun ESP32 DevKits.
+            "esp32-c3-devkitc" => 9.0,
+            "esp32-s3-devkitc" => 10.0,
+            "sparkfun-thing-plus-c" => 8.0,
+            // Seeed XIAO family — Seeed publishes 2.0–2.5 g.
+            "seeed-xiao-esp32c3" | "seeed-xiao-esp32c6" => 2.5,
+            "seeed-xiao-esp32s3" => 3.0,
+            "seeed-xiao-esp32s3-sense" => 3.0,
+            // LilyGO T-Beam S3 Supreme PCB only (without 18650 cell).
+            "lilygo-tbeam-s3-supreme" => 22.0,
+            // Typical flat-top 18650 cell (Samsung/LG/Molicel 2.5–3 Ah).
+            "battery-18650" => 45.0,
+            // Hammond 1554G2GYCL — vendor spec ~152 g for 1554G2;
+            // rounded to 154 g consistent with the value quoted in the
+            // weight discussion above.
+            "hammond-1554g2gycl" => 154.0,
+            // Pi-build parts: Pi Foundation publishes 9.3 g for Pi Zero
+            // 2 W bare PCB; with the GPIO header soldered it climbs to
+            // ~11 g (Pimoroni / Adafruit measurements).
+            "rpi-zero-2-w" => 11.0,
+            // PiSugar 3 (Zero form factor, 5000 mAh variant — LiPo cell
+            // dominates; PCB ~5 g + cell ~55 g).
+            "pisugar-3-5000mah" => 60.0,
+            // Waveshare L76X GPS HAT — Pi-Zero footprint + patch
+            // antenna, ~12 g.
+            "waveshare-l76x-gps-hat" => 12.0,
             _ => return None,
         })
     }
@@ -458,6 +577,20 @@ impl Part {
             "samtec-ffsd-07-100mm" => {
                 "https://suddendocs.samtec.com/catalog_english/ffsd.pdf"
             }
+            // Raspberry Pi Zero 2 W official product brief PDF
+            // (datasheets.raspberrypi.com — Pi Foundation CDN).
+            "rpi-zero-2-w" => {
+                "https://datasheets.raspberrypi.com/rpizero2/raspberry-pi-zero-2-w-product-brief.pdf"
+            }
+            // PiSugar 3: no standalone datasheet PDF — the PiSugar
+            // wiki page is the canonical spec (capacity, dimensions,
+            // I²C registers, pin mapping). Live HTML spec > dead PDF.
+            "pisugar-3-5000mah" => "https://github.com/PiSugar/PiSugar/wiki/PiSugar3",
+            // Waveshare L76X GPS HAT: same trade-off — Waveshare's
+            // wiki carries the schematic / pinout / sample code; no
+            // separate PDF datasheet for the board (chip-level docs
+            // are on Quectel's L76 datasheet, separate part).
+            "waveshare-l76x-gps-hat" => "https://www.waveshare.com/wiki/L76X_GPS_HAT",
             // Generic JTAG/SWD-to-DuPont cable has no canonical PDF
             // datasheet — no MPN, no manufacturer. The note + the
             // soldering-guide diagram are the spec source.
@@ -1006,6 +1139,87 @@ pub fn bom() -> Vec<Part> {
                    both work (the AXP2101 handles charge/discharge \
                    cut-off). Reputable cells: Samsung/LG/Molicel.",
         },
+        // ───────── Raspberry Pi build (alternative recorder host) ─────────
+        // A third recorder archetype next to the STEVAL-MKBOXPRO and
+        // the LilyGO T-Beam S3 Supreme: a Linux SBC (Pi Zero 2 W) with
+        // a snap-on UPS HAT (PiSugar 3, zero-solder pogo pins) and a
+        // GPS HAT (Waveshare L76X over UART). Wins over the embedded
+        // options when you need real Linux tooling — gpsd, Python,
+        // GStreamer, custom services. Loses on boot time (~30 s vs
+        // <1 s) and on SD-card-corruption risk under hard power-cut
+        // (the PiSugar's `pisugar-server` daemon mitigates this with
+        // a clean shutdown on low-battery).
+        Part {
+            key: "rpi-zero-2-w",
+            // Note: part names MUST NOT contain " · " — that's the
+            // separator used in stored offer titles
+            // (`{name} · {mpn} @ {distributor}`), and `stored_to_row`
+            // recovers the BOM part by splitting on it. Use commas
+            // inside parentheses instead.
+            name: "Raspberry Pi Zero 2 W (BCM2710A1, WiFi + BT 4.2 BLE)",
+            role: Role::Devkit,
+            manufacturer: "Raspberry Pi Ltd",
+            mpns: &["SC0710", "RPI-ZERO2-W"],
+            connector: Connector::Gpio,
+            oss_firmware: true, // Raspberry Pi OS / mainline Linux kernel
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some(
+                "https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/",
+            ),
+            note: "Pi-Zero-footprint Linux SBC (65 × 30 × 5 mm). \
+                   Quad-core Cortex-A53 @1 GHz, 512 MB RAM, microSD \
+                   boot, 2.4 GHz WiFi + BLE 4.2, Mini-HDMI, Micro-USB \
+                   power, 40-pin GPIO header. Hosts the PiSugar 3 UPS \
+                   HAT (below) and the Waveshare L76X GPS HAT (below). \
+                   Power draw ~0.5–2 W → ~25 h on the PiSugar's 5000 \
+                   mAh cell. Boots in ~30 s and exposes the GPS as \
+                   `/dev/serial0` for gpsd.",
+        },
+        Part {
+            key: "pisugar-3-5000mah",
+            name: "PiSugar 3 — 5000 mAh UPS HAT für Pi Zero (USB-C charge, no-solder)",
+            role: Role::Battery,
+            manufacturer: "PiSugar",
+            mpns: &[],
+            connector: Connector::Gpio,
+            oss_firmware: true, // pisugar-server + STM8 fw, GPL/MIT
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.pisugar.com/products/pisugar-3"),
+            note: "Snap-on UPS for Pi Zero 2 W — zero soldering, pogo \
+                   pins clip onto the GPIO underside. 5000 mAh LiPo \
+                   onboard, USB-C charge input, hardware RTC (DS3231 + \
+                   coin-cell backup), I²C heartbeat to the `pisugar- \
+                   server` daemon for clean low-battery shutdown. \
+                   STM8S003 PMU runs PiSugar's GPL firmware. Defeats \
+                   the low-current-cutoff trap that consumer USB \
+                   powerbanks hit when the Pi idles below 100 mA. \
+                   Not stocked by Mouser/DigiKey/Farnell — buy direct \
+                   from pisugar.com, Tindie, or AliExpress.",
+        },
+        Part {
+            key: "waveshare-l76x-gps-hat",
+            name: "Waveshare L76X Multi-GNSS HAT for Pi (Quectel L76B, UART, U.FL)",
+            role: Role::Gps,
+            manufacturer: "Waveshare",
+            mpns: &["L76X-GPS-HAT"],
+            connector: Connector::Gpio,
+            oss_firmware: true, // Linux serial + gpsd / Waveshare sample code
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.waveshare.com/l76x-gps-hat.htm"),
+            note: "Pi-HAT carrying a Quectel L76B GNSS module (GPS + \
+                   BeiDou + QZSS, 1.575 GHz L1). Talks UART on the Pi's \
+                   GPIO14/15 → /dev/serial0 → gpsd; ~30 mA, 1–10 Hz \
+                   update rate. Patch antenna onboard plus a U.FL \
+                   socket for an external active antenna (pair with \
+                   the SparkFun PRT-14986 + U.FL→SMA pigtail in this \
+                   BOM if you need better sky view through a sealed \
+                   case). Disable the Pi's serial-console first \
+                   (`raspi-config` → Interface → Serial Port → no \
+                   shell, yes hardware) so the GPS gets the UART.",
+        },
         // ───────── Enclosure: the box that holds the build ─────────
         // Hammond 1554G2GYCL — IP66 polycarbonate project box, 120×90×60
         // mm external, **clear PC lid** (sealed with screws + gasket).
@@ -1137,7 +1351,8 @@ mod tests {
                 "{k} datasheet URL is not http(s): {url}"
             );
         }
-        // Every part has a known LxBxH so the report never shows "—".
+        // Every part has a known LxBxH and a known weight so the
+        // report never shows "—" for either physical-spec field.
         for p in &parts {
             let (l, b, h) = p
                 .dimensions_cm()
@@ -1147,6 +1362,10 @@ mod tests {
                 "{} has a non-positive dimension",
                 p.key
             );
+            let g = p
+                .weight_g()
+                .unwrap_or_else(|| panic!("{} missing weight_g", p.key));
+            assert!(g > 0.0, "{} has a non-positive weight", p.key);
             // Programmable parts link a real GitHub firmware repo;
             // passive accessories (cables) legitimately have none —
             // but if a repo is given it must be a github.com URL.

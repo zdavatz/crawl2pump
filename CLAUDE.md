@@ -345,10 +345,20 @@ Architecture / invariants worth knowing before editing it:
   has all six (confirmed against the LilyGo-LoRa-Series hardware doc,
   not the marketing page — its GNSS is variant-dependent: u-blox
   MAX-M10 *or* Quectel L76K).
-- **`Part::dimensions_cm()`, `Part::resellers()`, `Part::firmware_repo()`
-  and `Part::datasheet()` follow the exact same keyed-`match self.key`
-  pattern** as `features()` — one table each, no per-`Part`-literal
-  field, all asserted in `bom_is_well_formed`. `firmware_repo()`
+- **`Part::dimensions_cm()`, `Part::weight_g()`, `Part::resellers()`,
+  `Part::firmware_repo()` and `Part::datasheet()` follow the exact
+  same keyed-`match self.key` pattern** as `features()` — one table
+  each, no per-`Part`-literal field, all asserted in
+  `bom_is_well_formed`. `weight_g()` returns approximate mass in
+  grams for every part (boards from vendor product pages; bare SMD
+  ICs computed from package volume × ~1.8 g/cm³ epoxy/silicon
+  density — clamped at 0.02 g, the honest answer for a 2×2 mm chip
+  is "essentially nothing"). The test asserts `Some(_) > 0` for
+  every part — the report renders `<L×B×H · N g>` as one chip and
+  the renderer never shows "—" for the physical-spec field. Don't
+  make this `Option<f32>` returning `None` for "tiny" parts; the
+  foilboard mount-position trade-off needs gram precision, and a
+  blank field reads as "unknown" not "negligible". `firmware_repo()`
   returns the canonical OSS-firmware GitHub repo: the catch-all arm is
   `zdavatz/movement_logger_firmware` (the recorder firmware *is* the
   OSS firmware for STEVAL-MKBOXPRO + STM32U585 + every ST sensor IC +
@@ -565,6 +575,27 @@ Architecture / invariants worth knowing before editing it:
   has an enum-level encoding. `Connector::Coax` covers SMA / U.FL
   and stays `is_pluggable() = false` (it's a connector, not a host
   bus). Don't drop the polymer-only intent of `Role::Case`.
+- **`Connector::Gpio`** is the 40-pin GPIO header on Raspberry Pi /
+  compatible SBCs — Pi Zero 2 W itself plus snap-on HATs (Waveshare
+  L76X GPS HAT, PiSugar 3 UPS HAT). `is_pluggable() = true` because
+  HATs are by definition pluggable, but the `oss_firmware` USB-C
+  rule does NOT extend to Gpio — Pi parts run Linux / vendor SDKs
+  that are uniformly open and the test gate only fires for
+  `Connector::UsbC`. Don't widen the test to "any pluggable connector
+  must be OSS" — Pi Zero / HATs already pass, but the rule was
+  written for the bot-protected USB-C peripheral catalog.
+- **Part `name` must NOT contain " · "** — that's the separator the
+  distributor sources use when formatting offer titles
+  (`{p.name} · {mpn} @ {distributor}`), and `stored_to_row` recovers
+  the BOM part from the stored title by splitting on the first
+  " · ". If a `name` contains " · " inside parentheses
+  (e.g. "Pi Zero 2 W (BCM2710A1 · WiFi + BT 4.2 BLE)"), the split
+  truncates the part name, the meta lookup misses, and the card
+  silently disappears from `--from-db` renders (the live-crawl path
+  is unaffected — it reads `Part.name` directly). Use commas inside
+  parentheses instead. The first occurrence of this bug was the
+  Pi-Zero and Waveshare HAT entries on first commit; both renamed
+  to comma-separated form.
 - **`Part::datasheet()`** returns the canonical manufacturer /
   distributor-CDN PDF URL keyed by `self.key`, same keyed-table
   pattern as the others. **Two rules** that took two iterations
@@ -595,9 +626,20 @@ Architecture / invariants worth knowing before editing it:
     ublox-max-m10s,samtec-ffsd-07-100mm,arm-jtag-dupont-cable,
     sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,
     hammond-1554g2gycl --output /tmp/build-movement-logger.pdf`
-  Both committed snapshots live in `PDF/build-lilygo-xm125.pdf` and
-  `PDF/build-movement-logger.pdf` (force-added past `/PDF/` in
-  `.gitignore`, same convention as `pumpfoil-report.pdf`).
+  - Raspberry Pi Zero 2 W recorder (Linux-SBC alternative):
+    `--from-db --keys rpi-zero-2-w,pisugar-3-5000mah,
+    waveshare-l76x-gps-hat,sparkfun-gps-antenna-sma,
+    sparkfun-ufl-sma-100mm,hammond-1554g2gycl
+    --output /tmp/build-pi-zero.pdf` — Pi-Zero host + PiSugar 3
+    snap-on UPS (pogo pins, no solder) + Waveshare L76X GNSS HAT
+    (UART → gpsd). Whole build ≈ 320 g. Linux gives you Python /
+    gpsd / GStreamer / custom services; trade-offs are ~30 s boot
+    vs <1 s embedded, and SD-card-corruption risk under hard power
+    cut (mitigated by `pisugar-server`'s clean low-battery shutdown).
+  Committed snapshots: `PDF/build-lilygo-xm125.pdf`,
+  `PDF/build-movement-logger.pdf`, `PDF/build-pi-zero.pdf`
+  (force-added past `/PDF/` in `.gitignore`, same convention as
+  `pumpfoil-report.pdf`).
 - **Solderless GPS bring-up — two BOM cards, buyer's choice.** The
   MovementLogger build's GPS soldering (GPS_SOLDERING.md) is the
   durable answer; for bring-up the BOM carries **both** options:

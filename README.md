@@ -351,8 +351,11 @@ chosen build set (e.g. LilyGO + XM125 + jumper cable).
 Each part shows a **capability checkbox row** (USB-C · WiFi ·
 Bluetooth · GPS · Motion · SD-card) so you can scan the catalog for
 "what does this board actually have" at a glance — ☑ green where
-present, ☐ grey where not — plus an **L×B×H size** chip in cm (board
-enclosure/PCB size for modules, datasheet package body for bare ICs).
+present, ☐ grey where not — plus an **L×B×H · weight** chip
+(centimetres + grams, board enclosure/PCB for modules, datasheet
+package body for bare ICs). Gram precision is there because for a
+foilboard build you genuinely care: a 200 g lump on the nose changes
+board trim, so total build mass is the field a buyer adds up.
 For boards no API distributor stocks (e.g. the LilyGO all-in-one),
 a **"Buy (EU/CH)" row** lists Swiss/EU reseller links so a local
 buyer has a real shop to order from. Every part also links its
@@ -367,9 +370,10 @@ also carries a **`Datasheet:` link** to the manufacturer / SparkFun
 CDN PDF (or, for OEM accessories with no standalone datasheet PDF
 anymore, the SparkFun product page itself — a live HTML spec block
 beats a dead PDF link). Feature, dimension, reseller, firmware-repo,
-datasheet and MCU data are single keyed tables in `src/sensors.rs`
-(`Part::features()` / `dimensions_cm()` / `resellers()` /
-`firmware_repo()` / `datasheet()` / `mcu()`), all unit-tested. The
+datasheet, MCU and weight data are single keyed tables in
+`src/sensors.rs` (`Part::features()` / `dimensions_cm()` /
+`weight_g()` / `resellers()` / `firmware_repo()` / `datasheet()` /
+`mcu()`), all unit-tested. The
 datasheet URLs are reachability-verified by an opt-in network test:
 `cargo test --release --lib -- --ignored --nocapture
 datasheets_resolve` GETs each link with a browser User-Agent and
@@ -405,6 +409,10 @@ are configured (Farnell in particular fills most of them).
 arm-jtag-dupont-cable,sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,\
 hammond-1554g2gycl \
     --output PDF/build-movement-logger.pdf
+./target/release/sensor_report --from-db --keys \
+    rpi-zero-2-w,pisugar-3-5000mah,waveshare-l76x-gps-hat,\
+sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl \
+    --output PDF/build-pi-zero.pdf
 ```
 
 The second focused build is the **MovementLogger** kit
@@ -428,6 +436,19 @@ shows the SVG placeholder image). Useful during development; the
 production rig still solders.
 The PDF's last page is the GPS soldering walkthrough mirrored from
 `movement_logger_firmware/GPS_SOLDERING.md`.
+
+The third focused build is the **Raspberry Pi Zero 2 W recorder** —
+a Linux-SBC alternative to the STEVAL/LilyGO embedded paths: Pi Zero
+2 W host + PiSugar 3 (5000 mAh UPS HAT, USB-C charge, snap-on pogo
+pins so no soldering) + Waveshare L76X Multi-GNSS HAT (Quectel L76B
+over UART → gpsd) + the same SparkFun magnetic antenna and U.FL→SMA
+pigtail as the MovementLogger build + the Hammond 1554G2GYCL
+enclosure. Total build weight ≈ 320 g. Wins over the embedded
+options when you need real Linux tooling (gpsd / Python / GStreamer
+/ custom services); loses on boot time (~30 s vs <1 s) and on
+SD-card-corruption risk under hard power-cut (the PiSugar's
+`pisugar-server` daemon mitigates this with a clean low-battery
+shutdown). Connector::Gpio for the 40-pin Pi HAT header.
 
 Six distributor sources, two kinds:
 
