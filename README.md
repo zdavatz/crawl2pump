@@ -414,6 +414,10 @@ serpac-rbf53-c10-clear \
     rpi-zero-2-w,pisugar-3-5000mah,waveshare-l76x-gps-hat,\
 sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl \
     --output PDF/build-pi-zero.pdf
+./target/release/sensor_report --from-db --keys \
+    sparkfun-rtk-facet-lband,sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,\
+sparkfun-thing-plus-c,seeed-xiao-esp32s3 \
+    --output PDF/build-rtk-gps.pdf
 ```
 
 The second focused build is the **MovementLogger** kit
@@ -440,6 +444,22 @@ before adding it to the BOM. Useful during development; the
 production rig still solders.
 The PDF's last page is the GPS soldering walkthrough mirrored from
 `movement_logger_firmware/GPS_SOLDERING.md`.
+
+The fourth focused build is a **high-precision GNSS tracker** — RTK
+(cm-level) with WiFi for both correction streams and live position.
+Two paths in one PDF: (a) **turnkey** via the SparkFun RTK Facet
+L-Band (ESP32 + u-blox ZED-F9P + L-Band helical + microSD + LiPo + IP
+case, ~USD 700, runs the open
+[SparkFun_RTK_Firmware](https://github.com/sparkfun/SparkFun_RTK_Firmware)),
+which gives ~10 cm without internet via u-blox PointPerfect SSR or
+~1.4 cm with NTRIP corrections (free in CH via swisstopo SWIPOS over
+WiFi); (b) **DIY** building blocks for a custom board-mount tracker —
+SparkFun GPS-RTK-SMA Breakout (ZED-F9P, Qwiic), u-blox ANN-MB-00
+multi-band active antenna (L1+L2+L5, SMA, 5 m), and any ESP32 dev
+board already in this BOM (SparkFun Thing Plus-C or Seeed XIAO
+ESP32-S3) running an Arduino NTRIP client. For pumpfoil technique
+analysis the m-level MAX-M10S above is noise-floor (pump strokes are
+30–50 cm); RTK turns that into signal.
 
 The third focused build is the **Raspberry Pi Zero 2 W recorder** —
 a Linux-SBC alternative to the STEVAL/LilyGO embedded paths: Pi Zero

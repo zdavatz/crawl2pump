@@ -666,10 +666,24 @@ Architecture / invariants worth knowing before editing it:
     gpsd / GStreamer / custom services; trade-offs are ~30 s boot
     vs <1 s embedded, and SD-card-corruption risk under hard power
     cut (mitigated by `pisugar-server`'s clean low-battery shutdown).
+  - High-precision GNSS tracker with WiFi (RTK, cm-level):
+    `--from-db --keys sparkfun-rtk-facet-lband,
+    sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,
+    sparkfun-thing-plus-c,seeed-xiao-esp32s3
+    --output /tmp/build-rtk-gps.pdf` — Turnkey (RTK Facet L-Band:
+    ESP32 + ZED-F9P + L-Band + microSD + LiPo + IP case, runs
+    open SparkFun_RTK_Firmware) + DIY building blocks (ZED-F9P
+    Qwiic breakout, ANN-MB-00 multi-band antenna, ESP32 host).
+    Accuracy reference: standard GPS ≈ 2–5 m, RTK ≈ 1–2 cm, L-Band
+    SSR (PointPerfect) ≈ 5–10 cm. For pumpfoil technique analysis
+    the m-level MAX-M10S is noise-floor (pump strokes are 30–50
+    cm); RTK turns that into signal. In CH the free swisstopo
+    SWIPOS NTRIP stream over WiFi gives 1.4 cm without a paid
+    subscription.
   Committed snapshots: `PDF/build-lilygo-xm125.pdf`,
-  `PDF/build-movement-logger.pdf`, `PDF/build-pi-zero.pdf`
-  (force-added past `/PDF/` in `.gitignore`, same convention as
-  `pumpfoil-report.pdf`).
+  `PDF/build-movement-logger.pdf`, `PDF/build-pi-zero.pdf`,
+  `PDF/build-rtk-gps.pdf` (force-added past `/PDF/` in
+  `.gitignore`, same convention as `pumpfoil-report.pdf`).
 - **Solderless GPS bring-up — one AliExpress cable + 2 DigiKey
   ancillaries.** The MovementLogger build's GPS soldering
   (GPS_SOLDERING.md) is the durable production answer; for bring-up

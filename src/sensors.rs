@@ -206,7 +206,11 @@ impl Part {
         match self.key {
             "steval-mkboxpro" => &[Bluetooth, UsbC, Motion, SdCard],
             "lsm6dsv16x" => &[Motion],
-            "ublox-max-m10s" | "sparkfun-max-m10s" => &[Gps],
+            "ublox-max-m10s" | "sparkfun-max-m10s" | "sparkfun-zed-f9p-qwiic" => &[Gps],
+            // SparkFun RTK Facet L-Band — turnkey RTK tracker. ESP32
+            // (WiFi + BLE), ZED-F9P GNSS, microSD logging, USB-C charge,
+            // IMU for the bubble-level. All six checkboxes apply.
+            "sparkfun-rtk-facet-lband" => &[UsbC, Wifi, Bluetooth, Gps, Motion, SdCard],
             "esp32-c3-devkitc"
             | "esp32-s3-devkitc"
             | "sparkfun-thing-plus-c"
@@ -310,6 +314,14 @@ impl Part {
             "stc3115" => (0.30, 0.20, 0.06),     // DFN-8 3×2
             "ublox-max-m10s" => (1.01, 0.97, 0.25), // MAX-M10 module
             "sparkfun-max-m10s" => (2.54, 2.54, 0.60), // 1×1" Qwiic
+            // SparkFun RTK Facet L-Band: 134 × 93 × 29 mm (vendor spec).
+            "sparkfun-rtk-facet-lband" => (13.4, 9.3, 2.9),
+            // SparkFun GPS-RTK-SMA Breakout (ZED-F9P, Qwiic) — 46 × 43 mm,
+            // ~6 mm tall with the SMA connector + module height.
+            "sparkfun-zed-f9p-qwiic" => (4.6, 4.3, 0.6),
+            // u-blox ANN-MB-00 multi-band L1/L2/L5 active antenna —
+            // 60 × 60 × 16 mm magnetic puck + 5 m RG-174 coax, SMA male.
+            "ublox-ann-mb-00" => (6.0, 6.0, 1.6),
             "esp32-c3-devkitc" => (5.2, 2.3, 1.0),
             "esp32-s3-devkitc" => (6.9, 2.55, 1.0),
             "sparkfun-thing-plus-c" => (5.84, 2.29, 0.71), // Feather FF
@@ -392,6 +404,7 @@ impl Part {
                 | "serpac-rbf63-c22-clear"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
+                | "ublox-ann-mb-00"
                 | "arm-jtag-dupont-cable"
                 | "sparkfun-jumper-ff-6in"
                 | "samtec-ssw-107-female-header"
@@ -412,6 +425,9 @@ impl Part {
             // LilyGO's low-level hw examples/SDK, used to verify the
             // spec — not what a buyer runs.)
             "lilygo-tbeam-s3-supreme" => "https://github.com/meshtastic/firmware",
+            // SparkFun RTK Facet L-Band runs SparkFun_RTK_Firmware on
+            // the onboard ESP32. Open MIT-licensed, ESP-IDF based.
+            "sparkfun-rtk-facet-lband" => "https://github.com/sparkfun/SparkFun_RTK_Firmware",
             // Raspberry Pi Zero 2 W runs Raspberry Pi OS = Linux kernel
             // (GPL-2.0). The canonical OSS firmware repo for the
             // platform is the Pi-flavoured kernel.
@@ -460,6 +476,12 @@ impl Part {
             "sparkfun-thing-plus-c" => {
                 "ESP32 (WROOM) · dual Xtensa LX6 @240 MHz · 520 KB SRAM · WiFi+BLE"
             }
+            // SparkFun RTK Facet L-Band: ESP32-WROOM-32E inside the
+            // turnkey enclosure, running SparkFun_RTK_Firmware. Same
+            // chip family as the Thing Plus-C card.
+            "sparkfun-rtk-facet-lband" => {
+                "ESP32 (WROOM-32E) · dual Xtensa LX6 @240 MHz · 520 KB SRAM · WiFi+BLE"
+            }
             // Pi Zero 2 W: Broadcom BCM2710A1, Cortex-A53 quad-core,
             // 512 MB SDRAM, Linux-host (not a microcontroller).
             "rpi-zero-2-w" => {
@@ -503,6 +525,15 @@ impl Part {
             "ublox-max-m10s" => 0.6,
             // SparkFun Qwiic 1×1" breakouts: ~3–4 g per board.
             "sparkfun-max-m10s" | "vl53l1x-tof" => 4.0,
+            // SparkFun RTK Facet L-Band — vendor product page: 245 g
+            // (incl. integrated LiPo + helical antenna).
+            "sparkfun-rtk-facet-lband" => 245.0,
+            // SparkFun GPS-RTK-SMA (ZED-F9P, Qwiic): 46 × 43 mm PCB +
+            // SMA jack + ZED-F9P module ≈ 10 g.
+            "sparkfun-zed-f9p-qwiic" => 10.0,
+            // u-blox ANN-MB-00 multi-band antenna: puck + magnet + 5 m
+            // RG-174 ≈ 120 g (coax + magnet dominate).
+            "ublox-ann-mb-00" => 120.0,
             // SparkFun XM125 radar 1×2" board.
             "sparkfun-xm125-radar" => 5.0,
             // SparkFun magnetic-mount GPS antenna with 3 m RG-174:
@@ -598,6 +629,20 @@ impl Part {
             // page; the buyer-relevant spec is the chip datasheet).
             "sparkfun-max-m10s" => {
                 "https://cdn.sparkfun.com/assets/7/5/9/a/a/MAX-M10S_DataSheet_UBX-20035208.pdf"
+            }
+            // SparkFun RTK Facet L-Band — vendor product page is the
+            // canonical spec source (operating manual, dimensions,
+            // battery life, firmware update procedure).
+            "sparkfun-rtk-facet-lband" => "https://www.sparkfun.com/products/20000",
+            // SparkFun GPS-RTK-SMA Breakout — link the u-blox ZED-F9P
+            // integration manual (the breakout's hookup info is on its
+            // product page; buyer-relevant spec is the chip doc).
+            "sparkfun-zed-f9p-qwiic" => {
+                "https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf"
+            }
+            // u-blox ANN-MB-00 active multi-band antenna datasheet.
+            "ublox-ann-mb-00" => {
+                "https://content.u-blox.com/sites/default/files/ANN-MB_DataSheet_UBX-18049862.pdf"
             }
             // SparkFun PRT-14986 magnetic-mount GPS antenna: the
             // product page is the canonical spec source — SparkFun's
@@ -789,6 +834,97 @@ pub fn bom() -> Vec<Part> {
                    polycarbonate case, plus a U.FL connector for an \
                    external active antenna (see the two antenna parts \
                    below) if the signal needs a boost.",
+        },
+        // ───────── High-precision GNSS (RTK, cm-level) ─────────
+        // Three parts that together cover the "high precision GPS
+        // tracker with WiFi" path: a turnkey ESP32+ZED-F9P box (RTK
+        // Facet L-Band) and the DIY building blocks (ZED-F9P Qwiic
+        // breakout + ANN-MB-00 multi-band antenna) that pair with any
+        // ESP32 dev board already in this BOM.
+        //
+        // Accuracy reference (free-air, open sky, with valid
+        // corrections): standard GPS ≈ 2–5 m, SBAS / DGPS ≈ 1 m,
+        // RTK ≈ 1–2 cm, PPP-RTK / SSR (L-Band) ≈ 5–10 cm. For
+        // pumpfoil technique analysis the m-level MAX-M10S above is
+        // noise-floor — pump strokes themselves are 30–50 cm. RTK
+        // turns that into signal.
+        Part {
+            key: "sparkfun-rtk-facet-lband",
+            name: "SparkFun RTK Facet L-Band (turnkey RTK tracker, ESP32 + ZED-F9P)",
+            role: Role::Gps,
+            manufacturer: "SparkFun",
+            mpns: &["GPS-20000"],
+            connector: Connector::UsbC,
+            oss_firmware: true, // SparkFun_RTK_Firmware (MIT, ESP-IDF)
+            st_url: None,
+            sparkfun_pid: Some("20000"),
+            direct_url: None,
+            note: "Turnkey high-precision GNSS tracker. u-blox ZED-F9P \
+                   multi-band (L1+L2) RTK receiver + ESP32-WROOM-32E \
+                   (WiFi+BLE) + helical L-Band antenna + integrated LiPo \
+                   + microSD logger + OLED + IMU bubble-level, in a \
+                   single survey-grade unit. Three correction paths: \
+                   (a) **L-Band SSR** via u-blox PointPerfect — ~10 cm \
+                   accuracy, no internet, satellite-broadcast — needs a \
+                   PointPerfect subscription (~USD 300/year) but works \
+                   anywhere with sky view; (b) **NTRIP over WiFi** — \
+                   ~1.4 cm accuracy, free in CH via swisstopo SWIPOS, \
+                   needs WiFi or a phone tether to the spot; (c) **base \
+                   station / RTCM over BT** — same accuracy as NTRIP, \
+                   no internet, requires you to set up the base. The \
+                   firmware (github.com/sparkfun/SparkFun_RTK_Firmware) \
+                   handles all three out of the box. Logs raw + parsed \
+                   NMEA to microSD; streams live position over WiFi or \
+                   BLE to a phone (Bluetooth-SPP compatible with \
+                   SW Maps, Field Genius, QGIS, etc.). USB-C charges \
+                   the LiPo + acts as a virtual COM port for \
+                   configuration via the SparkFun RTK Setup tool.",
+        },
+        Part {
+            key: "sparkfun-zed-f9p-qwiic",
+            name: "SparkFun GPS-RTK-SMA Breakout - ZED-F9P (Qwiic, multi-band RTK)",
+            role: Role::Gps,
+            manufacturer: "SparkFun",
+            mpns: &["GPS-16481"],
+            connector: Connector::Qwiic,
+            oss_firmware: true, // host driver lib open, same as MAX-M10S
+            st_url: None,
+            sparkfun_pid: Some("16481"),
+            direct_url: None,
+            note: "DIY building block for a custom RTK tracker. u-blox \
+                   ZED-F9P multi-band (L1+L2 GPS / Galileo / GLONASS / \
+                   BeiDou) — same chip as the RTK Facet above, but as a \
+                   bare Qwiic breakout for board-mount builds. Pair \
+                   with any ESP32 dev board in this BOM (SparkFun Thing \
+                   Plus-C, Seeed XIAO ESP32-S3) for WiFi + an NTRIP \
+                   client; SparkFun ships the Arduino library \
+                   `SparkFun u-blox GNSS Arduino Library` that wraps \
+                   UBX protocol over I²C/Qwiic. SMA antenna jack \
+                   onboard — wire to the u-blox ANN-MB-00 multi-band \
+                   antenna below (L1+L2 active patch, 5 m coax, \
+                   magnetic mount) for production performance. Without \
+                   RTK corrections this is still a ~30 cm receiver \
+                   under good sky; with RTK it's 1–2 cm.",
+        },
+        Part {
+            key: "ublox-ann-mb-00",
+            name: "u-blox ANN-MB-00 — multi-band active GNSS antenna (L1+L2+L5, SMA, 5 m)",
+            role: Role::Gps,
+            manufacturer: "u-blox",
+            mpns: &["ANN-MB-00", "ANN-MB-00-00"],
+            connector: Connector::Coax,
+            oss_firmware: true, // passive RF — no firmware
+            st_url: None,
+            sparkfun_pid: Some("15192"),
+            direct_url: Some("https://www.u-blox.com/en/product/ann-mb-series"),
+            note: "Multi-band L1/L2/L5 active patch antenna for the \
+                   ZED-F9P. Magnetic base, 5 m RG-174 coax, SMA male \
+                   plug — the antenna u-blox themselves spec for \
+                   multi-band testing. Without a multi-band antenna \
+                   the ZED-F9P falls back to L1-only and you lose the \
+                   RTK precision advantage; pair these two. Mount the \
+                   puck on a non-metal ground-plane (the foilboard \
+                   deck or case lid) with clear sky view.",
         },
         // Optional external GPS antenna kit — improves fix time and
         // multipath rejection vs. the breakout's onboard chip antenna.
@@ -1608,6 +1744,7 @@ mod tests {
                             | "serpac-rbf63-c22-clear"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
+                            | "ublox-ann-mb-00"
                             | "arm-jtag-dupont-cable"
                             | "sparkfun-jumper-ff-6in"
                             | "samtec-ssw-107-female-header"
