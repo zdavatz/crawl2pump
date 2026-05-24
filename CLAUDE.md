@@ -666,6 +666,19 @@ Architecture / invariants worth knowing before editing it:
     gpsd / GStreamer / custom services; trade-offs are ~30 s boot
     vs <1 s embedded, and SD-card-corruption risk under hard power
     cut (mitigated by `pisugar-server`'s clean low-battery shutdown).
+  - Standalone GPS data logger (independent of STEVAL):
+    `--from-db --keys sparkfun-openlog-artemis,sparkfun-max-m10s,
+    sparkfun-neo-m9n-qwiic,sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,
+    sparkfun-ufl-sma-100mm,serpac-rbf33-c10-clear
+    --output /tmp/build-standalone-gps-logger.pdf` —
+    OpenLog Artemis (Apollo3 + microSD + IMU + USB-C, runs open
+    OpenLog_Artemis firmware) as the Qwiic-pluggable host, three
+    GPS-tier options (MAX-M10S / NEO-M9N / ZED-F9P), and the small
+    SERPAC RBF33 (82 × 80 × 35 mm, IP67). The architecture the user
+    proposed: STEVAL keeps its onboard logging (sensors only) and
+    the GPS logs to its own SD card in this separate box — no UART
+    bridge, no JP2/JP4 solder, no firmware co-processor work. Merge
+    by timestamp in post-processing.
   - High-precision GNSS tracker with WiFi (RTK, cm-level):
     `--from-db --keys sparkfun-rtk-facet-lband,
     sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,
@@ -682,8 +695,9 @@ Architecture / invariants worth knowing before editing it:
     subscription.
   Committed snapshots: `PDF/build-lilygo-xm125.pdf`,
   `PDF/build-movement-logger.pdf`, `PDF/build-pi-zero.pdf`,
-  `PDF/build-rtk-gps.pdf` (force-added past `/PDF/` in
-  `.gitignore`, same convention as `pumpfoil-report.pdf`).
+  `PDF/build-rtk-gps.pdf`, `PDF/build-standalone-gps-logger.pdf`
+  (force-added past `/PDF/` in `.gitignore`, same convention as
+  `pumpfoil-report.pdf`).
 - **Solderless GPS bring-up — one AliExpress cable + 2 DigiKey
   ancillaries.** The MovementLogger build's GPS soldering
   (GPS_SOLDERING.md) is the durable production answer; for bring-up

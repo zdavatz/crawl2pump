@@ -206,11 +206,20 @@ impl Part {
         match self.key {
             "steval-mkboxpro" => &[Bluetooth, UsbC, Motion, SdCard],
             "lsm6dsv16x" => &[Motion],
-            "ublox-max-m10s" | "sparkfun-max-m10s" | "sparkfun-zed-f9p-qwiic" => &[Gps],
+            "ublox-max-m10s"
+            | "sparkfun-max-m10s"
+            | "sparkfun-zed-f9p-qwiic"
+            | "sparkfun-neo-m9n-qwiic" => &[Gps],
             // SparkFun RTK Facet L-Band — turnkey RTK tracker. ESP32
             // (WiFi + BLE), ZED-F9P GNSS, microSD logging, USB-C charge,
             // IMU for the bubble-level. All six checkboxes apply.
             "sparkfun-rtk-facet-lband" => &[UsbC, Wifi, Bluetooth, Gps, Motion, SdCard],
+            // SparkFun OpenLog Artemis — datalogger host with onboard
+            // 9-DoF IMU (ICM-20948), barometer (MS5637), microSD slot,
+            // BLE via Apollo3 Blue, USB-C charge. The standalone GPS
+            // logger host for the "STEVAL logs sensors, GPS logs itself"
+            // architecture.
+            "sparkfun-openlog-artemis" => &[UsbC, Bluetooth, Motion, SdCard],
             "esp32-c3-devkitc"
             | "esp32-s3-devkitc"
             | "sparkfun-thing-plus-c"
@@ -322,6 +331,17 @@ impl Part {
             // u-blox ANN-MB-00 multi-band L1/L2/L5 active antenna —
             // 60 × 60 × 16 mm magnetic puck + 5 m RG-174 coax, SMA male.
             "ublox-ann-mb-00" => (6.0, 6.0, 1.6),
+            // SparkFun OpenLog Artemis — 53 × 41 mm PCB, ~15 mm tall
+            // with USB-C connector and qwiic ports.
+            "sparkfun-openlog-artemis" => (5.3, 4.1, 1.5),
+            // SparkFun NEO-M9N GPS-RTK Chip Antenna Breakout (Qwiic) —
+            // 26 × 17 mm board, chip antenna onboard.
+            "sparkfun-neo-m9n-qwiic" => (2.6, 1.7, 0.6),
+            // SERPAC RBF33P06C10C — IP67 clear-lid PC, external
+            // 82 × 80 × 35 mm (3.23 × 3.15 × 1.38 in). Smallest RBF
+            // size with comfortable headroom for OpenLog Artemis +
+            // ZED-F9P stack.
+            "serpac-rbf33-c10-clear" => (8.2, 8.0, 3.5),
             "esp32-c3-devkitc" => (5.2, 2.3, 1.0),
             "esp32-s3-devkitc" => (6.9, 2.55, 1.0),
             "sparkfun-thing-plus-c" => (5.84, 2.29, 0.71), // Feather FF
@@ -402,6 +422,7 @@ impl Part {
                 | "serpac-rbf63-c10-clear"
                 | "serpac-rbf63-c16-clear"
                 | "serpac-rbf63-c22-clear"
+                | "serpac-rbf33-c10-clear"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
                 | "ublox-ann-mb-00"
@@ -428,6 +449,9 @@ impl Part {
             // SparkFun RTK Facet L-Band runs SparkFun_RTK_Firmware on
             // the onboard ESP32. Open MIT-licensed, ESP-IDF based.
             "sparkfun-rtk-facet-lband" => "https://github.com/sparkfun/SparkFun_RTK_Firmware",
+            // SparkFun OpenLog Artemis — official OSS logger firmware
+            // for the Apollo3-based hardware. Arduino-flavoured, MIT.
+            "sparkfun-openlog-artemis" => "https://github.com/sparkfun/OpenLog_Artemis",
             // Raspberry Pi Zero 2 W runs Raspberry Pi OS = Linux kernel
             // (GPL-2.0). The canonical OSS firmware repo for the
             // platform is the Pi-flavoured kernel.
@@ -482,6 +506,13 @@ impl Part {
             "sparkfun-rtk-facet-lband" => {
                 "ESP32 (WROOM-32E) · dual Xtensa LX6 @240 MHz · 520 KB SRAM · WiFi+BLE"
             }
+            // SparkFun OpenLog Artemis: Apollo3 Blue (Cortex-M4F) with
+            // onboard BLE. Runs OpenLog_Artemis firmware (Arduino /
+            // Mbed-based, MIT). Notably the host *itself* is a fully
+            // OSS-firmware MCU board, unlike most closed loggers.
+            "sparkfun-openlog-artemis" => {
+                "Apollo3 Blue · Cortex-M4F @48 MHz · 1 MB flash / 384 KB SRAM · BLE 5"
+            }
             // Pi Zero 2 W: Broadcom BCM2710A1, Cortex-A53 quad-core,
             // 512 MB SDRAM, Linux-host (not a microcontroller).
             "rpi-zero-2-w" => {
@@ -534,6 +565,14 @@ impl Part {
             // u-blox ANN-MB-00 multi-band antenna: puck + magnet + 5 m
             // RG-174 ≈ 120 g (coax + magnet dominate).
             "ublox-ann-mb-00" => 120.0,
+            // SparkFun OpenLog Artemis — Apollo3 + IMU + SD slot +
+            // USB-C + LiPo connector, ~13 g per SparkFun product page.
+            "sparkfun-openlog-artemis" => 13.0,
+            // SparkFun NEO-M9N Chip-Antenna Qwiic breakout ≈ 5 g.
+            "sparkfun-neo-m9n-qwiic" => 5.0,
+            // SERPAC RBF33 C10 — smaller footprint than RBF53 (80 × 80
+            // vs 80 × 120 mm), same wall stock ≈ 65 g estimated.
+            "serpac-rbf33-c10-clear" => 65.0,
             // SparkFun XM125 radar 1×2" board.
             "sparkfun-xm125-radar" => 5.0,
             // SparkFun magnetic-mount GPS antenna with 3 m RG-174:
@@ -643,6 +682,15 @@ impl Part {
             // u-blox ANN-MB-00 active multi-band antenna datasheet.
             "ublox-ann-mb-00" => {
                 "https://content.u-blox.com/sites/default/files/ANN-MB_DataSheet_UBX-18049862.pdf"
+            }
+            // SparkFun OpenLog Artemis — product page is the canonical
+            // spec / hookup source (no separate PDF datasheet — Apollo3
+            // host doc is on the Ambiq site, not buyer-relevant).
+            "sparkfun-openlog-artemis" => "https://www.sparkfun.com/products/19426",
+            // SparkFun NEO-M9N Chip Antenna Qwiic — link the u-blox
+            // NEO-M9N datasheet PDF.
+            "sparkfun-neo-m9n-qwiic" => {
+                "https://content.u-blox.com/sites/default/files/NEO-M9N_DataSheet_UBX-19014285.pdf"
             }
             // SparkFun PRT-14986 magnetic-mount GPS antenna: the
             // product page is the canonical spec source — SparkFun's
@@ -905,6 +953,62 @@ pub fn bom() -> Vec<Part> {
                    magnetic mount) for production performance. Without \
                    RTK corrections this is still a ~30 cm receiver \
                    under good sky; with RTK it's 1–2 cm.",
+        },
+        // SparkFun OpenLog Artemis — the standalone GPS-logger host
+        // for the "STEVAL logs sensors, GPS logs itself" architecture.
+        // Apollo3 Blue MCU with onboard BLE, microSD slot, 9-DoF IMU
+        // (ICM-20948), barometer (MS5637), USB-C charge, LiPo input,
+        // Qwiic port. Plug a Qwiic GPS into it (MAX-M10S / NEO-M9N /
+        // ZED-F9P) and it's a complete data-logging package — no
+        // soldering, no UART bridge to the STEVAL, both devices log
+        // independently and merge by timestamp in post-processing.
+        Part {
+            key: "sparkfun-openlog-artemis",
+            name: "SparkFun OpenLog Artemis (Apollo3 datalogger, microSD, USB-C, Qwiic)",
+            role: Role::Devkit,
+            manufacturer: "SparkFun",
+            mpns: &["DEV-19426"],
+            connector: Connector::UsbC,
+            oss_firmware: true, // OpenLog_Artemis firmware (MIT, Arduino)
+            st_url: None,
+            sparkfun_pid: Some("19426"),
+            direct_url: None,
+            note: "Standalone Qwiic datalogger. Apollo3 Blue Cortex-M4F \
+                   @48 MHz + onboard ICM-20948 9-DoF IMU + MS5637 \
+                   barometer + microSD slot + USB-C charge + BLE 5. \
+                   Runs SparkFun's open OpenLog_Artemis firmware out \
+                   of the box: power on, it logs every Qwiic device it \
+                   detects (any GPS in this BOM) plus its own IMU and \
+                   baro to a CSV/UBX on the SD card. Configure \
+                   sample-rate, file naming, sleep behaviour via a USB \
+                   serial menu. The natural pair for a small RTK GPS \
+                   build: plug in a SparkFun ZED-F9P or MAX-M10S Qwiic \
+                   breakout, hook up a LiPo, drop it in the SERPAC \
+                   RBF33 IP67 case — a complete waterproof GPS data \
+                   recorder, no firmware writing needed.",
+        },
+        Part {
+            key: "sparkfun-neo-m9n-qwiic",
+            name: "SparkFun NEO-M9N Chip Antenna Breakout (Qwiic, concurrent GNSS L1)",
+            role: Role::Gps,
+            manufacturer: "SparkFun",
+            mpns: &["GPS-15733"],
+            connector: Connector::Qwiic,
+            oss_firmware: true, // host driver lib open, same as MAX-M10S
+            st_url: None,
+            sparkfun_pid: Some("15733"),
+            direct_url: None,
+            note: "Concurrent four-GNSS receiver (GPS + Galileo + \
+                   GLONASS + BeiDou, all L1) on a tiny 26 × 17 mm \
+                   Qwiic breakout with onboard chip antenna. Position \
+                   accuracy ~1.5 m standalone, ~0.6 m with SBAS \
+                   corrections — the middle tier between the cheaper \
+                   single-system MAX-M10S (slightly faster TTFF but \
+                   ~2 m) and the multi-band ZED-F9P (RTK, cm-level). \
+                   Update rate up to 25 Hz, ~30 mA. Plug into the \
+                   OpenLog Artemis via Qwiic for a sub-meter-class \
+                   standalone GPS logger without RTK complexity / \
+                   subscription / NTRIP.",
         },
         Part {
             key: "ublox-ann-mb-00",
@@ -1519,6 +1623,36 @@ pub fn bom() -> Vec<Part> {
         // are easier with RBF63's longer interior. Hence RBF53 in
         // the MovementLogger PDF, RBF63 still default in the
         // Pi-Zero PDF.
+        // SERPAC RBF33 — the smaller sibling of the RBF53. Same IP67
+        // polycarbonate / clear-lid / metal-insert construction, just
+        // a tighter ~82 × 80 mm footprint. The right pick for the
+        // standalone GPS logger build (OpenLog Artemis 53 × 41 mm +
+        // ZED-F9P 46 × 43 mm stacked, total ≈ 53 × 43 × 25 mm — fits
+        // comfortably in the ~70 × 65 × 27 mm interior with cable
+        // headroom).
+        Part {
+            key: "serpac-rbf33-c10-clear",
+            name: "SERPAC RBF33P06C10C — IP67 PC enclosure, clear lid (82 × 80 × 35 mm)",
+            role: Role::Case,
+            manufacturer: "SERPAC",
+            mpns: &["RBF33P06C10C"],
+            connector: Connector::Enclosure,
+            oss_firmware: true, // passive PC box — no firmware
+            st_url: None,
+            sparkfun_pid: None,
+            direct_url: Some("https://www.serpac.com/rbf33-electronic-enclosure.html"),
+            note: "Polycarbonate IP67 project box, external 82 × 80 × \
+                   35 mm (3.23 × 3.15 × 1.38 in), clear PC lid sealed \
+                   with perimeter O-ring + stainless-steel screws into \
+                   metal inserts. Smallest RBF footprint that \
+                   comfortably fits the OpenLog Artemis (53 × 41 mm) \
+                   + a ZED-F9P Qwiic breakout (46 × 43 mm) stacked, \
+                   plus a small LiPo. Same RF-transparent / \
+                   Hall-magnet / Qi-charge tricks as the RBF53 / RBF63 \
+                   line. For the GPS-only standalone logger build — \
+                   STEVAL stays in its own RBF53 case nearby, GPS box \
+                   sits separately on the deck with clear sky view.",
+        },
         Part {
             key: "serpac-rbf53-c10-clear",
             name: "SERPAC RBF53P06C10C — IP67 PC enclosure, clear lid (120 × 80 × 40 mm)",
@@ -1742,6 +1876,7 @@ mod tests {
                             | "serpac-rbf63-c10-clear"
                             | "serpac-rbf63-c16-clear"
                             | "serpac-rbf63-c22-clear"
+                            | "serpac-rbf33-c10-clear"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
                             | "ublox-ann-mb-00"

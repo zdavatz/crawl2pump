@@ -418,6 +418,11 @@ sparkfun-gps-antenna-sma,sparkfun-ufl-sma-100mm,hammond-1554g2gycl \
     sparkfun-rtk-facet-lband,sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,\
 sparkfun-thing-plus-c,seeed-xiao-esp32s3 \
     --output PDF/build-rtk-gps.pdf
+./target/release/sensor_report --from-db --keys \
+    sparkfun-openlog-artemis,sparkfun-max-m10s,sparkfun-neo-m9n-qwiic,\
+sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,sparkfun-ufl-sma-100mm,\
+serpac-rbf33-c10-clear \
+    --output PDF/build-standalone-gps-logger.pdf
 ```
 
 The second focused build is the **MovementLogger** kit
@@ -444,6 +449,22 @@ before adding it to the BOM. Useful during development; the
 production rig still solders.
 The PDF's last page is the GPS soldering walkthrough mirrored from
 `movement_logger_firmware/GPS_SOLDERING.md`.
+
+The fifth focused build is a **standalone GPS data logger** for the
+"STEVAL logs sensors, GPS logs itself" architecture. The STEVAL stays
+in its own RBF53 case running the unchanged MovementLogger firmware
+(no UART wiring, no JP2/JP4 solder, no firmware co-processor
+work); a second waterproof box on the deck holds a self-contained
+GPS logger. Merge by timestamp in post-processing on the Mac. The
+PDF ships three GPS-tier options on one Qwiic-compatible host
+([OpenLog Artemis](https://github.com/sparkfun/OpenLog_Artemis), MIT
+firmware on Apollo3 Blue, microSD + 9-DoF IMU + barometer onboard):
+m-level via SparkFun MAX-M10S, sub-meter (with SBAS) via
+SparkFun NEO-M9N, or cm-level RTK via SparkFun ZED-F9P + u-blox
+ANN-MB-00 multi-band antenna. All Qwiic-pluggable, no soldering.
+The case is the **SERPAC RBF33P06C10C** (82 × 80 × 35 mm, IP67,
+clear PC lid) — the smallest RBF size that comfortably fits the
+OpenLog Artemis + GNSS breakout stack.
 
 The fourth focused build is a **high-precision GNSS tracker** — RTK
 (cm-level) with WiFi for both correction streams and live position.
