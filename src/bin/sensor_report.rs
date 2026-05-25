@@ -737,7 +737,16 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
     }
     s.push_str("</table>\n");
 
-    s.push_str(r#"<p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
+    s.push_str(r#"<p class="g-h">Farbkodierung im Katalog</p>
+<p class="g-n">Karten sind farblich nach Kompatibilitätsgruppe hinterlegt — gleiche Farbe = passen zusammen:</p>
+<ul style="list-style:none; padding-left:0">
+<li><span style="display:inline-block; width:6mm; height:3mm; background:#e3f2fd; border-left:2mm solid #0a58ca; vertical-align:middle; margin-right:2mm"></span><b>Blau</b> — L1-only u.FL Gruppe (MAX-M10S · NEO-M9N · Molex Flex). Untereinander kombinierbar.</li>
+<li><span style="display:inline-block; width:6mm; height:3mm; background:#fff3e0; border-left:2mm solid #e67e22; vertical-align:middle; margin-right:2mm"></span><b>Orange</b> — RTK Multi-Band SMA Gruppe (ZED-F9P · ANN-MB-00). Diese zwei gehören zusammen für cm-Genauigkeit.</li>
+<li><span style="display:inline-block; width:6mm; height:3mm; background:#f3e5f5; border-left:2mm solid #8e44ad; vertical-align:middle; margin-right:2mm"></span><b>Violett</b> — u.FL→SMA Pigtail. Brücke zwischen den Gruppen: erlaubt ANN-MB-00 (SMA) an MAX-M10S / NEO-M9N (u.FL) — bringt die L1-Antennenleistung der Multi-Band-Puck auf einen L1-only Receiver.</li>
+<li><span style="display:inline-block; width:6mm; height:3mm; background:#fff; border:1px solid #ddd; vertical-align:middle; margin-right:2mm"></span><b>Weiss</b> (keine Tönung) — bauunabhängige Teile (Host, Akku, Case). Brauchst du in jeder Konfiguration.</li>
+</ul>
+
+<p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
 <ol>
 <li><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, 9-DoF IMU + Barometer onboard, BLE über Apollo3 Blue.</li>
 <li><b>GNSS-Modul</b> via <b>Qwiic-Kabel</b> (JST-SH 4-pin) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
@@ -968,6 +977,7 @@ fn render_html(
                 body.push_str(&render_card(
                     &listing,
                     freshness.get(&listing.url).copied(),
+                    pair_group_class(&r.part_name),
                 ));
             }
         }
@@ -1060,6 +1070,15 @@ fn render_html(
   .pill-new      {{ background: #d1f0d6; color: #0e6132; }}
   .pill-modified {{ background: #fff3cd; color: #856404; }}
   .card {{ display: grid; grid-template-columns: 38mm 1fr 28mm; gap: 5mm; padding: 3mm 0; border-bottom: 1px solid #e5e5e5; break-inside: avoid; align-items: start; }}
+  /* Compatibility-group tints — paired products share a background
+     colour so the buyer can scan visually:
+       pair-l1     = L1-only u.FL compact build (MAX-M10S, NEO-M9N, Molex Flex)
+       pair-rtk    = RTK SMA multi-band build (ZED-F9P, ANN-MB-00)
+       pair-bridge = u.FL↔SMA pigtail (bridges the two groups)
+     Common parts (host, power, case) get no tint — they're build-agnostic. */
+  .card.pair-l1     {{ background: #e3f2fd; padding-left: 3mm; padding-right: 3mm; border-left: 3mm solid #0a58ca; }}
+  .card.pair-rtk    {{ background: #fff3e0; padding-left: 3mm; padding-right: 3mm; border-left: 3mm solid #e67e22; }}
+  .card.pair-bridge {{ background: #f3e5f5; padding-left: 3mm; padding-right: 3mm; border-left: 3mm solid #8e44ad; }}
   .badge {{ display: inline-block; font-size: 7.5pt; font-weight: 700; padding: 0.5mm 1.5mm; border-radius: 1mm; margin-right: 2mm; }}
   .badge.new      {{ background: #0e6132; color: white; }}
   .badge.modified {{ background: #f0ad4e; color: white; }}
@@ -1086,7 +1105,36 @@ fn render_html(
     )
 }
 
-fn render_card(l: &Listing, freshness: Option<Freshness>) -> String {
+/// Compatibility-group CSS class for a card, derived from the BOM
+/// part name. Used in the standalone GPS logger build to colour-tint
+/// cards by which receiver↔antenna group they belong to, so the buyer
+/// can scan the catalog visually without re-reading the pairing matrix
+/// guide. Returns `""` for parts that aren't part of a pair group
+/// (host, power, case — common to every build).
+///
+/// Group definitions match the build guide's pairing matrix:
+///   - `pair-l1` (blue): MAX-M10S / NEO-M9N / Molex Flex — the L1-only
+///     u.FL "compact" build.
+///   - `pair-rtk` (amber): ZED-F9P / ANN-MB-00 — the RTK SMA multi-band
+///     build.
+///   - `pair-bridge` (purple): u.FL→SMA pigtail — bridges the two
+///     groups (lets you run ANN-MB-00 on a MAX-M10S/NEO-M9N).
+fn pair_group_class(part_name: &str) -> &'static str {
+    if part_name.contains("MAX-M10S")
+        || part_name.contains("NEO-M9N")
+        || part_name.contains("Molex Flexible GNSS")
+    {
+        "pair-l1"
+    } else if part_name.contains("ZED-F9P") || part_name.contains("ANN-MB-00") {
+        "pair-rtk"
+    } else if part_name.contains("SMA → U.FL") {
+        "pair-bridge"
+    } else {
+        ""
+    }
+}
+
+fn render_card(l: &Listing, freshness: Option<Freshness>, pair_class: &str) -> String {
     let price = match (l.price, l.currency.as_deref()) {
         (Some(p), Some(c)) => format!("{c} {:.2}", p),
         (Some(p), None) => format!("{:.2}", p),
@@ -1122,8 +1170,13 @@ fn render_card(l: &Listing, freshness: Option<Freshness>) -> String {
         Some(Freshness::Modified) => r#"<span class="badge modified">aktualisiert</span>"#,
         None => "",
     };
+    let class_attr = if pair_class.is_empty() {
+        "card".to_string()
+    } else {
+        format!("card {pair_class}")
+    };
     format!(
-        r#"<section class="card">
+        r#"<section class="{class_attr}">
   {img_html}
   <div class="body">
     <a class="title" href="{url}" target="_blank" rel="noopener">{badge}{title}</a>
