@@ -144,7 +144,7 @@ impl Connector {
             Connector::Uart => "UART pins",
             Connector::Qwiic => "Qwiic / I²C",
             Connector::UsbC => "USB-C",
-            Connector::Battery => "18650 cell",
+            Connector::Battery => "battery cell",
             Connector::Enclosure => "enclosure",
             Connector::Coax => "SMA / U.FL",
             Connector::Gpio => "40-pin GPIO header",
@@ -355,6 +355,11 @@ impl Part {
             "sparkfun-xm125-radar" => (5.08, 2.54, 0.5), // 1.0×2.0" board
             "qwiic-jumper-female" => (15.0, 0.5, 0.3), // ~150 mm flex cable
             "battery-18650" => (6.5, 1.8, 1.8), // ∅18 × 65 mm cylinder
+            // SparkFun PRT-13813 1 Ah LiPo pouch — typical 60 × 36 × 7 mm
+            // (vendor product page; cell stickers vary by batch).
+            "battery-lipo-1000mah" => (6.0, 3.6, 0.7),
+            // SparkFun PRT-08670 JST jumper — ~150 mm 2-pin lead.
+            "jst-ph-extension-cable" => (15.0, 0.5, 0.3),
             "hammond-1554g2gycl" => (12.0, 9.0, 6.0), // external 1554G2 size
             // SERPAC RBF53 — smaller-footprint sibling of the RBF63.
             // External 4.72 × 3.15 in × N. Same C10/C16/C22 depth
@@ -417,6 +422,8 @@ impl Part {
             "qwiic-cable-100mm"
                 | "qwiic-jumper-female"
                 | "battery-18650"
+                | "battery-lipo-1000mah"
+                | "jst-ph-extension-cable"
                 | "hammond-1554g2gycl"
                 | "serpac-rbf53-c10-clear"
                 | "serpac-rbf63-c10-clear"
@@ -602,6 +609,10 @@ impl Part {
             "lilygo-tbeam-s3-supreme" => 22.0,
             // Typical flat-top 18650 cell (Samsung/LG/Molicel 2.5–3 Ah).
             "battery-18650" => 45.0,
+            // SparkFun PRT-13813 1 Ah LiPo pouch — vendor spec ≈ 22 g.
+            "battery-lipo-1000mah" => 22.0,
+            // SparkFun PRT-08670 JST jumper — bare wires + connector ≈ 2 g.
+            "jst-ph-extension-cable" => 2.0,
             // Hammond 1554G2GYCL — vendor spec ~152 g for 1554G2;
             // rounded to 154 g consistent with the value quoted in the
             // weight discussion above.
@@ -719,6 +730,14 @@ impl Part {
             // separate PDF datasheet for the board (chip-level docs
             // are on Quectel's L76 datasheet, separate part).
             "waveshare-l76x-gps-hat" => "https://www.waveshare.com/wiki/L76X_GPS_HAT",
+            // SparkFun PRT-13813 1 Ah LiPo — product page is the
+            // canonical spec source (capacity, dimensions, safety
+            // warnings). No separate PDF datasheet ships from the
+            // pouch-cell vendor.
+            "battery-lipo-1000mah" => "https://www.sparkfun.com/products/13813",
+            // SparkFun PRT-08670 JST jumper — product page covers
+            // pinout + dimensions; no PDF datasheet for a 2-pin cable.
+            "jst-ph-extension-cable" => "https://www.sparkfun.com/products/8670",
             // Generic JTAG/SWD-to-DuPont cable has no canonical PDF
             // datasheet — no MPN, no manufacturer. The note + the
             // soldering-guide diagram are the spec source.
@@ -1472,6 +1491,72 @@ pub fn bom() -> Vec<Part> {
                    both work (the AXP2101 handles charge/discharge \
                    cut-off). Reputable cells: Samsung/LG/Molicel.",
         },
+        // LiPo cell for the OpenLog Artemis-based standalone GPS logger
+        // (and any other JST-PH 2-pin host on the BOM). SparkFun ships
+        // their LiPos with the correct polarity for the Artemis charge
+        // circuit — red = +, black = − — so plug-and-play. The 1 Ah
+        // cell is the sweet spot for the standalone logger: ~12–20 h of
+        // runtime at 1 Hz logging (50–80 mA draw), and the cell footprint
+        // (~60 × 36 × 7 mm) fits comfortably in the RBF33 case beside
+        // the Artemis + a Qwiic GPS breakout. 400 mAh (PRT-13851) is
+        // smaller but only ~5–8 h; 2 Ah (PRT-13856) gives 25–40 h but
+        // is borderline for the RBF33 interior.
+        Part {
+            key: "battery-lipo-1000mah",
+            name: "SparkFun Lithium Ion Battery 1Ah, JST-PH 2-pin (OpenLog Artemis power)",
+            role: Role::Battery,
+            manufacturer: "SparkFun",
+            mpns: &["PRT-13813"],
+            connector: Connector::Battery,
+            oss_firmware: true, // passive cell — no firmware
+            st_url: None,
+            // SparkFun PRT-13813 — JSON-LD ships real photo + price, so
+            // the no-key SparkFun source picks it up automatically.
+            sparkfun_pid: Some("13813"),
+            direct_url: None,
+            note: "1 Ah single-cell LiPo (3.7 V nominal) with JST-PH \
+                   2.0 mm 2-pin connector — plugs straight into the \
+                   OpenLog Artemis (DEV-19426) battery jack. The \
+                   Artemis's onboard MCP73831 charges it over USB-C \
+                   (~500 mA) and runs the board untethered when \
+                   unplugged. Runtime at 1 Hz GPS logging ≈ 12–20 h. \
+                   Polarity is correct out of the box for SparkFun \
+                   loads — verify with a multimeter before connecting \
+                   to anything else. Mount with foam or velcro inside \
+                   the case; an unrestrained LiPo under wave load can \
+                   tear the JST leads off the cell. Class 9 lithium \
+                   shipping rules apply: most distributors ship surface \
+                   only, no air freight to private addresses.",
+        },
+        // 2-pin JST-PH extension cable — used to physically separate
+        // the LiPo from the logger PCB inside the case (battery on one
+        // side of the case, board on the other, no flex on the cell's
+        // own short leads). Also handy for splicing in a hard
+        // power-switch between cell and logger (e.g. a panel-mount
+        // toggle through a watertight gland).
+        Part {
+            key: "jst-ph-extension-cable",
+            name: "SparkFun JST Jumper 2 Wire Assembly (JST-PH 2-pin extension)",
+            role: Role::Battery,
+            manufacturer: "SparkFun",
+            mpns: &["PRT-08670"],
+            connector: Connector::Battery,
+            oss_firmware: true, // passive cable — no firmware
+            st_url: None,
+            sparkfun_pid: Some("8670"),
+            direct_url: None,
+            note: "JST-PH 2.0 mm 2-pin connector (female) → 2× bare \
+                   stranded wires, ~150 mm. Use it to extend the LiPo \
+                   lead inside the case (battery on one side, logger \
+                   on the other), or to splice in a hard power-switch \
+                   for a clean on/off without unplugging the cell. \
+                   Polarity matches SparkFun LiPos — red on the same \
+                   pin as the cell's red lead. Solder + heat-shrink to \
+                   extend; for a JST-to-JST extension, twist two of \
+                   these back to back. NOT a load-bearing power link \
+                   on its own — too thin for sustained > 1 A draw, \
+                   fine for the Artemis's ~50–80 mA logging current.",
+        },
         // ───────── Raspberry Pi build (alternative recorder host) ─────────
         // A third recorder archetype next to the STEVAL-MKBOXPRO and
         // the LilyGO T-Beam S3 Supreme: a Linux SBC (Pi Zero 2 W) with
@@ -1871,6 +1956,8 @@ mod tests {
                         "qwiic-cable-100mm"
                             | "qwiic-jumper-female"
                             | "battery-18650"
+                            | "battery-lipo-1000mah"
+                            | "jst-ph-extension-cable"
                             | "hammond-1554g2gycl"
                             | "serpac-rbf53-c10-clear"
                             | "serpac-rbf63-c10-clear"

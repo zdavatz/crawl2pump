@@ -421,7 +421,7 @@ sparkfun-thing-plus-c,seeed-xiao-esp32s3 \
 ./target/release/sensor_report --from-db --keys \
     sparkfun-openlog-artemis,sparkfun-max-m10s,sparkfun-neo-m9n-qwiic,\
 sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,sparkfun-ufl-sma-100mm,\
-serpac-rbf33-c10-clear \
+battery-lipo-1000mah,jst-ph-extension-cable,serpac-rbf33-c10-clear \
     --output PDF/build-standalone-gps-logger.pdf
 ```
 
@@ -462,9 +462,13 @@ firmware on Apollo3 Blue, microSD + 9-DoF IMU + barometer onboard):
 m-level via SparkFun MAX-M10S, sub-meter (with SBAS) via
 SparkFun NEO-M9N, or cm-level RTK via SparkFun ZED-F9P + u-blox
 ANN-MB-00 multi-band antenna. All Qwiic-pluggable, no soldering.
-The case is the **SERPAC RBF33P06C10C** (82 × 80 × 35 mm, IP67,
-clear PC lid) — the smallest RBF size that comfortably fits the
-OpenLog Artemis + GNSS breakout stack.
+Power is a **SparkFun 1 Ah LiPo** (PRT-13813) on the Artemis's
+JST-PH 2-pin input — ~12–20 h runtime at 1 Hz logging, charged
+over the Artemis's USB-C jack — plus a **PRT-08670 JST jumper**
+for splicing in a panel-mount on/off switch or extending the
+cell lead inside the case. The case is the **SERPAC RBF33P06C10C**
+(82 × 80 × 35 mm, IP67, clear PC lid) — the smallest RBF size that
+comfortably fits the OpenLog Artemis + GNSS breakout + LiPo stack.
 
 The fourth focused build is a **high-precision GNSS tracker** — RTK
 (cm-level) with WiFi for both correction streams and live position.
