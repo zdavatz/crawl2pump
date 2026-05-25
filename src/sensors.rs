@@ -378,6 +378,9 @@ impl Part {
             "sparkfun-gps-antenna-sma" => (4.0, 4.0, 1.3),
             // U.FL→SMA pigtail: 100 mm flex with two coax connectors.
             "sparkfun-ufl-sma-100mm" => (10.0, 0.3, 0.3),
+            // Molex flex GNSS antenna (SparkFun GPS-15246): 40 × 15 mm
+            // flex + 50 mm u.FL pigtail; 0.1 mm thick.
+            "molex-flex-gnss-ufl" => (4.0, 1.54, 0.01),
             // AliExpress generic FC ribbon 1.27mm → 2.54mm DuPont,
             // 30 cm length (Vino Electronic 1005011846708876). This
             // single-SKU cable supersedes the earlier Samtec FFSD-07
@@ -432,6 +435,7 @@ impl Part {
                 | "serpac-rbf33-c10-clear"
                 | "sparkfun-gps-antenna-sma"
                 | "sparkfun-ufl-sma-100mm"
+                | "molex-flex-gnss-ufl"
                 | "ublox-ann-mb-00"
                 | "arm-jtag-dupont-cable"
                 | "sparkfun-jumper-ff-6in"
@@ -588,6 +592,8 @@ impl Part {
             "sparkfun-gps-antenna-sma" => 80.0,
             // Pigtails, ribbons, jumper sets.
             "sparkfun-ufl-sma-100mm" => 3.0,
+            // Molex flex GNSS antenna (paper-thin polymer + 50 mm u.FL).
+            "molex-flex-gnss-ufl" => 2.0,
             // AliExpress turnkey FC 1.27→2.54 DuPont cable, 30 cm,
             // 14× DuPont housings included.
             "arm-jtag-dupont-cable" => 7.0,
@@ -711,6 +717,10 @@ impl Part {
             // spec source; the U.FL connector PDF was 404 on every
             // host we tried (Hirose's dispatcher serves no body).
             "sparkfun-ufl-sma-100mm" => "https://www.sparkfun.com/products/9145",
+            // Molex Flexible GNSS Antenna - U.FL (Adhesive), SparkFun
+            // product page is canonical (Molex's own datasheet PDF host
+            // moves around). Multi-band passive flex element.
+            "molex-flex-gnss-ufl" => "https://www.sparkfun.com/products/15246",
             // Hammond 1554 series spec PDF (covers all variants incl.
             // the clear-lid -CL parts).
             "hammond-1554g2gycl" => {
@@ -1206,6 +1216,53 @@ pub fn bom() -> Vec<Part> {
                    the antenna above's SMA male). Buy with the magnetic \
                    antenna or skip both if the onboard chip antenna is \
                    enough.",
+        },
+        // The "stays inside a small case" antenna for the MAX-M10S /
+        // NEO-M9N standalone logger. Molex flex GNSS antenna with u.FL
+        // pigtail, 40 × 15 × 0.1 mm — adhesive-backed, sticks to the
+        // inside of the RBF33's clear PC lid. Multi-band element (L1/L5
+        // GPS, Galileo E1/E5a, BeiDou B1/B2a, GLONASS L1) so it stays
+        // useful if you later swap MAX-M10S for ZED-F9P (multi-band
+        // chip — but note the antenna's L2-band gain is lower than the
+        // ANN-MB-00, so this is the "good-enough" RTK choice when case
+        // size matters more than convergence time).
+        //
+        // **PASSIVE** — no onboard LNA. Wins over the MAX-M10S Qwiic
+        // breakout's onboard chip antenna (~+2 dBi vs ~0 dBi peak),
+        // but a real active antenna with a +28 dB LNA (PRT-14986
+        // magnetic puck) is still meaningfully better outdoors. The
+        // trade-off is size: the puck is 40 × 40 × 13 mm + 3 m of
+        // coax dominating the case, vs this flex which fits flat on
+        // the lid with no external coax run.
+        Part {
+            key: "molex-flex-gnss-ufl",
+            name: "Molex Flexible GNSS Antenna u.FL (passive multi-band, paper-thin)",
+            role: Role::Gps,
+            manufacturer: "Molex",
+            // SparkFun ships a Molex part — Molex's own MPN is
+            // 146236-0150 but the SparkFun PID is the canonical lookup.
+            mpns: &["146236-0150"],
+            connector: Connector::Coax,
+            oss_firmware: true, // passive RF — no firmware
+            st_url: None,
+            sparkfun_pid: Some("15246"),
+            direct_url: None,
+            note: "Passive flex GNSS-Patch (Molex 146236-0150 via \
+                   SparkFun GPS-15246): 40 × 15 × 0.1 mm, adhesive \
+                   backing, 50 mm u.FL pigtail — plugs straight onto \
+                   the MAX-M10S / NEO-M9N Qwiic breakout's u.FL \
+                   without the SMA pigtail (CAB-09145). Multi-band \
+                   (L1 + L5 GPS, Galileo, BeiDou, GLONASS) so it stays \
+                   useful if the receiver gets swapped to ZED-F9P. \
+                   Passive (~+2 dBi gain) — better than the breakout's \
+                   onboard chip antenna, worse than a +28 dB LNA \
+                   active puck (PRT-14986). The smallest no-protrusion \
+                   antenna option in the BOM: stick it flat to the \
+                   inside of the RBF33's clear PC lid; the signal \
+                   passes through the polycarbonate. Best for \
+                   case-size-constrained builds where you'd rather \
+                   accept a few dB of antenna loss than route an \
+                   external puck + 3 m of coax.",
         },
         // ───────── USB-C pluggable, OSS-firmware modules ─────────
         // Selection rule: USB-C connector AND fully open-source
@@ -1966,6 +2023,7 @@ mod tests {
                             | "serpac-rbf33-c10-clear"
                             | "sparkfun-gps-antenna-sma"
                             | "sparkfun-ufl-sma-100mm"
+                            | "molex-flex-gnss-ufl"
                             | "ublox-ann-mb-00"
                             | "arm-jtag-dupont-cable"
                             | "sparkfun-jumper-ff-6in"

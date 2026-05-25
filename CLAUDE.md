@@ -669,18 +669,22 @@ Architecture / invariants worth knowing before editing it:
   - Standalone GPS data logger (independent of STEVAL):
     `--from-db --keys sparkfun-openlog-artemis,sparkfun-max-m10s,
     sparkfun-neo-m9n-qwiic,sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,
-    sparkfun-ufl-sma-100mm,battery-lipo-1000mah,
-    jst-ph-extension-cable,serpac-rbf33-c10-clear
+    sparkfun-ufl-sma-100mm,molex-flex-gnss-ufl,
+    battery-lipo-1000mah,jst-ph-extension-cable,
+    serpac-rbf33-c10-clear
     --output /tmp/build-standalone-gps-logger.pdf` —
     OpenLog Artemis (Apollo3 + microSD + IMU + USB-C, runs open
     OpenLog_Artemis firmware) as the Qwiic-pluggable host, three
-    GPS-tier options (MAX-M10S / NEO-M9N / ZED-F9P), the SparkFun
-    1 Ah LiPo (PRT-13813) + JST jumper (PRT-08670) for power, and
-    the small SERPAC RBF33 (82 × 80 × 35 mm, IP67). The architecture
-    the user proposed: STEVAL keeps its onboard logging (sensors
-    only) and the GPS logs to its own SD card in this separate box —
-    no UART bridge, no JP2/JP4 solder, no firmware co-processor
-    work. Merge by timestamp in post-processing.
+    GPS-tier options (MAX-M10S / NEO-M9N / ZED-F9P), two antenna
+    tiers (ANN-MB-00 multi-band puck + u.FL→SMA pigtail for
+    accuracy; Molex GPS-15246 paper-thin flex direct-to-u.FL for
+    compactness), the SparkFun 1 Ah LiPo (PRT-13813) + JST jumper
+    (PRT-08670) for power, and the small SERPAC RBF33 (82 × 80 ×
+    35 mm, IP67). The architecture the user proposed: STEVAL keeps
+    its onboard logging (sensors only) and the GPS logs to its own
+    SD card in this separate box — no UART bridge, no JP2/JP4
+    solder, no firmware co-processor work. Merge by timestamp in
+    post-processing.
   - High-precision GNSS tracker with WiFi (RTK, cm-level):
     `--from-db --keys sparkfun-rtk-facet-lband,
     sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,

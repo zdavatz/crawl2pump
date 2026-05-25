@@ -421,7 +421,8 @@ sparkfun-thing-plus-c,seeed-xiao-esp32s3 \
 ./target/release/sensor_report --from-db --keys \
     sparkfun-openlog-artemis,sparkfun-max-m10s,sparkfun-neo-m9n-qwiic,\
 sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,sparkfun-ufl-sma-100mm,\
-battery-lipo-1000mah,jst-ph-extension-cable,serpac-rbf33-c10-clear \
+molex-flex-gnss-ufl,battery-lipo-1000mah,jst-ph-extension-cable,\
+serpac-rbf33-c10-clear \
     --output PDF/build-standalone-gps-logger.pdf
 ```
 
@@ -462,13 +463,22 @@ firmware on Apollo3 Blue, microSD + 9-DoF IMU + barometer onboard):
 m-level via SparkFun MAX-M10S, sub-meter (with SBAS) via
 SparkFun NEO-M9N, or cm-level RTK via SparkFun ZED-F9P + u-blox
 ANN-MB-00 multi-band antenna. All Qwiic-pluggable, no soldering.
-Power is a **SparkFun 1 Ah LiPo** (PRT-13813) on the Artemis's
-JST-PH 2-pin input — ~12–20 h runtime at 1 Hz logging, charged
-over the Artemis's USB-C jack — plus a **PRT-08670 JST jumper**
-for splicing in a panel-mount on/off switch or extending the
-cell lead inside the case. The case is the **SERPAC RBF33P06C10C**
-(82 × 80 × 35 mm, IP67, clear PC lid) — the smallest RBF size that
-comfortably fits the OpenLog Artemis + GNSS breakout + LiPo stack.
+For the **MAX-M10S / NEO-M9N tier** the PDF also includes the
+**Molex Flexible GNSS Antenna u.FL** (SparkFun GPS-15246) as the
+compact passive multi-band alternative to the ANN-MB-00 puck:
+40 × 15 × 0.1 mm flex element with adhesive backing, sticks flat
+to the inside of the clear PC lid, plugs straight into the u.FL
+of the MAX-M10S / NEO-M9N breakout with no SMA pigtail needed.
+~+2 dBi passive — better than the breakout's onboard chip antenna,
+worse than the +28 dB LNA puck (PRT-14986); the trade-off is case
+size, not absolute open-sky accuracy. Power is a **SparkFun 1 Ah
+LiPo** (PRT-13813) on the Artemis's JST-PH 2-pin input — ~12–20 h
+runtime at 1 Hz logging, charged over the Artemis's USB-C jack —
+plus a **PRT-08670 JST jumper** for splicing in a panel-mount
+on/off switch or extending the cell lead inside the case. The case
+is the **SERPAC RBF33P06C10C** (82 × 80 × 35 mm, IP67, clear PC
+lid) — the smallest RBF size that comfortably fits the OpenLog
+Artemis + GNSS breakout + LiPo stack.
 
 The fourth focused build is a **high-precision GNSS tracker** — RTK
 (cm-level) with WiFi for both correction streams and live position.
