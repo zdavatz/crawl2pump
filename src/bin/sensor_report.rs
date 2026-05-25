@@ -753,7 +753,7 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
 
 <p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
 <ol>
-<li><span class="pair-num common">0.1</span><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, 9-DoF IMU + Barometer onboard, BLE über Apollo3 Blue.</li>
+<li><span class="pair-num common">0.1</span><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, BLE über Apollo3 Blue. <b>Wichtig:</b> diese aktuelle DEV-19426 Revision hat <b>keinen IMU und keinen Barometer onboard</b> (SparkFun hat beide aus Lieferketten-Gründen entfernt). Für Bewegungsdaten musst du einen separaten Qwiic-IMU dazustecken (z.B. ICM-20948 PRT-15335, BNO086 PRT-22857). Für unsere Architektur OK — die STEVAL trägt eh schon alle Sensoren, der Artemis ist hier nur GPS-Logger.</li>
 <li><b>GNSS-Modul</b> deiner Wahl (<span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-rtk">2.1</span>) via <b>Qwiic-Kabel</b> (JST-SH 4-pin) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
 "#);
     if has_lipo {

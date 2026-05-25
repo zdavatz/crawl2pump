@@ -214,12 +214,16 @@ impl Part {
             // (WiFi + BLE), ZED-F9P GNSS, microSD logging, USB-C charge,
             // IMU for the bubble-level. All six checkboxes apply.
             "sparkfun-rtk-facet-lband" => &[UsbC, Wifi, Bluetooth, Gps, Motion, SdCard],
-            // SparkFun OpenLog Artemis — datalogger host with onboard
-            // 9-DoF IMU (ICM-20948), barometer (MS5637), microSD slot,
-            // BLE via Apollo3 Blue, USB-C charge. The standalone GPS
-            // logger host for the "STEVAL logs sensors, GPS logs itself"
-            // architecture.
-            "sparkfun-openlog-artemis" => &[UsbC, Bluetooth, Motion, SdCard],
+            // SparkFun OpenLog Artemis (DEV-19426 current rev) —
+            // datalogger host. SparkFun REMOVED the onboard ICM-20948
+            // IMU and MS5637 barometer from this revision due to chip
+            // supply issues — the product page explicitly states "this
+            // version does not include the internal ICM-20948 IMU".
+            // So no Motion checkbox: the buyer must add a Qwiic IMU
+            // (ICM-20948 / BNO086 / ISM330DHCX breakout) if they want
+            // motion data. BLE (from Apollo3 Blue), USB-C, microSD
+            // slot are still onboard.
+            "sparkfun-openlog-artemis" => &[UsbC, Bluetooth, SdCard],
             "esp32-c3-devkitc"
             | "esp32-s3-devkitc"
             | "sparkfun-thing-plus-c"
@@ -985,15 +989,19 @@ pub fn bom() -> Vec<Part> {
         },
         // SparkFun OpenLog Artemis — the standalone GPS-logger host
         // for the "STEVAL logs sensors, GPS logs itself" architecture.
-        // Apollo3 Blue MCU with onboard BLE, microSD slot, 9-DoF IMU
-        // (ICM-20948), barometer (MS5637), USB-C charge, LiPo input,
-        // Qwiic port. Plug a Qwiic GPS into it (MAX-M10S / NEO-M9N /
-        // ZED-F9P) and it's a complete data-logging package — no
-        // soldering, no UART bridge to the STEVAL, both devices log
-        // independently and merge by timestamp in post-processing.
+        // Apollo3 Blue MCU with onboard BLE, microSD slot, USB-C
+        // charge, LiPo input, Qwiic port. **No onboard IMU or
+        // barometer in the current DEV-19426 rev** — SparkFun removed
+        // both due to chip-supply issues; the product page says so
+        // explicitly. Buyer adds Qwiic IMU separately if motion data
+        // is needed (e.g. SparkFun ICM-20948 Qwiic breakout PRT-15335,
+        // BNO086 PRT-22857, or ISM330DHCX PRT-19764). For the
+        // pumpfoil architecture this is fine — the STEVAL already
+        // carries all the high-precision motion sensors; the OpenLog
+        // Artemis stays a pure GPS logger.
         Part {
             key: "sparkfun-openlog-artemis",
-            name: "SparkFun OpenLog Artemis (Apollo3 datalogger, microSD, USB-C, Qwiic)",
+            name: "SparkFun OpenLog Artemis (Apollo3 datalogger host, microSD, USB-C, Qwiic)",
             role: Role::Devkit,
             manufacturer: "SparkFun",
             mpns: &["DEV-19426"],
@@ -1002,19 +1010,27 @@ pub fn bom() -> Vec<Part> {
             st_url: None,
             sparkfun_pid: Some("19426"),
             direct_url: None,
-            note: "Standalone Qwiic datalogger. Apollo3 Blue Cortex-M4F \
-                   @48 MHz + onboard ICM-20948 9-DoF IMU + MS5637 \
-                   barometer + microSD slot + USB-C charge + BLE 5. \
+            note: "Standalone Qwiic datalogger host. Apollo3 Blue \
+                   Cortex-M4F @48 MHz + microSD slot + USB-C charge \
+                   + BLE 5 + 4× ADC inputs + RTC with backup battery. \
+                   **No IMU or barometer onboard** — the current \
+                   DEV-19426 rev shipped without the ICM-20948 / \
+                   MS5637 that earlier revs carried (SparkFun supply- \
+                   chain change; their product page confirms). For \
+                   motion data, plug a separate Qwiic sensor in \
+                   (ICM-20948 / BNO086 / ISM330DHCX) — Artemis \
+                   firmware auto-detects 30+ supported Qwiic sensors. \
                    Runs SparkFun's open OpenLog_Artemis firmware out \
-                   of the box: power on, it logs every Qwiic device it \
-                   detects (any GPS in this BOM) plus its own IMU and \
-                   baro to a CSV/UBX on the SD card. Configure \
-                   sample-rate, file naming, sleep behaviour via a USB \
-                   serial menu. The natural pair for a small RTK GPS \
-                   build: plug in a SparkFun ZED-F9P or MAX-M10S Qwiic \
-                   breakout, hook up a LiPo, drop it in the SERPAC \
-                   RBF33 IP67 case — a complete waterproof GPS data \
-                   recorder, no firmware writing needed.",
+                   of the box: power on, it logs every Qwiic device \
+                   it detects (any GPS in this BOM, plus any Qwiic \
+                   IMU you add) to a CSV/UBX on the SD card. \
+                   Configure sample-rate, file naming, sleep behaviour \
+                   via a USB serial menu. The natural pair for a \
+                   small GPS build: plug in a SparkFun ZED-F9P or \
+                   MAX-M10S Qwiic breakout, hook up a LiPo, drop it \
+                   in the SERPAC RBF33 IP67 case — a complete \
+                   waterproof GPS data recorder, no firmware writing \
+                   needed.",
         },
         Part {
             key: "sparkfun-neo-m9n-qwiic",
