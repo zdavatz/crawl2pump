@@ -691,31 +691,31 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
 "#,
     );
     if has_max {
-        s.push_str("<tr><td>m-Level</td><td><b>SparkFun MAX-M10S Qwiic</b></td><td>L1-only · 4 GNSS</td><td>~1.5–2 m</td><td>~12 mA</td><td>~40 CHF</td></tr>\n");
+        s.push_str("<tr><td>m-Level</td><td><span class=\"pair-num pair-l1\">1.1</span><b>SparkFun MAX-M10S Qwiic</b></td><td>L1-only · 4 GNSS</td><td>~1.5–2 m</td><td>~12 mA</td><td>~40 CHF</td></tr>\n");
     }
     if has_neo {
-        s.push_str("<tr><td>m-Level (Patch)</td><td><b>SparkFun NEO-M9N Qwiic</b></td><td>L1-only · 4 GNSS</td><td>~1.5–2 m (onboard Patch)</td><td>~25 mA</td><td>~70 CHF</td></tr>\n");
+        s.push_str("<tr><td>m-Level (Patch)</td><td><span class=\"pair-num pair-l1\">1.2</span><b>SparkFun NEO-M9N Qwiic</b></td><td>L1-only · 4 GNSS</td><td>~1.5–2 m (onboard Patch)</td><td>~25 mA</td><td>~70 CHF</td></tr>\n");
     }
     if has_zed {
-        s.push_str("<tr><td><b>cm-Level (RTK)</b></td><td><b>SparkFun ZED-F9P Qwiic</b></td><td><b>L1+L2 Multi-Band</b> · 4 GNSS</td><td><b>~1–2 cm</b> mit NTRIP-Korrekturen via WiFi (gratis in CH via swisstopo SWIPOS)</td><td>~70 mA</td><td>~250 CHF</td></tr>\n");
+        s.push_str("<tr><td><b>cm-Level (RTK)</b></td><td><span class=\"pair-num pair-rtk\">2.1</span><b>SparkFun ZED-F9P Qwiic</b></td><td><b>L1+L2 Multi-Band</b> · 4 GNSS</td><td><b>~1–2 cm</b> mit NTRIP-Korrekturen via WiFi (gratis in CH via swisstopo SWIPOS)</td><td>~70 mA</td><td>~250 CHF</td></tr>\n");
     }
     s.push_str("</table>\n");
 
     s.push_str(r#"<p class="g-h">Antennen — was zu welchem Receiver passt</p>
 <p class="g-n"><b>Wichtig:</b> Antenne muss zum Receiver passen — sowohl beim <b>Stecker</b> (u.FL am MAX-M10S/NEO-M9N · SMA am ZED-F9P) als auch bei den <b>Frequenzbändern</b>. Ein L1-only Receiver braucht nur L1; ein ZED-F9P braucht <b>L1 + L2</b> (nicht L5!). Falscher Combo = stille RTK-Verlust.</p>
 <table class="wire">
-<tr><th>Antenne</th><th>Stecker</th><th>Bänder</th><th>MAX-M10S</th><th>NEO-M9N</th><th>ZED-F9P</th><th>Grösse / Mount</th></tr>
+<tr><th>Antenne</th><th>Stecker</th><th>Bänder</th><th>+ <span class="pair-num pair-l1">1.1</span>MAX-M10S</th><th>+ <span class="pair-num pair-l1">1.2</span>NEO-M9N</th><th>+ <span class="pair-num pair-rtk">2.1</span>ZED-F9P</th><th>Grösse / Mount</th></tr>
 "#);
     if has_molex {
-        s.push_str("<tr><td><b>Molex GPS-15246 Flex</b> (passiv, ~+2 dBi)</td><td><b>u.FL</b> direkt</td><td>L1+L5</td><td>✅ ja</td><td>✅ ja</td><td>❌ <b>NEIN</b> (kein L2, falscher Stecker)</td><td>40 × 15 × 0.1 mm · adhesiv unter Klar-Deckel</td></tr>\n");
+        s.push_str("<tr><td><span class=\"pair-num pair-l1\">1.3</span><b>Molex GPS-15246 Flex</b> (passiv, ~+2 dBi)</td><td><b>u.FL</b> direkt</td><td>L1+L5</td><td>✅ ja</td><td>✅ ja</td><td>❌ <b>NEIN</b> (kein L2, falscher Stecker)</td><td>40 × 15 × 0.1 mm · adhesiv unter Klar-Deckel</td></tr>\n");
     }
     if has_ann_mb {
-        s.push_str("<tr><td><b>u-blox ANN-MB-00</b> (aktiv, +28 dB LNA)</td><td><b>SMA</b></td><td><b>L1+L2+L5</b> Multi-Band</td><td>✅ ja (mit u.FL→SMA Pigtail)</td><td>✅ ja (mit u.FL→SMA Pigtail)</td><td><b>✅ direkt</b> — die einzige passende RTK-Antenne</td><td>60 × 60 × 16 mm Puck + 5 m Koax · magnetisch</td></tr>\n");
+        s.push_str("<tr><td><span class=\"pair-num pair-rtk\">2.2</span><b>u-blox ANN-MB-00</b> (aktiv, +28 dB LNA)</td><td><b>SMA</b></td><td><b>L1+L2+L5</b> Multi-Band</td><td>✅ ja (mit <span class=\"pair-num pair-bridge\">3.1</span>Pigtail)</td><td>✅ ja (mit <span class=\"pair-num pair-bridge\">3.1</span>Pigtail)</td><td><b>✅ direkt</b> — die einzige passende RTK-Antenne</td><td>60 × 60 × 16 mm Puck + 5 m Koax · magnetisch</td></tr>\n");
     }
     s.push_str("</table>\n");
 
     if has_pigtail {
-        s.push_str(r#"<p class="g-n"><b>SMA → u.FL Pigtail (CAB-09145):</b> Adapter zwischen ANN-MB-00 (SMA) und MAX-M10S / NEO-M9N (u.FL). Nur nötig, wenn du die ANN-MB-00 an einem L1-only Receiver betreiben willst. Für den ZED-F9P NICHT nötig (Board hat SMA direkt). Für die Molex Flex auch NICHT nötig (u.FL direkt am Board).</p>
+        s.push_str(r#"<p class="g-n"><span class="pair-num pair-bridge">3.1</span><b>SMA → u.FL Pigtail (CAB-09145):</b> Adapter zwischen ANN-MB-00 (SMA) und MAX-M10S / NEO-M9N (u.FL). Nur nötig, wenn du die ANN-MB-00 an einem L1-only Receiver betreiben willst. Für den ZED-F9P NICHT nötig (Board hat SMA direkt). Für die Molex Flex auch NICHT nötig (u.FL direkt am Board).</p>
 "#);
     }
 
@@ -724,38 +724,43 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
 <tr><th>Use-Case</th><th>Receiver</th><th>Antenne</th><th>Case-Stil</th></tr>
 "#);
     if has_max && has_molex {
-        s.push_str("<tr><td><b>Kompakt, alles im Case</b></td><td>MAX-M10S</td><td>Molex Flex u.FL (unter Klar-Deckel)</td><td>Geschlossen, kein Gland, ~2 m Genauigkeit</td></tr>\n");
+        s.push_str("<tr><td><b>Kompakt, alles im Case</b></td><td><span class=\"pair-num pair-l1\">1.1</span>MAX-M10S</td><td><span class=\"pair-num pair-l1\">1.3</span>Molex Flex u.FL (unter Klar-Deckel)</td><td>Geschlossen, kein Gland, ~2 m Genauigkeit</td></tr>\n");
     }
     if has_neo {
-        s.push_str("<tr><td><b>Einfachste Lösung</b></td><td>NEO-M9N (Patch onboard)</td><td>keine extra — Stock-Patch unter Klar-Deckel</td><td>Geschlossen, kein Gland, ~1.5–2 m Genauigkeit</td></tr>\n");
+        s.push_str("<tr><td><b>Einfachste Lösung</b></td><td><span class=\"pair-num pair-l1\">1.2</span>NEO-M9N (Patch onboard)</td><td>keine extra — Stock-Patch unter Klar-Deckel</td><td>Geschlossen, kein Gland, ~1.5–2 m Genauigkeit</td></tr>\n");
     }
     if has_max && has_ann_mb && has_pigtail {
-        s.push_str("<tr><td><b>Beste L1-Genauigkeit</b></td><td>MAX-M10S</td><td>ANN-MB-00 + u.FL→SMA Pigtail</td><td>Case mit SMA-Gland für Puck-Mount aussen, ~1 m</td></tr>\n");
+        s.push_str("<tr><td><b>Beste L1-Genauigkeit</b></td><td><span class=\"pair-num pair-l1\">1.1</span>MAX-M10S</td><td><span class=\"pair-num pair-rtk\">2.2</span>ANN-MB-00 + <span class=\"pair-num pair-bridge\">3.1</span>u.FL→SMA Pigtail</td><td>Case mit SMA-Gland für Puck-Mount aussen, ~1 m</td></tr>\n");
     }
     if has_zed && has_ann_mb {
-        s.push_str("<tr><td><b>RTK cm-Genauigkeit</b></td><td>ZED-F9P</td><td><b>ANN-MB-00</b> (Pflicht — Multi-Band L1+L2)</td><td>Case mit SMA-Gland, NTRIP-WiFi-Verbindung nötig (z.B. STEVAL-Hotspot oder eigenes WiFi)</td></tr>\n");
+        s.push_str("<tr><td><b>RTK cm-Genauigkeit</b></td><td><span class=\"pair-num pair-rtk\">2.1</span>ZED-F9P</td><td><span class=\"pair-num pair-rtk\">2.2</span><b>ANN-MB-00</b> (Pflicht — Multi-Band L1+L2)</td><td>Case mit SMA-Gland, NTRIP-WiFi-Verbindung nötig (z.B. STEVAL-Hotspot oder eigenes WiFi)</td></tr>\n");
     }
     s.push_str("</table>\n");
 
-    s.push_str(r#"<p class="g-h">Farbkodierung im Katalog</p>
-<p class="g-n">Karten sind farblich nach Kompatibilitätsgruppe hinterlegt — gleiche Farbe = passen zusammen:</p>
+    s.push_str(r#"<p class="g-h">Farbkodierung &amp; Nummerierung im Katalog</p>
+<p class="g-n">Jede Karte hat eine <b>Nummer</b> (z.B. 1.1, 2.2, 0.3) und eine <b>Farbe</b> — gleiche Farbe / gleiche erste Ziffer = passen zusammen. Wähle innerhalb jeder Gruppe einen Receiver (X.1 / X.2) und die dazu passende Antenne (X.3 für L1, X.2 für RTK):</p>
 <ul style="list-style:none; padding-left:0">
-<li><span style="display:inline-block; width:6mm; height:3mm; background:#e3f2fd; border-left:2mm solid #0a58ca; vertical-align:middle; margin-right:2mm"></span><b>Blau</b> — L1-only u.FL Gruppe (MAX-M10S · NEO-M9N · Molex Flex). Untereinander kombinierbar.</li>
-<li><span style="display:inline-block; width:6mm; height:3mm; background:#fff3e0; border-left:2mm solid #e67e22; vertical-align:middle; margin-right:2mm"></span><b>Orange</b> — RTK Multi-Band SMA Gruppe (ZED-F9P · ANN-MB-00). Diese zwei gehören zusammen für cm-Genauigkeit.</li>
-<li><span style="display:inline-block; width:6mm; height:3mm; background:#f3e5f5; border-left:2mm solid #8e44ad; vertical-align:middle; margin-right:2mm"></span><b>Violett</b> — u.FL→SMA Pigtail. Brücke zwischen den Gruppen: erlaubt ANN-MB-00 (SMA) an MAX-M10S / NEO-M9N (u.FL) — bringt die L1-Antennenleistung der Multi-Band-Puck auf einen L1-only Receiver.</li>
-<li><span style="display:inline-block; width:6mm; height:3mm; background:#fff; border:1px solid #ddd; vertical-align:middle; margin-right:2mm"></span><b>Weiss</b> (keine Tönung) — bauunabhängige Teile (Host, Akku, Case). Brauchst du in jeder Konfiguration.</li>
+<li><span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-l1">1.3</span> <b>Blau</b> — L1-only u.FL Gruppe. <b>1.1</b> MAX-M10S oder <b>1.2</b> NEO-M9N + <b>1.3</b> Molex Flex Antenne (direkt am u.FL).</li>
+<li><span class="pair-num pair-rtk">2.1</span><span class="pair-num pair-rtk">2.2</span> <b>Orange</b> — RTK Multi-Band SMA Gruppe. <b>2.1</b> ZED-F9P + <b>2.2</b> ANN-MB-00. Diese zwei gehören zwingend zusammen für cm-Genauigkeit.</li>
+<li><span class="pair-num pair-bridge">3.1</span> <b>Violett</b> — u.FL→SMA Pigtail (Brücke). Nur nötig, wenn du die ANN-MB-00 (2.2) am MAX-M10S (1.1) oder NEO-M9N (1.2) betreiben willst — verbindet SMA-Antenne mit u.FL-Receiver.</li>
+<li><span class="pair-num common">0.1</span><span class="pair-num common">0.2</span><span class="pair-num common">0.3</span><span class="pair-num common">0.4</span> <b>Grau / Weiss</b> — bauunabhängige Teile (Host, Akku, JST-Kabel, Case). Brauchst du in jeder Konfiguration.</li>
 </ul>
+
+<p class="g-n"><b>Einkaufs-Beispiele:</b><br>
+<b>Kompakt-Build</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-l1">1.1</span>+<span class="pair-num pair-l1">1.3</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
+<b>Beste L1</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-l1">1.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num pair-bridge">3.1</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
+<b>RTK</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-rtk">2.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span></p>
 
 <p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
 <ol>
-<li><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, 9-DoF IMU + Barometer onboard, BLE über Apollo3 Blue.</li>
-<li><b>GNSS-Modul</b> via <b>Qwiic-Kabel</b> (JST-SH 4-pin) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
+<li><span class="pair-num common">0.1</span><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, 9-DoF IMU + Barometer onboard, BLE über Apollo3 Blue.</li>
+<li><b>GNSS-Modul</b> deiner Wahl (<span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-rtk">2.1</span>) via <b>Qwiic-Kabel</b> (JST-SH 4-pin) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
 "#);
     if has_lipo {
-        s.push_str("<li><b>LiPo 1 Ah</b> (PRT-13813) in die JST-PH 2-pin Buchse am Artemis. Polarität ist out-of-the-box korrekt (rot = +). Laden via Artemis-USB-C — onboard MCP73831 Ladechip (~500 mA, ~2 h voll). Kein extra Ladegerät nötig. Laufzeit ~12–20 h bei 1 Hz Logging.</li>\n");
+        s.push_str("<li><span class=\"pair-num common\">0.2</span><b>LiPo 1 Ah</b> (PRT-13813) in die JST-PH 2-pin Buchse am Artemis. Polarität ist out-of-the-box korrekt (rot = +). Laden via Artemis-USB-C — onboard MCP73831 Ladechip (~500 mA, ~2 h voll). Kein extra Ladegerät nötig. Laufzeit ~12–20 h bei 1 Hz Logging.</li>\n");
     }
     if has_case {
-        s.push_str("<li><b>SERPAC RBF33P06C10C</b> Case (82 × 80 × 35 mm, IP67, Polycarbonat-Klar-Deckel): Artemis + GNSS-Breakout + LiPo passen comfortably nebeneinander. Klar-Deckel ist Pflicht für die Molex-Flex-Antenne (Signal geht durch PC). Mit Klett oder Schaumstoff alles fixieren — ein flatternder LiPo unter Wellenkräften reisst Lötstellen / Stecker aus.</li>\n");
+        s.push_str("<li><span class=\"pair-num common\">0.4</span><b>SERPAC RBF33P06C10C</b> Case (82 × 80 × 35 mm, IP67, Polycarbonat-Klar-Deckel): Artemis + GNSS-Breakout + LiPo passen comfortably nebeneinander. Klar-Deckel ist Pflicht für die <span class=\"pair-num pair-l1\">1.3</span>Molex-Flex-Antenne (Signal geht durch PC). Mit Klett oder <span class=\"pair-num common\">0.3</span>JST-Jumper sichern — ein flatternder LiPo unter Wellenkräften reisst Lötstellen / Stecker aus.</li>\n");
     }
     s.push_str(r#"<li>microSD reinstecken (8–32 GB Class 10, separat zu kaufen — nicht in der BOM). Knopf drücken, loggt CSV mit Timestamp + allen aktivierten Feldern.</li>
 <li>Nach der Session: USB-C ans Mac/PC, SD-Karte als Block-Device gemountet, CSV importieren. STEVAL-CSV + GPS-CSV nach Zeitstempel mergen.</li>
@@ -978,6 +983,7 @@ fn render_html(
                     &listing,
                     freshness.get(&listing.url).copied(),
                     pair_group_class(&r.part_name),
+                    pair_group_number(&r.part_name),
                 ));
             }
         }
@@ -1079,6 +1085,15 @@ fn render_html(
   .card.pair-l1     {{ background: #e3f2fd; padding-left: 3mm; padding-right: 3mm; border-left: 3mm solid #0a58ca; }}
   .card.pair-rtk    {{ background: #fff3e0; padding-left: 3mm; padding-right: 3mm; border-left: 3mm solid #e67e22; }}
   .card.pair-bridge {{ background: #f3e5f5; padding-left: 3mm; padding-right: 3mm; border-left: 3mm solid #8e44ad; }}
+  /* Pair-group numbering: a bold "1.1", "2.2" etc badge before the
+     title. Colour matches the card tint so the number reinforces
+     the grouping at a glance. .common = parts in the build but not
+     in a choice-group (host, power, case — 0.1 / 0.2 / ...). */
+  .pair-num             {{ display: inline-block; font-size: 9pt; font-weight: 700; padding: 0.5mm 2mm; border-radius: 1mm; margin-right: 2mm; vertical-align: 1px; }}
+  .pair-num.pair-l1     {{ background: #0a58ca; color: #fff; }}
+  .pair-num.pair-rtk    {{ background: #e67e22; color: #fff; }}
+  .pair-num.pair-bridge {{ background: #8e44ad; color: #fff; }}
+  .pair-num.common      {{ background: #777;    color: #fff; }}
   .badge {{ display: inline-block; font-size: 7.5pt; font-weight: 700; padding: 0.5mm 1.5mm; border-radius: 1mm; margin-right: 2mm; }}
   .badge.new      {{ background: #0e6132; color: white; }}
   .badge.modified {{ background: #f0ad4e; color: white; }}
@@ -1134,7 +1149,51 @@ fn pair_group_class(part_name: &str) -> &'static str {
     }
 }
 
-fn render_card(l: &Listing, freshness: Option<Freshness>, pair_class: &str) -> String {
+/// Human-readable pairing number for a part, e.g. "1.1" for the first
+/// item in the L1-compact group, "2.1" for the first RTK item, etc.
+/// Numbers are stable across renders (hard-coded per part name) so
+/// the user can refer to "1.2" in conversation and it always points
+/// to the same SKU. Common parts (host, power, case) get a leading
+/// "0." prefix to keep them obviously in the build but distinct from
+/// the choice-driven 1.X / 2.X / 3.X groups.
+fn pair_group_number(part_name: &str) -> Option<&'static str> {
+    // L1-compact group (blue, u.FL) — receiver options 1.1 / 1.2,
+    // antenna option 1.3.
+    if part_name.contains("MAX-M10S") {
+        Some("1.1")
+    } else if part_name.contains("NEO-M9N") {
+        Some("1.2")
+    } else if part_name.contains("Molex Flexible GNSS") {
+        Some("1.3")
+    // RTK group (orange, SMA) — receiver 2.1, antenna 2.2.
+    } else if part_name.contains("ZED-F9P") {
+        Some("2.1")
+    } else if part_name.contains("ANN-MB-00") {
+        Some("2.2")
+    // Bridge (purple) — the single u.FL↔SMA pigtail.
+    } else if part_name.contains("SMA → U.FL") {
+        Some("3.1")
+    // Common parts (no tint, 0.X numbering) — order roughly matches
+    // the assembly sequence (host first, then power, then enclosure).
+    } else if part_name.contains("OpenLog Artemis") {
+        Some("0.1")
+    } else if part_name.contains("Lithium Ion Battery 1Ah") {
+        Some("0.2")
+    } else if part_name.contains("JST Jumper 2 Wire") {
+        Some("0.3")
+    } else if part_name.contains("SERPAC RBF33") {
+        Some("0.4")
+    } else {
+        None
+    }
+}
+
+fn render_card(
+    l: &Listing,
+    freshness: Option<Freshness>,
+    pair_class: &str,
+    pair_number: Option<&'static str>,
+) -> String {
     let price = match (l.price, l.currency.as_deref()) {
         (Some(p), Some(c)) => format!("{c} {:.2}", p),
         (Some(p), None) => format!("{:.2}", p),
@@ -1170,6 +1229,15 @@ fn render_card(l: &Listing, freshness: Option<Freshness>, pair_class: &str) -> S
         Some(Freshness::Modified) => r#"<span class="badge modified">aktualisiert</span>"#,
         None => "",
     };
+    let number_badge = match pair_number {
+        Some(n) => {
+            // Pair-group class drives the badge colour so the number
+            // visually reinforces the same group as the card tint.
+            let cls = if pair_class.is_empty() { "common" } else { pair_class };
+            format!(r#"<span class="pair-num {cls}">{n}</span>"#)
+        }
+        None => String::new(),
+    };
     let class_attr = if pair_class.is_empty() {
         "card".to_string()
     } else {
@@ -1179,7 +1247,7 @@ fn render_card(l: &Listing, freshness: Option<Freshness>, pair_class: &str) -> S
         r#"<section class="{class_attr}">
   {img_html}
   <div class="body">
-    <a class="title" href="{url}" target="_blank" rel="noopener">{badge}{title}</a>
+    <a class="title" href="{url}" target="_blank" rel="noopener">{number_badge}{badge}{title}</a>
     <div class="meta">{}{stock}</div>
     <p class="desc">{desc}</p>
     <a class="url" href="{url}" target="_blank" rel="noopener">{url}</a>
