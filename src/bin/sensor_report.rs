@@ -743,19 +743,21 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
 <li><span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-l1">1.3</span> <b>Blau</b> — L1-only u.FL Gruppe. <b>1.1</b> MAX-M10S oder <b>1.2</b> NEO-M9N + <b>1.3</b> Molex Flex Antenne (direkt am u.FL).</li>
 <li><span class="pair-num pair-rtk">2.1</span><span class="pair-num pair-rtk">2.2</span> <b>Orange</b> — RTK Multi-Band SMA Gruppe. <b>2.1</b> ZED-F9P + <b>2.2</b> ANN-MB-00. Diese zwei gehören zwingend zusammen für cm-Genauigkeit.</li>
 <li><span class="pair-num pair-bridge">3.1</span> <b>Violett</b> — u.FL→SMA Pigtail (Brücke). Nur nötig, wenn du die ANN-MB-00 (2.2) am MAX-M10S (1.1) oder NEO-M9N (1.2) betreiben willst — verbindet SMA-Antenne mit u.FL-Receiver.</li>
-<li><span class="pair-num common">0.1</span><span class="pair-num common">0.2</span><span class="pair-num common">0.3</span><span class="pair-num common">0.4</span><span class="pair-num common">0.5</span> <b>Grau / Weiss</b> — bauunabhängige Teile (0.1 Host, 0.2 Akku, 0.3 JST-Kabel, 0.4 Case, <b>0.5 optionaler IMU</b> für Bewegungsdaten — die DEV-19426 hat keinen onboard, also nachrüsten falls gewünscht).</li>
+<li><span class="pair-num common">0.1</span><span class="pair-num common">0.2</span><span class="pair-num common">0.3</span><span class="pair-num common">0.4</span><span class="pair-num common">0.5</span><span class="pair-num common">0.6</span> <b>Grau / Weiss</b> — bauunabhängige Teile (0.1 Host, 0.2 Akku, 0.3 <b>JST-PH 2-pin Strom-Kabel</b> für LiPo-Verlängerung, 0.4 Case, 0.5 optionaler IMU, 0.6 <b>Qwiic-Daten-Kabel</b> für die Sensor-Daisy-Chain).<br>
+<b>Wichtig — 0.3 ≠ 0.6:</b> 0.3 ist ein 2-pin <b>Strom</b>-Kabel (2.0 mm Pitch, dicker) zum Verlängern des LiPo-Leads. 0.6 ist ein 4-pin <b>Daten</b>-Kabel (1.0 mm Pitch, schmaler) zwischen den Qwiic-Sensoren. Verschiedene Stecker, verschiedene Anwendung.</li>
 </ul>
 
 <p class="g-n"><b>Einkaufs-Beispiele:</b><br>
 <b>Kompakt-Build</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-l1">1.1</span>+<span class="pair-num pair-l1">1.3</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
 <b>Beste L1</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-l1">1.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num pair-bridge">3.1</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
 <b>RTK</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-rtk">2.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
-<b>Mit Cross-Validation IMU</b> = jeder Build oben + <span class="pair-num common">0.5</span> Qwiic-IMU dazustecken (ST-Schwester-Chip der STEVAL-IMU, für Sync-Validation oder als Backup).</p>
+<b>Mit Cross-Validation IMU</b> = jeder Build oben + <span class="pair-num common">0.5</span> Qwiic-IMU + <span class="pair-num common">0.6</span> extra Qwiic-Kabel (ST-Schwester-Chip der STEVAL-IMU, für Sync-Validation oder als Backup).<br>
+<b>Qwiic-Kabel-Bedarf:</b> 1× 0.6 pro Verbindung in der Daisy-Chain. Artemis + 1 Sensor = 1 Kabel. Artemis + GPS + IMU = 2 Kabel. Plane danach.</p>
 
 <p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
 <ol>
 <li><span class="pair-num common">0.1</span><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, BLE über Apollo3 Blue. <b>Wichtig:</b> diese aktuelle DEV-19426 Revision hat <b>keinen IMU und keinen Barometer onboard</b> (SparkFun hat beide aus Lieferketten-Gründen entfernt). Für Bewegungsdaten musst du einen separaten Qwiic-IMU dazustecken (z.B. ICM-20948 PRT-15335, BNO086 PRT-22857). Für unsere Architektur OK — die STEVAL trägt eh schon alle Sensoren, der Artemis ist hier nur GPS-Logger.</li>
-<li><b>GNSS-Modul</b> deiner Wahl (<span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-rtk">2.1</span>) via <b>Qwiic-Kabel</b> (JST-SH 4-pin) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
+<li><b>GNSS-Modul</b> deiner Wahl (<span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-rtk">2.1</span>) via <span class="pair-num common">0.6</span><b>Qwiic-Kabel</b> (JST-SH 4-pin, NICHT verwechseln mit dem 2-pin LiPo-Kabel 0.3) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
 "#);
     if has_lipo {
         s.push_str("<li><span class=\"pair-num common\">0.2</span><b>LiPo 1 Ah</b> (PRT-13813) in die JST-PH 2-pin Buchse am Artemis. Polarität ist out-of-the-box korrekt (rot = +). Laden via Artemis-USB-C — onboard MCP73831 Ladechip (~500 mA, ~2 h voll). Kein extra Ladegerät nötig. Laufzeit ~12–20 h bei 1 Hz Logging.</li>\n");
@@ -763,7 +765,7 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
     if has_case {
         s.push_str("<li><span class=\"pair-num common\">0.4</span><b>SERPAC RBF33P06C10C</b> Case (82 × 80 × 35 mm, IP67, Polycarbonat-Klar-Deckel): Artemis + GNSS-Breakout + LiPo passen comfortably nebeneinander. Klar-Deckel ist Pflicht für die <span class=\"pair-num pair-l1\">1.3</span>Molex-Flex-Antenne (Signal geht durch PC). Mit Klett oder <span class=\"pair-num common\">0.3</span>JST-Jumper sichern — ein flatternder LiPo unter Wellenkräften reisst Lötstellen / Stecker aus.</li>\n");
     }
-    s.push_str(r#"<li><span class="pair-num common">0.5</span><b>Optional: Qwiic IMU</b> (SparkFun ISM330DHCX SEN-19764) am freien Qwiic-Port der Daisy-Chain. ST-Schwester-Chip der STEVAL-IMU — gleiches Rauschverhalten, gleiches Register-Layout. Sinnvoll wenn du STEVAL und OpenLog-Daten cross-validieren oder als Backup loggen willst. Für reines GPS-Tracking nicht nötig.</li>
+    s.push_str(r#"<li><span class="pair-num common">0.5</span><b>Optional: Qwiic IMU</b> (SparkFun ISM330DHCX SEN-19764) — braucht ein <b>zweites</b> <span class="pair-num common">0.6</span> Qwiic-Kabel (Daisy-Chain: Artemis → 0.6 → GNSS → 0.6 → IMU). ST-Schwester-Chip der STEVAL-IMU — gleiches Rauschverhalten, gleiches Register-Layout. Sinnvoll wenn du STEVAL und OpenLog-Daten cross-validieren oder als Backup loggen willst. Für reines GPS-Tracking nicht nötig.</li>
 <li>microSD reinstecken (8–32 GB Class 10, separat zu kaufen — nicht in der BOM). Knopf drücken, loggt CSV mit Timestamp + allen aktivierten Feldern.</li>
 <li>Nach der Session: USB-C ans Mac/PC, SD-Karte als Block-Device gemountet, CSV importieren. STEVAL-CSV + GPS-CSV nach Zeitstempel mergen.</li>
 </ol>
@@ -1228,6 +1230,9 @@ fn pair_group_number(part_name: &str) -> Option<&'static str> {
     }
     if part_name.contains("ISM330DHCX") {
         return Some("0.5");
+    }
+    if part_name.contains("SparkFun Qwiic Cable 100") {
+        return Some("0.6");
     }
     None
 }

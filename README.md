@@ -422,7 +422,7 @@ sparkfun-thing-plus-c,seeed-xiao-esp32s3 \
     sparkfun-openlog-artemis,sparkfun-max-m10s,sparkfun-neo-m9n-qwiic,\
 sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,sparkfun-ufl-sma-100mm,\
 molex-flex-gnss-ufl,battery-lipo-1000mah,jst-ph-extension-cable,\
-sparkfun-ism330dhcx-qwiic,serpac-rbf33-c10-clear \
+sparkfun-ism330dhcx-qwiic,qwiic-cable-100mm,serpac-rbf33-c10-clear \
     --output PDF/build-standalone-gps-logger.pdf
 ```
 
