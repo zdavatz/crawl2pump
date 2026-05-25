@@ -743,13 +743,14 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
 <li><span class="pair-num pair-l1">1.1</span><span class="pair-num pair-l1">1.2</span><span class="pair-num pair-l1">1.3</span> <b>Blau</b> — L1-only u.FL Gruppe. <b>1.1</b> MAX-M10S oder <b>1.2</b> NEO-M9N + <b>1.3</b> Molex Flex Antenne (direkt am u.FL).</li>
 <li><span class="pair-num pair-rtk">2.1</span><span class="pair-num pair-rtk">2.2</span> <b>Orange</b> — RTK Multi-Band SMA Gruppe. <b>2.1</b> ZED-F9P + <b>2.2</b> ANN-MB-00. Diese zwei gehören zwingend zusammen für cm-Genauigkeit.</li>
 <li><span class="pair-num pair-bridge">3.1</span> <b>Violett</b> — u.FL→SMA Pigtail (Brücke). Nur nötig, wenn du die ANN-MB-00 (2.2) am MAX-M10S (1.1) oder NEO-M9N (1.2) betreiben willst — verbindet SMA-Antenne mit u.FL-Receiver.</li>
-<li><span class="pair-num common">0.1</span><span class="pair-num common">0.2</span><span class="pair-num common">0.3</span><span class="pair-num common">0.4</span> <b>Grau / Weiss</b> — bauunabhängige Teile (Host, Akku, JST-Kabel, Case). Brauchst du in jeder Konfiguration.</li>
+<li><span class="pair-num common">0.1</span><span class="pair-num common">0.2</span><span class="pair-num common">0.3</span><span class="pair-num common">0.4</span><span class="pair-num common">0.5</span> <b>Grau / Weiss</b> — bauunabhängige Teile (0.1 Host, 0.2 Akku, 0.3 JST-Kabel, 0.4 Case, <b>0.5 optionaler IMU</b> für Bewegungsdaten — die DEV-19426 hat keinen onboard, also nachrüsten falls gewünscht).</li>
 </ul>
 
 <p class="g-n"><b>Einkaufs-Beispiele:</b><br>
 <b>Kompakt-Build</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-l1">1.1</span>+<span class="pair-num pair-l1">1.3</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
 <b>Beste L1</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-l1">1.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num pair-bridge">3.1</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
-<b>RTK</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-rtk">2.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span></p>
+<b>RTK</b> = <span class="pair-num common">0.1</span>+<span class="pair-num pair-rtk">2.1</span>+<span class="pair-num pair-rtk">2.2</span>+<span class="pair-num common">0.2</span>+<span class="pair-num common">0.3</span>+<span class="pair-num common">0.4</span><br>
+<b>Mit Cross-Validation IMU</b> = jeder Build oben + <span class="pair-num common">0.5</span> Qwiic-IMU dazustecken (ST-Schwester-Chip der STEVAL-IMU, für Sync-Validation oder als Backup).</p>
 
 <p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
 <ol>
@@ -762,7 +763,8 @@ fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
     if has_case {
         s.push_str("<li><span class=\"pair-num common\">0.4</span><b>SERPAC RBF33P06C10C</b> Case (82 × 80 × 35 mm, IP67, Polycarbonat-Klar-Deckel): Artemis + GNSS-Breakout + LiPo passen comfortably nebeneinander. Klar-Deckel ist Pflicht für die <span class=\"pair-num pair-l1\">1.3</span>Molex-Flex-Antenne (Signal geht durch PC). Mit Klett oder <span class=\"pair-num common\">0.3</span>JST-Jumper sichern — ein flatternder LiPo unter Wellenkräften reisst Lötstellen / Stecker aus.</li>\n");
     }
-    s.push_str(r#"<li>microSD reinstecken (8–32 GB Class 10, separat zu kaufen — nicht in der BOM). Knopf drücken, loggt CSV mit Timestamp + allen aktivierten Feldern.</li>
+    s.push_str(r#"<li><span class="pair-num common">0.5</span><b>Optional: Qwiic IMU</b> (SparkFun ISM330DHCX SEN-19764) am freien Qwiic-Port der Daisy-Chain. ST-Schwester-Chip der STEVAL-IMU — gleiches Rauschverhalten, gleiches Register-Layout. Sinnvoll wenn du STEVAL und OpenLog-Daten cross-validieren oder als Backup loggen willst. Für reines GPS-Tracking nicht nötig.</li>
+<li>microSD reinstecken (8–32 GB Class 10, separat zu kaufen — nicht in der BOM). Knopf drücken, loggt CSV mit Timestamp + allen aktivierten Feldern.</li>
 <li>Nach der Session: USB-C ans Mac/PC, SD-Karte als Block-Device gemountet, CSV importieren. STEVAL-CSV + GPS-CSV nach Zeitstempel mergen.</li>
 </ol>
 </div>
@@ -1223,6 +1225,9 @@ fn pair_group_number(part_name: &str) -> Option<&'static str> {
     }
     if part_name.contains("SERPAC RBF33") {
         return Some("0.4");
+    }
+    if part_name.contains("ISM330DHCX") {
+        return Some("0.5");
     }
     None
 }

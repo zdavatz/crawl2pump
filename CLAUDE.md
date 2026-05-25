@@ -686,7 +686,7 @@ Architecture / invariants worth knowing before editing it:
     sparkfun-neo-m9n-qwiic,sparkfun-zed-f9p-qwiic,ublox-ann-mb-00,
     sparkfun-ufl-sma-100mm,molex-flex-gnss-ufl,
     battery-lipo-1000mah,jst-ph-extension-cable,
-    serpac-rbf33-c10-clear
+    sparkfun-ism330dhcx-qwiic,serpac-rbf33-c10-clear
     --output /tmp/build-standalone-gps-logger.pdf` —
     OpenLog Artemis (Apollo3 + microSD + IMU + USB-C, runs open
     OpenLog_Artemis firmware) as the Qwiic-pluggable host, three

@@ -224,6 +224,10 @@ impl Part {
             // motion data. BLE (from Apollo3 Blue), USB-C, microSD
             // slot are still onboard.
             "sparkfun-openlog-artemis" => &[UsbC, Bluetooth, SdCard],
+            // SparkFun ISM330DHCX Qwiic breakout — 6-DoF IMU (accel +
+            // gyro). ST industrial-grade, same family as the STEVAL's
+            // LSM6DSV16X. No USB-C / BLE / SD-card; just motion.
+            "sparkfun-ism330dhcx-qwiic" => &[Motion],
             "esp32-c3-devkitc"
             | "esp32-s3-devkitc"
             | "sparkfun-thing-plus-c"
@@ -341,6 +345,9 @@ impl Part {
             // SparkFun NEO-M9N GPS-RTK Chip Antenna Breakout (Qwiic) —
             // 26 × 17 mm board, chip antenna onboard.
             "sparkfun-neo-m9n-qwiic" => (2.6, 1.7, 0.6),
+            // SparkFun ISM330DHCX Qwiic breakout — standard 1×1" SparkFun
+            // Qwiic form factor.
+            "sparkfun-ism330dhcx-qwiic" => (2.54, 2.54, 0.6),
             // SERPAC RBF33P06C10C — IP67 clear-lid PC, external
             // 82 × 80 × 35 mm (3.23 × 3.15 × 1.38 in). Smallest RBF
             // size with comfortable headroom for OpenLog Artemis +
@@ -585,6 +592,8 @@ impl Part {
             "sparkfun-openlog-artemis" => 13.0,
             // SparkFun NEO-M9N Chip-Antenna Qwiic breakout ≈ 5 g.
             "sparkfun-neo-m9n-qwiic" => 5.0,
+            // SparkFun ISM330DHCX Qwiic breakout ≈ 4 g (1×1" PCB + IC + connectors).
+            "sparkfun-ism330dhcx-qwiic" => 4.0,
             // SERPAC RBF33 C10 — smaller footprint than RBF53 (80 × 80
             // vs 80 × 120 mm), same wall stock ≈ 65 g estimated.
             "serpac-rbf33-c10-clear" => 65.0,
@@ -712,6 +721,10 @@ impl Part {
             // NEO-M9N datasheet PDF.
             "sparkfun-neo-m9n-qwiic" => {
                 "https://content.u-blox.com/sites/default/files/NEO-M9N_DataSheet_UBX-19014285.pdf"
+            }
+            // ST ISM330DHCX official datasheet PDF.
+            "sparkfun-ism330dhcx-qwiic" => {
+                "https://www.st.com/resource/en/datasheet/ism330dhcx.pdf"
             }
             // SparkFun PRT-14986 magnetic-mount GPS antenna: the
             // product page is the canonical spec source — SparkFun's
@@ -1638,6 +1651,48 @@ pub fn bom() -> Vec<Part> {
                    these back to back. NOT a load-bearing power link \
                    on its own — too thin for sustained > 1 A draw, \
                    fine for the Artemis's ~50–80 mA logging current.",
+        },
+        // Optional motion sensor for the OpenLog Artemis standalone GPS
+        // logger build. The current DEV-19426 rev ships WITHOUT the
+        // onboard ICM-20948 IMU SparkFun used to bundle, so if the
+        // buyer wants motion data alongside GPS they need a Qwiic IMU.
+        // The ISM330DHCX is the ST industrial-grade 6-DoF cousin of
+        // the LSM6DSV16X on the STEVAL-MKBOXPRO — same vendor, same
+        // register layout family, same calibration approach, very
+        // close performance characteristics. That makes cross-
+        // validation between the STEVAL recorder and the OpenLog box
+        // straightforward (mostly the same data; sync by timestamp).
+        // BNO086 (Bosch, also Qwiic at PRT-22857) is the alternative
+        // pick if onchip sensor fusion + magnetometer matter more
+        // than raw precision — but for pumpfoil pump-stroke
+        // detection, clean raw accel + gyro wins.
+        Part {
+            key: "sparkfun-ism330dhcx-qwiic",
+            name: "SparkFun ISM330DHCX 6-DoF IMU (Qwiic, ST industrial-grade)",
+            role: Role::Imu,
+            manufacturer: "SparkFun",
+            mpns: &["SEN-19764"],
+            connector: Connector::Qwiic,
+            oss_firmware: true, // host SparkFun_ISM330DHCX_Arduino_Library is open
+            st_url: None,
+            sparkfun_pid: Some("19764"),
+            direct_url: None,
+            note: "ST ISM330DHCX 6-DoF IMU on a 1×1″ Qwiic breakout. \
+                   Industrial-grade (-40 to +105 °C, ST 10-year part \
+                   availability), accel ±2/4/8/16 g + gyro \
+                   ±125/250/500/1000/2000/4000 dps, embedded Machine \
+                   Learning Core + Finite State Machine for on-chip \
+                   activity classification. Accel-Rauschen ~60 μg/√Hz, \
+                   gyro ~3.8 mdps/√Hz — practically the same as the \
+                   STEVAL-MKBOXPRO's LSM6DSV16X (ST family sibling) and \
+                   ~4× cleaner than the consumer-grade ICM-20948 the \
+                   OpenLog Artemis used to ship with. No magnetometer \
+                   onboard — add a separate Qwiic magnetometer (e.g. \
+                   MMC5983MA PRT-19921) only if you need heading; for \
+                   pumpfoil pump-stroke detection it's not necessary. \
+                   Plugs into the Artemis Qwiic daisy-chain alongside \
+                   the GPS receiver; OpenLog_Artemis firmware \
+                   auto-detects and logs both.",
         },
         // ───────── Raspberry Pi build (alternative recorder host) ─────────
         // A third recorder archetype next to the STEVAL-MKBOXPRO and
