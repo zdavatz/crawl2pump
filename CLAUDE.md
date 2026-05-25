@@ -546,10 +546,25 @@ Architecture / invariants worth knowing before editing it:
   fetched + resized + base64-inlined exactly like `pumpfoil_report`
   (minus the AVIF/magick fallback — distributor photos are plain
   JPEG/PNG/WebP).
-- **Build-guide sections wrap the catalog.** Two variants today,
+- **Build-guide sections wrap the catalog.** Three variants today,
   selected automatically from the rendered part set:
   - `build_guide_html` (LilyGO + XM125) is **prepended** before the
     parts — the user needs the wiring diagram *before* shopping.
+  - `build_standalone_gps_logger_guide_html` (OpenLog Artemis + at
+    least one GPS receiver) is **prepended** before the parts —
+    renders a receiver↔antenna **pairing matrix** so the buyer
+    sees which antenna pairs with which receiver before flipping
+    through the cards. **Load-bearing reason:** the wrong combo
+    (e.g. Molex flex on ZED-F9P) silently kills RTK because the
+    catalog rows alone don't make the L1+L2 vs L1+L5 band mismatch
+    obvious. Conditional sections (`has_max`, `has_neo`, `has_zed`,
+    `has_molex`, `has_ann_mb`, `has_pigtail`, `has_lipo`, `has_case`)
+    so the guide only shows rows for parts actually in the current
+    `--keys` filter — a focused "MAX-M10S + Molex only" build sheet
+    doesn't get a ZED-F9P row claiming compatibility info that
+    isn't relevant. Rendered in German since this is the user-facing
+    pumpfoil context (other build guides are in English to match
+    upstream docs like GPS_SOLDERING.md).
   - `build_movement_logger_guide_html` (STEVAL + MAX-M10S) is
     **appended** to the last page (`page-break-before:always`) —
     GPS_SOLDERING.md mirrored from `movement_logger_firmware`.

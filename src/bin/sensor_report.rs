@@ -657,6 +657,105 @@ fn build_movement_logger_guide_html(rows: &[Row]) -> Option<String> {
     )
 }
 
+/// Standalone GPS logger build: OpenLog Artemis + Qwiic GNSS receiver(s)
+/// + LiPo + RBF33 case. Renders the **receiver↔antenna pairing matrix**
+/// as the lead section of the PDF so the buyer can see at a glance which
+/// antenna pairs with which receiver before flipping through the cards.
+/// Critical because the wrong combo (Molex flex on ZED-F9P) silently
+/// kills RTK and the catalog rows alone don't make that obvious.
+fn build_standalone_gps_logger_guide_html(rows: &[Row]) -> Option<String> {
+    let has = |needle: &str| rows.iter().any(|r| r.part_name.contains(needle));
+    if !has("OpenLog Artemis") {
+        return None;
+    }
+    let has_max = has("MAX-M10S");
+    let has_neo = has("NEO-M9N");
+    let has_zed = has("ZED-F9P");
+    if !(has_max || has_neo || has_zed) {
+        return None;
+    }
+    let has_molex = has("Molex Flexible GNSS");
+    let has_ann_mb = has("ANN-MB-00");
+    let has_pigtail = has("SMA → U.FL");
+    let has_lipo = has("Lithium Ion Battery 1Ah");
+    let has_case = has("SERPAC RBF33");
+
+    let mut s = String::from(
+        r#"<div class="guide">
+<h2 class="cat">Build &amp; Pairing — Standalone GPS Logger</h2>
+<p class="g-n"><b>Architektur:</b> Die STEVAL-MKBOXPRO loggt ihre Sensoren weiterhin auf ihre eigene microSD; ein zweites wasserdichtes Kästchen auf dem Deck enthält einen eigenständigen GPS-Logger (OpenLog Artemis + Qwiic-GNSS-Modul + LiPo). Beide laufen unabhängig; in der Nachbearbeitung werden die Daten per Zeitstempel zusammengeführt. Keine UART-Verkabelung, kein JP2/JP4-Löten, keine Firmware-Anpassung an der STEVAL.</p>
+
+<p class="g-h">Genauigkeits-Stufen — wähle den GPS-Receiver</p>
+<table class="wire">
+<tr><th>Tier</th><th>Receiver</th><th>Bänder</th><th>Genauigkeit (open sky)</th><th>Strom</th><th>Preis</th></tr>
+"#,
+    );
+    if has_max {
+        s.push_str("<tr><td>m-Level</td><td><b>SparkFun MAX-M10S Qwiic</b></td><td>L1-only · 4 GNSS</td><td>~1.5–2 m</td><td>~12 mA</td><td>~40 CHF</td></tr>\n");
+    }
+    if has_neo {
+        s.push_str("<tr><td>m-Level (Patch)</td><td><b>SparkFun NEO-M9N Qwiic</b></td><td>L1-only · 4 GNSS</td><td>~1.5–2 m (onboard Patch)</td><td>~25 mA</td><td>~70 CHF</td></tr>\n");
+    }
+    if has_zed {
+        s.push_str("<tr><td><b>cm-Level (RTK)</b></td><td><b>SparkFun ZED-F9P Qwiic</b></td><td><b>L1+L2 Multi-Band</b> · 4 GNSS</td><td><b>~1–2 cm</b> mit NTRIP-Korrekturen via WiFi (gratis in CH via swisstopo SWIPOS)</td><td>~70 mA</td><td>~250 CHF</td></tr>\n");
+    }
+    s.push_str("</table>\n");
+
+    s.push_str(r#"<p class="g-h">Antennen — was zu welchem Receiver passt</p>
+<p class="g-n"><b>Wichtig:</b> Antenne muss zum Receiver passen — sowohl beim <b>Stecker</b> (u.FL am MAX-M10S/NEO-M9N · SMA am ZED-F9P) als auch bei den <b>Frequenzbändern</b>. Ein L1-only Receiver braucht nur L1; ein ZED-F9P braucht <b>L1 + L2</b> (nicht L5!). Falscher Combo = stille RTK-Verlust.</p>
+<table class="wire">
+<tr><th>Antenne</th><th>Stecker</th><th>Bänder</th><th>MAX-M10S</th><th>NEO-M9N</th><th>ZED-F9P</th><th>Grösse / Mount</th></tr>
+"#);
+    if has_molex {
+        s.push_str("<tr><td><b>Molex GPS-15246 Flex</b> (passiv, ~+2 dBi)</td><td><b>u.FL</b> direkt</td><td>L1+L5</td><td>✅ ja</td><td>✅ ja</td><td>❌ <b>NEIN</b> (kein L2, falscher Stecker)</td><td>40 × 15 × 0.1 mm · adhesiv unter Klar-Deckel</td></tr>\n");
+    }
+    if has_ann_mb {
+        s.push_str("<tr><td><b>u-blox ANN-MB-00</b> (aktiv, +28 dB LNA)</td><td><b>SMA</b></td><td><b>L1+L2+L5</b> Multi-Band</td><td>✅ ja (mit u.FL→SMA Pigtail)</td><td>✅ ja (mit u.FL→SMA Pigtail)</td><td><b>✅ direkt</b> — die einzige passende RTK-Antenne</td><td>60 × 60 × 16 mm Puck + 5 m Koax · magnetisch</td></tr>\n");
+    }
+    s.push_str("</table>\n");
+
+    if has_pigtail {
+        s.push_str(r#"<p class="g-n"><b>SMA → u.FL Pigtail (CAB-09145):</b> Adapter zwischen ANN-MB-00 (SMA) und MAX-M10S / NEO-M9N (u.FL). Nur nötig, wenn du die ANN-MB-00 an einem L1-only Receiver betreiben willst. Für den ZED-F9P NICHT nötig (Board hat SMA direkt). Für die Molex Flex auch NICHT nötig (u.FL direkt am Board).</p>
+"#);
+    }
+
+    s.push_str(r#"<p class="g-h">Empfohlene Kombinationen</p>
+<table class="wire">
+<tr><th>Use-Case</th><th>Receiver</th><th>Antenne</th><th>Case-Stil</th></tr>
+"#);
+    if has_max && has_molex {
+        s.push_str("<tr><td><b>Kompakt, alles im Case</b></td><td>MAX-M10S</td><td>Molex Flex u.FL (unter Klar-Deckel)</td><td>Geschlossen, kein Gland, ~2 m Genauigkeit</td></tr>\n");
+    }
+    if has_neo {
+        s.push_str("<tr><td><b>Einfachste Lösung</b></td><td>NEO-M9N (Patch onboard)</td><td>keine extra — Stock-Patch unter Klar-Deckel</td><td>Geschlossen, kein Gland, ~1.5–2 m Genauigkeit</td></tr>\n");
+    }
+    if has_max && has_ann_mb && has_pigtail {
+        s.push_str("<tr><td><b>Beste L1-Genauigkeit</b></td><td>MAX-M10S</td><td>ANN-MB-00 + u.FL→SMA Pigtail</td><td>Case mit SMA-Gland für Puck-Mount aussen, ~1 m</td></tr>\n");
+    }
+    if has_zed && has_ann_mb {
+        s.push_str("<tr><td><b>RTK cm-Genauigkeit</b></td><td>ZED-F9P</td><td><b>ANN-MB-00</b> (Pflicht — Multi-Band L1+L2)</td><td>Case mit SMA-Gland, NTRIP-WiFi-Verbindung nötig (z.B. STEVAL-Hotspot oder eigenes WiFi)</td></tr>\n");
+    }
+    s.push_str("</table>\n");
+
+    s.push_str(r#"<p class="g-h">Aufbau — Plug-and-Play, kein Löten</p>
+<ol>
+<li><b>OpenLog Artemis</b> ist der Host: USB-C Strom + Konfig, microSD-Slot, JST-PH 2-pin LiPo-Eingang, 9-DoF IMU + Barometer onboard, BLE über Apollo3 Blue.</li>
+<li><b>GNSS-Modul</b> via <b>Qwiic-Kabel</b> (JST-SH 4-pin) am Artemis-Qwiic-Port — automatisch erkannt von der OpenLog_Artemis Firmware. Update-Rate, Felder (Lat/Lon/Höhe/Speed/Satellites) im seriellen Menü konfigurierbar.</li>
+"#);
+    if has_lipo {
+        s.push_str("<li><b>LiPo 1 Ah</b> (PRT-13813) in die JST-PH 2-pin Buchse am Artemis. Polarität ist out-of-the-box korrekt (rot = +). Laden via Artemis-USB-C — onboard MCP73831 Ladechip (~500 mA, ~2 h voll). Kein extra Ladegerät nötig. Laufzeit ~12–20 h bei 1 Hz Logging.</li>\n");
+    }
+    if has_case {
+        s.push_str("<li><b>SERPAC RBF33P06C10C</b> Case (82 × 80 × 35 mm, IP67, Polycarbonat-Klar-Deckel): Artemis + GNSS-Breakout + LiPo passen comfortably nebeneinander. Klar-Deckel ist Pflicht für die Molex-Flex-Antenne (Signal geht durch PC). Mit Klett oder Schaumstoff alles fixieren — ein flatternder LiPo unter Wellenkräften reisst Lötstellen / Stecker aus.</li>\n");
+    }
+    s.push_str(r#"<li>microSD reinstecken (8–32 GB Class 10, separat zu kaufen — nicht in der BOM). Knopf drücken, loggt CSV mit Timestamp + allen aktivierten Feldern.</li>
+<li>Nach der Session: USB-C ans Mac/PC, SD-Karte als Block-Device gemountet, CSV importieren. STEVAL-CSV + GPS-CSV nach Zeitstempel mergen.</li>
+</ol>
+</div>
+"#);
+    Some(s)
+}
+
 fn render_html(
     rows: &[Row],
     freshness: &HashMap<String, Freshness>,
@@ -688,6 +787,15 @@ fn render_html(
     // "how do I actually connect this so it works with battery +
     // power + radar" and is the load-bearing reason --keys exists.
     if let Some(g) = build_guide_html(rows) {
+        body.push_str(&g);
+    }
+    // Lead with a receiver↔antenna pairing matrix when the rendered
+    // set is the standalone GPS logger build (OpenLog Artemis + at
+    // least one GPS receiver). Tells the buyer which antenna to pair
+    // with which receiver BEFORE they see the individual cards —
+    // critical because the wrong combo (e.g. Molex flex on ZED-F9P)
+    // silently kills RTK.
+    if let Some(g) = build_standalone_gps_logger_guide_html(rows) {
         body.push_str(&g);
     }
     for role in &roles {

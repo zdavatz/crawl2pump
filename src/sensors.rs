@@ -1218,14 +1218,20 @@ pub fn bom() -> Vec<Part> {
                    enough.",
         },
         // The "stays inside a small case" antenna for the MAX-M10S /
-        // NEO-M9N standalone logger. Molex flex GNSS antenna with u.FL
-        // pigtail, 40 × 15 × 0.1 mm — adhesive-backed, sticks to the
-        // inside of the RBF33's clear PC lid. Multi-band element (L1/L5
-        // GPS, Galileo E1/E5a, BeiDou B1/B2a, GLONASS L1) so it stays
-        // useful if you later swap MAX-M10S for ZED-F9P (multi-band
-        // chip — but note the antenna's L2-band gain is lower than the
-        // ANN-MB-00, so this is the "good-enough" RTK choice when case
-        // size matters more than convergence time).
+        // NEO-M9N **L1-only** standalone logger. Molex flex GNSS
+        // antenna with u.FL pigtail, 40 × 15 × 0.1 mm — adhesive-backed,
+        // sticks to the inside of the RBF33's clear PC lid.
+        //
+        // **CRITICAL — band-mismatch with ZED-F9P:** the Molex element
+        // covers L1 + L5/E5a/B2a, but the **ZED-F9P needs L1 + L2/E5b/
+        // B2I**. Even with a u.FL→SMA adapter the ZED-F9P would lose
+        // its L2 reception and fall back to L1-only operation — no
+        // RTK, you'd be paying for a 250-CHF receiver that performs
+        // like a 40-CHF MAX-M10S. The ZED-F9P pairs **only** with the
+        // ANN-MB-00 (L1+L2+L5 multi-band, SMA, already in the BOM).
+        // Don't ever try to "save case space" on the RTK build by
+        // swapping the ANN-MB-00 for this flex — it silently kills
+        // the entire point of the ZED-F9P.
         //
         // **PASSIVE** — no onboard LNA. Wins over the MAX-M10S Qwiic
         // breakout's onboard chip antenna (~+2 dBi vs ~0 dBi peak),
@@ -1236,7 +1242,7 @@ pub fn bom() -> Vec<Part> {
         // the lid with no external coax run.
         Part {
             key: "molex-flex-gnss-ufl",
-            name: "Molex Flexible GNSS Antenna u.FL (passive multi-band, paper-thin)",
+            name: "Molex Flexible GNSS Antenna u.FL (passive L1, MAX-M10S/NEO-M9N only)",
             role: Role::Gps,
             manufacturer: "Molex",
             // SparkFun ships a Molex part — Molex's own MPN is
@@ -1251,18 +1257,21 @@ pub fn bom() -> Vec<Part> {
                    SparkFun GPS-15246): 40 × 15 × 0.1 mm, adhesive \
                    backing, 50 mm u.FL pigtail — plugs straight onto \
                    the MAX-M10S / NEO-M9N Qwiic breakout's u.FL \
-                   without the SMA pigtail (CAB-09145). Multi-band \
-                   (L1 + L5 GPS, Galileo, BeiDou, GLONASS) so it stays \
-                   useful if the receiver gets swapped to ZED-F9P. \
+                   without the SMA pigtail (CAB-09145). Element \
+                   covers L1 + L5/E5a/B2a — fine for L1-only receivers. \
+                   **NOT compatible with the ZED-F9P** (needs L2, not \
+                   L5; also the F9P breakout is SMA, not u.FL — a \
+                   u.FL→SMA adapter would let it physically connect \
+                   but the missing L2 band would silently kill RTK). \
                    Passive (~+2 dBi gain) — better than the breakout's \
                    onboard chip antenna, worse than a +28 dB LNA \
                    active puck (PRT-14986). The smallest no-protrusion \
                    antenna option in the BOM: stick it flat to the \
                    inside of the RBF33's clear PC lid; the signal \
                    passes through the polycarbonate. Best for \
-                   case-size-constrained builds where you'd rather \
-                   accept a few dB of antenna loss than route an \
-                   external puck + 3 m of coax.",
+                   case-size-constrained MAX-M10S / NEO-M9N builds \
+                   where you'd rather accept a few dB of antenna loss \
+                   than route an external puck + 3 m of coax.",
         },
         // ───────── USB-C pluggable, OSS-firmware modules ─────────
         // Selection rule: USB-C connector AND fully open-source
