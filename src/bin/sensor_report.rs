@@ -813,7 +813,25 @@ fn render_html(
         body.push_str(&g);
     }
     for role in &roles {
-        let role_rows: Vec<&Row> = rows.iter().filter(|r| r.role == *role).collect();
+        let mut role_rows: Vec<&Row> = rows.iter().filter(|r| r.role == *role).collect();
+        // Sort within a role by pair_group_number so cards in the
+        // same compatibility group sit together (1.1, 1.2, 1.3, 2.1,
+        // 2.2, 3.1) instead of mixing alphabetically (which produced
+        // the "blue, blue, orange, blue, orange, purple" jumble).
+        // Parts without a pair number sort to the end (alphabetically).
+        // Tiebreaker is part_name so multi-distributor offers stay
+        // grouped together for the collapse loop below.
+        role_rows.sort_by(|a, b| {
+            let key_a = (
+                pair_group_number(&a.part_name).unwrap_or("9.9"),
+                a.part_name.as_str(),
+            );
+            let key_b = (
+                pair_group_number(&b.part_name).unwrap_or("9.9"),
+                b.part_name.as_str(),
+            );
+            key_a.cmp(&key_b)
+        });
         body.push_str(&format!(
             r#"<h2 class="cat">{} <span class="cat-count">{}</span></h2>"#,
             html_escape(role.label()),
@@ -1157,35 +1175,56 @@ fn pair_group_class(part_name: &str) -> &'static str {
 /// "0." prefix to keep them obviously in the build but distinct from
 /// the choice-driven 1.X / 2.X / 3.X groups.
 fn pair_group_number(part_name: &str) -> Option<&'static str> {
-    // L1-compact group (blue, u.FL) — receiver options 1.1 / 1.2,
-    // antenna option 1.3.
-    if part_name.contains("MAX-M10S") {
-        Some("1.1")
-    } else if part_name.contains("NEO-M9N") {
-        Some("1.2")
-    } else if part_name.contains("Molex Flexible GNSS") {
-        Some("1.3")
-    // RTK group (orange, SMA) — receiver 2.1, antenna 2.2.
-    } else if part_name.contains("ZED-F9P") {
-        Some("2.1")
-    } else if part_name.contains("ANN-MB-00") {
-        Some("2.2")
-    // Bridge (purple) — the single u.FL↔SMA pigtail.
-    } else if part_name.contains("SMA → U.FL") {
-        Some("3.1")
-    // Common parts (no tint, 0.X numbering) — order roughly matches
-    // the assembly sequence (host first, then power, then enclosure).
-    } else if part_name.contains("OpenLog Artemis") {
-        Some("0.1")
-    } else if part_name.contains("Lithium Ion Battery 1Ah") {
-        Some("0.2")
-    } else if part_name.contains("JST Jumper 2 Wire") {
-        Some("0.3")
-    } else if part_name.contains("SERPAC RBF33") {
-        Some("0.4")
-    } else {
-        None
+    // ORDER MATTERS — match most-specific names first because some
+    // part names mention other parts in their descriptions:
+    //   - Molex's name says "(passive L1, MAX-M10S/NEO-M9N only)" so
+    //     a naive `contains("MAX-M10S")` would mis-label it as 1.1.
+    //   - LiPo's name says "(OpenLog Artemis power)" so a naive
+    //     `contains("OpenLog Artemis")` would mis-label it as 0.1.
+    //   - The pigtail's name has "SMA → U.FL" so check it before the
+    //     ANN-MB-00 row (which mentions SMA in its description too).
+    //
+    // Strategy: check antennas / accessories first (they're the names
+    // that mention receivers), then the receivers themselves.
+
+    // Antennas (mention receivers in their description — check first).
+    if part_name.contains("Molex Flexible GNSS") {
+        return Some("1.3");
     }
+    if part_name.contains("ANN-MB-00") {
+        return Some("2.2");
+    }
+    // Bridge / pigtail (passive coax, no risk of receiver-name collision
+    // but keep grouped with antennas conceptually).
+    if part_name.contains("Interface Cable SMA → U.FL") {
+        return Some("3.1");
+    }
+    // Battery / LiPo — mentions "OpenLog Artemis power" so check BEFORE
+    // the OpenLog Artemis row.
+    if part_name.contains("Lithium Ion Battery") {
+        return Some("0.2");
+    }
+    // Receivers (1.X / 2.X primary parts).
+    if part_name.contains("MAX-M10S") {
+        return Some("1.1");
+    }
+    if part_name.contains("NEO-M9N") {
+        return Some("1.2");
+    }
+    if part_name.contains("ZED-F9P") {
+        return Some("2.1");
+    }
+    // Remaining common parts.
+    if part_name.contains("OpenLog Artemis") {
+        return Some("0.1");
+    }
+    if part_name.contains("JST Jumper 2 Wire") {
+        return Some("0.3");
+    }
+    if part_name.contains("SERPAC RBF33") {
+        return Some("0.4");
+    }
+    None
 }
 
 fn render_card(
