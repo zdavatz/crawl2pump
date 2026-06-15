@@ -41,6 +41,10 @@ path = "src/bin/meta_post.rs"
 name = "sensor_report"
 path = "src/bin/sensor_report.rs"
 
+[[bin]]
+name = "magnetswitch_rfq"
+path = "src/bin/magnetswitch_rfq.rs"
+
 [lib]
 name = "crawl2pump"
 path = "src/lib.rs"

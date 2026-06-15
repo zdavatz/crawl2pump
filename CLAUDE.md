@@ -66,6 +66,10 @@ Whitelisted promotions:
   MovementLogger firmware BOM + USB-C OSS modules. Part-list driven
   (not query/brand driven). See "Convenience binary `sensor_report`"
   below.
+- **`magnetswitch_rfq.rs`** — one-off RFQ (quote-request) PDF for the
+  magnetic-switch test PCB, addressed to Variosystems AG. No crawl, no
+  DB — static content + two embedded images. See "Convenience binary
+  `magnetswitch_rfq`" below.
 
 ## Convenience binary `pumpfoil_report`
 
@@ -766,6 +770,46 @@ Architecture / invariants worth knowing before editing it:
   Don't promote any solderless option as the production answer —
   vibration on a pumpfoil board will wiggle the connection loose.
   Bring-up only.
+
+## Convenience binary `magnetswitch_rfq`
+
+`src/bin/magnetswitch_rfq.rs` is the odd one out — it does **no crawl
+and touches no database**. It renders a single static RFQ (request-for-
+quote) PDF for the magnetic-switch test PCB ("Versuchsleiterplatte
+Magnetschalter"), addressed to a PCB fab/assembly house (Variosystems
+AG, Zizers), so Peter's board can be sent out for a fabrication +
+assembly quote.
+
+```bash
+cargo run --release --bin magnetswitch_rfq            # ~/Downloads/Anfrage-...pdf
+cargo run --release --bin magnetswitch_rfq -- -o /tmp/rfq.pdf
+```
+
+Things worth knowing before editing it:
+
+- **Self-contained — images compiled in via `include_bytes!`** from
+  `assets/magnetswitch_rfq/{schematic.jpg,pcb_layout.jpg}` (committed),
+  base64-inlined at runtime. No asset files need to exist at run time
+  and there's no network/DB dependency. If the board revises, replace
+  those two JPEGs and rebuild.
+- **Same render pipeline as `sensor_report`** — one HTML string →
+  `<output>.html` → headless Chrome `--print-to-pdf` (shared
+  `chrome_binary()` probe order). All content is static German text in
+  `render_html()`; there are no flags except `-o/--output`.
+- **The page-break fix is load-bearing.** Each numbered section is
+  wrapped in `<div class="sec">` with `break-inside: avoid`, plus
+  `h2 { break-after: avoid }` and `li { break-inside: avoid }`. Without
+  the section wrapper, a bullet list that starts near a page boundary
+  (section 7) leaves a large whitespace gap when Chrome pushes the
+  remaining `<li>`s to the next page. Don't drop the `.sec` wrappers.
+- **Content is buyer-facing facts from the schematic, not guesses.**
+  BOM: U1 DRV5032FBDBZT (TI Hall switch), Q1 SI2333DDS-T1-GE3 (Vishay
+  P-MOSFET, package left as "lt. Datenblatt" — don't assert a footprint
+  we didn't verify), Q2 MMBT3904, R1/R2 10 kΩ, H1–H3 solder pads. The
+  H3 note that **pin 1 is deliberately NC** comes straight off the
+  schematic (the crossed-out connection) — keep it.
+- Committed snapshot: `PDF/magnetswitch-rfq.pdf` (force-added past
+  `/PDF/` in `.gitignore`, same convention as the other report PDFs).
 
 ## SQLite persistence (`src/db.rs`)
 

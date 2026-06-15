@@ -559,6 +559,32 @@ to a PDF + HTML grouped by part role, each part tagged with its
 firmware-openness, connector, USB-C-pluggable status, and the
 six-feature capability checkbox row described above.
 
+### `magnetswitch_rfq` — PCB quote-request PDF
+
+A standalone, self-contained generator for the **magnetic-switch test
+PCB** ("Versuchsleiterplatte Magnetschalter") RFQ — a one-page-per-
+section German document to send to a PCB fab/assembly house
+(Variosystems AG, Zizers) for a fabrication + assembly quote. Unlike
+the crawl-driven reports, it does no networking and reads no database:
+it builds one HTML string, base64-inlines the embedded schematic +
+layout images (compiled in from `assets/magnetswitch_rfq/` via
+`include_bytes!`), and prints to PDF through the same headless-Chrome
+pipeline as `sensor_report`.
+
+```bash
+cargo run --release --bin magnetswitch_rfq
+# → ~/Downloads/Anfrage-Magnetschalter-LP-Variosystems.pdf
+
+cargo run --release --bin magnetswitch_rfq -- -o /tmp/rfq.pdf
+```
+
+The document covers purpose/context, PCB spec (double-sided, ~10×20 mm),
+the BOM (U1 DRV5032FBDBZT Hall switch, Q1 SI2333DDS P-MOSFET, Q2
+MMBT3904, R1/R2 10 kΩ, H1–H3 solder pads), the H2/H3 wiring notes
+(battery wires, ST-PCB cable with pin 1 deliberately NC), the schematic
+and layout images, and the staggered quantity request. A rendered
+snapshot lives at `PDF/magnetswitch-rfq.pdf`.
+
 ### CLI flags
 
 | Flag | Default | Effect |

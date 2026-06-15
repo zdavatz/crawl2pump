@@ -10,6 +10,7 @@ Cargo.lock.*
 !/src/bin/pumpfoil_report.rs
 !/src/bin/meta_post.rs
 !/src/bin/sensor_report.rs
+!/src/bin/magnetswitch_rfq.rs
 # Generated PDF/HTML catalogs.
 /pumpfoil-sets.pdf
 /pumpfoil-sets.html
