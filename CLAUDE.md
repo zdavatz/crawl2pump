@@ -70,6 +70,10 @@ Whitelisted promotions:
   magnetic-switch test PCB, addressed to Variosystems AG. No crawl, no
   DB — static content + two embedded images. See "Convenience binary
   `magnetswitch_rfq`" below.
+- **`pumpfoil_replik.rs`** — Pump Tsüri's Replik PDF to the Stadtrat
+  answer on GR Nr. 2026/250 (pumpfoil training spots). Static content
+  + appends the original Stadtrat PDF. See "Convenience binary
+  `pumpfoil_replik`" below.
 
 ## Convenience binary `pumpfoil_report`
 
@@ -810,6 +814,55 @@ Things worth knowing before editing it:
   schematic (the crossed-out connection) — keep it.
 - Committed snapshot: `PDF/magnetswitch-rfq.pdf` (force-added past
   `/PDF/` in `.gitignore`, same convention as the other report PDFs).
+
+## Convenience binary `pumpfoil_replik`
+
+`src/bin/pumpfoil_replik.rs` renders Pump Tsüri's Replik to the Zürich
+Stadtrat's answer (Beschluss 2806/2026) on the Gemeinderat's Schriftliche
+Anfrage GR Nr. 2026/250 (pumpfoil training/entry spots on the
+Zürichsee). Same static-HTML → headless-Chrome pipeline as
+`magnetswitch_rfq`, plus one network step.
+
+```bash
+cargo run --release --bin pumpfoil_replik               # ~/Downloads/...
+cargo run --release --bin pumpfoil_replik -- -o /tmp/replik.pdf --no-append
+```
+
+Things worth knowing before editing it:
+
+- **The Stadtrat original is appended, not linked only.** After printing
+  the body PDF, the bin downloads
+  `pump.zuerich/wp-content/uploads/2026/09/2026_0250-Antwort-Stadtrat.pdf`
+  and merges body + annex with `pdfunite` (fallback `qpdf --empty
+  --pages`). `--no-append` skips that. The WordPress upload ships with a
+  **stray leading newline before `%PDF`** — `download()` trims leading
+  whitespace before the header check, otherwise pdfunite rejects the
+  file. Don't drop that trim.
+- **Every BSV quote was verified against the consolidated text** (ELI
+  `cc/1979/337_337_337`, not the `1902_…` guess — that ELI 404s). Fedlex
+  is a JS app: curl/headless-dump return an empty shell; use the real
+  browser (claude-in-chrome) or the `fedlex.data.admin.ch/filestore/…`
+  consolidated HTML. The load-bearing citations are Art. 36 Abs. 2 +
+  Art. 37 (the canton sets/removes the yellow-buoy signalisation and can
+  restrict per ship type) and **Art. 72 Abs. 3** (canton may grant
+  exceptions from individual BSV provisions for permitted nautical
+  events). BSG Art. 3 (Gewässerhoheit) is cited without quotation
+  because the BSG filestore fetch failed — the Stadtrat answer itself
+  confirms the cantonal competence. Don't paraphrase the quotes into
+  stronger claims.
+- **Section split control**: `.sec` is `break-inside: avoid`; long
+  sections (3, 4, 5, 6) carry `.sec.long` (`break-inside: auto`).
+  Without `.long` on the table section a full page of whitespace
+  appeared before it.
+- **Publishing**: the post + PDF went to pump.zuerich via the WP REST
+  API (creds in gitignored `.wp.env`: `WP_URL`, `WP_USER`,
+  `WP_APP_PASSWORD` — quote the password, it contains spaces) and to the
+  Pump Tsüri Facebook Page as a 4-photo post (pages rendered with
+  `pdftoppm -r 130`) via the Graph API `/photos published=false` +
+  `/feed attached_media[]` pattern. Neither step is in the bin — both
+  were one-off curl calls.
+- Committed snapshot: `PDF/pumpfoil-replik-gr-2026-250.pdf` (force-added
+  past `/PDF/` in `.gitignore`).
 
 ## SQLite persistence (`src/db.rs`)
 

@@ -585,6 +585,27 @@ MMBT3904, R1/R2 10 kΩ, H1–H3 solder pads), the H2/H3 wiring notes
 and layout images, and the staggered quantity request. A rendered
 snapshot lives at `PDF/magnetswitch-rfq.pdf`.
 
+### `pumpfoil_replik` — Replik an den Stadtrat (GR Nr. 2026/250)
+
+Pump Tsüri's written reply to the Zürich Stadtrat's answer (Beschluss
+2806/2026, 26 Aug 2026) to the Gemeinderat's Schriftliche Anfrage
+GR Nr. 2026/250 on pumpfoiling training spots. Static German content:
+what we welcome, where we disagree, the verified BSV provisions
+(Art. 2, 36, 37, 54, 72 Abs. 3), five levers for city/canton, and five
+concrete asks. Renders via the same headless-Chrome pipeline as
+`magnetswitch_rfq`, then downloads the original Stadtrat PDF and
+appends it as the trailing pages (`pdfunite`, fallback `qpdf`).
+
+```bash
+cargo run --release --bin pumpfoil_replik
+# → ~/Downloads/Replik-Pump-Tsueri-GR-2026-250.pdf (+ .html)
+
+cargo run --release --bin pumpfoil_replik -- -o /tmp/replik.pdf --no-append
+```
+
+Published at <https://pump.zuerich/2026/09/03/replik-zur-antwort-des-stadtrats-betreffend-pumpfoiling-am-zurichsee/>;
+snapshot at `PDF/pumpfoil-replik-gr-2026-250.pdf`.
+
 ### CLI flags
 
 | Flag | Default | Effect |

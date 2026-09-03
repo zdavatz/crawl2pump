@@ -11,6 +11,7 @@ Cargo.lock.*
 !/src/bin/meta_post.rs
 !/src/bin/sensor_report.rs
 !/src/bin/magnetswitch_rfq.rs
+!/src/bin/pumpfoil_replik.rs
 # Generated PDF/HTML catalogs.
 /pumpfoil-sets.pdf
 /pumpfoil-sets.html
@@ -25,3 +26,4 @@ sqlite/*.db-wal
 /resume
 /.meta.env
 /.sensors.env
+.wp.env

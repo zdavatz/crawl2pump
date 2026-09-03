@@ -45,6 +45,10 @@ path = "src/bin/sensor_report.rs"
 name = "magnetswitch_rfq"
 path = "src/bin/magnetswitch_rfq.rs"
 
+[[bin]]
+name = "pumpfoil_replik"
+path = "src/bin/pumpfoil_replik.rs"
+
 [lib]
 name = "crawl2pump"
 path = "src/lib.rs"
