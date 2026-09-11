@@ -606,6 +606,18 @@ cargo run --release --bin pumpfoil_replik -- -o /tmp/replik.pdf --no-append
 Published at <https://pump.zuerich/2026/09/03/replik-zur-antwort-des-stadtrats-betreffend-pumpfoiling-am-zurichsee/>;
 snapshot at `PDF/pumpfoil-replik-gr-2026-250.pdf`.
 
+### Scratch: `customs_docs` — export declarations for parcels stuck in Spanish customs
+
+A gitignored one-off (`src/bin/customs_docs.rs`, not shipped — it hardcodes
+private addresses) that renders a bilingual Spanish/English "DUA de
+exportación / factura proforma" PDF per Swiss Post parcel and appends the
+original Swiss Post waybill (CN23) as annex, ready for Correos' "Adjuntar
+documentación" upload (pdf ≤ 4.5 MB). Same headless-Chrome + `pdfunite`
+pipeline as `pumpfoil_replik`. Correos tracking status comes from their
+public JSON API (`api1.correos.es/digital-services/searchengines/api/v1/`);
+the waybill PDFs are recovered from the post.ch "Frachtbrief
+versandbereit" mail attachments, since the confirmation links expire.
+
 ### CLI flags
 
 | Flag | Default | Effect |

@@ -973,6 +973,26 @@ drift):
   `looks_like_front_wing` matches — the collection has 27 boards
   total, so the filter shoulder is wide enough to take a few extras
   without flooding.
+- `customs_docs.rs` — **gitignored on purpose, never promote.** Renders
+  bilingual ES/EN "DUA de exportación / factura proforma" PDFs for Swiss
+  Post parcels stuck in Spanish (Correos) customs, one per tracking
+  number, and appends the original Swiss Post waybill (CN23) as annex via
+  `pdfunite`/`qpdf`. It hardcodes sender/consignee addresses, phone
+  numbers and tracking IDs — that's why it must stay outside git.
+  Reusable lessons: (1) Correos' tracking is a public JSON API,
+  `api1.correos.es/digital-services/searchengines/api/v1/?text=<tracking>
+  &language=ES&searchType=envio` — no browser needed. (2) The Swiss Post
+  `apps.post.ch/fb/public/recording/<uuid>/confirmation` links from the
+  "Frachtbrief versandbereit" mails expire within days; the waybill PDF
+  is only recoverable from the mail attachment. The Gmail MCP has no
+  attachment download, so fetch the message with `messageFormat: RAW`
+  (lands on disk as a ~1 MB JSON), base64-decode `raw`, walk the MIME
+  parts with Python `email` and write the `application/pdf` part.
+  (3) Correos' upload widget accepts pdf/jpg/png ≤ 4.5 MB; a one-page
+  declaration + 5-page waybill lands at ~0.6 MB. (4) Keep the
+  declaration consistent with the annexed waybill; where the real value
+  differs from what was typed on the postal form, say so explicitly on
+  the declaration instead of silently contradicting the annex.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed
