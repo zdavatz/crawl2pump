@@ -618,6 +618,19 @@ public JSON API (`api1.correos.es/digital-services/searchengines/api/v1/`);
 the waybill PDFs are recovered from the post.ch "Frachtbrief
 versandbereit" mail attachments, since the confirmation links expire.
 
+### Scratch: `gdrive_upload` — Google Drive REST uploader
+
+Gitignored one-off (`src/bin/gdrive_upload.rs`) that pushes a local file
+to Google Drive through the plain Drive v3 REST API: loopback OAuth with
+a Desktop client (scope `drive.file`), refresh token cached in the
+gitignored `.gdrive-token.json`, then a multipart upload. First run opens
+the Google consent page once; later runs are silent.
+
+```bash
+./target/release/gdrive_upload --client-json ~/path/to/oauth-client.json file.docx
+./target/release/gdrive_upload file.pdf          # token already cached
+```
+
 ### CLI flags
 
 | Flag | Default | Effect |

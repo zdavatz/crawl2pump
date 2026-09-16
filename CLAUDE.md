@@ -973,6 +973,23 @@ drift):
   `looks_like_front_wing` matches — the collection has 27 boards
   total, so the filter shoulder is wide enough to take a few extras
   without flooding.
+- `gdrive_upload.rs` — plain **Google Drive REST v3 uploader**, no MCP /
+  connector. Loopback OAuth (Desktop client, scope `drive.file`, same
+  shape as pegelstand's `gmail_auth`), refresh token cached in
+  `.gdrive-token.json` (gitignored, 0600), then one `multipart/related`
+  POST to `upload/drive/v3/files?uploadType=multipart`. Written because
+  the Drive connector can only take inline base64 content — a 40 KB DOCX
+  is already too large for a single tool call, and the user explicitly
+  wanted the REST API, not the MCP tool. Client JSON via `--client-json`
+  or `$GDRIVE_CLIENT_JSON`; any of the Desktop OAuth clients already on
+  this machine work (there is no dedicated one; Drive API is enabled on
+  the project that was used). Note that Claude Code's permission
+  classifier may refuse to run a command that references an OAuth
+  client-secret file — in that case the user runs the first (consent)
+  invocation themselves. After the first consent the cached token file
+  is enough and the client secret is never touched again.
+  Files are uploaded as-is (DOCX stays DOCX; Drive opens it in Office
+  compatibility mode) — pass `--mime` to override the extension guess.
 - `customs_docs.rs` — **gitignored on purpose, never promote.** Renders
   bilingual ES/EN "DUA de exportación / factura proforma" PDFs for Swiss
   Post parcels stuck in Spanish (Correos) customs, one per tracking

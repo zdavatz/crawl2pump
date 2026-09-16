@@ -27,3 +27,4 @@ sqlite/*.db-wal
 /.meta.env
 /.sensors.env
 .wp.env
+.gdrive-token.json
