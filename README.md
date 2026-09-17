@@ -647,7 +647,11 @@ Items posted without tracking (Swiss Post small-goods letter rate) cannot
 be looked up at all; they still pass Spanish customs and usually carry a
 customs barcode the sender can recover from the counter transaction. The
 recipient has to ask Correos in person or in writing. CLAUDE.md lists the
-routes.
+routes. The public Correos API does have an office finder
+(`searchType=oficina` with a postcode returns address, phone and e-mail of
+the local branch), which is how to reach the delivering post office
+directly. `customs_docs --fuselage [--reference <code>]` renders the
+invoice variant for a third-party sender without tracking number.
 
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 

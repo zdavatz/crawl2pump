@@ -1133,6 +1133,32 @@ drift):
   ideally citing other tracking numbers already on their file. The
   second `gmail_send` run (no consent step, cached token) was verified
   with exactly such a message.
+  (10) **The public Correos API was probed for other modes** (generic
+  place names and postcodes only, no personal data): a free-text
+  `searchType=envio` query returns an empty body; `searchType=oficina`
+  / `all` with a town or postcode returns `others.offices[]` with
+  address, phone and e-mail of the local branch. That is the useful
+  by-product: the delivering branch can be written to directly, and a
+  small branch tends to answer faster than the central customs form.
+  Correos' other APIs (business developer portal, the customs portal
+  behind the recipient's login) are all keyed on shipment codes or on
+  parcels already registered under the recipient's tax ID — none finds
+  an unregistered parcel. Write to a branch in Spanish, with the
+  recipient in copy and an explicit "please answer him directly":
+  Correos does not discuss a parcel with third parties. Leave the
+  recipient's tax ID out of such a mail; they supply it themselves.
+  (11) **`--fuselage` / `--reference`**: second template in the bin for
+  a third-party sender with no tracking number and no waybill annex
+  (`render_fuselage_html`, EUR value, reference line reads "to be
+  assigned by Correos" until `--reference` is given). It quotes the
+  wording on the customs label and explains what the item actually is,
+  so the invoice never contradicts what the officer sees on the parcel
+  — a vague label such as "broken part" otherwise reads as a repair
+  return and lands in the temporary-import trap from point 5. The
+  document is a declaration in the sender's name: send it as supporting
+  information if useful, but have the sender see and sign it before the
+  recipient uploads it to the customs portal. `gmail_send --attach` was
+  verified with this PDF (real attachment, ~180 KB).
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed
