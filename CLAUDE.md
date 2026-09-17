@@ -1056,6 +1056,12 @@ drift):
   (inline base64 only), which is why one mail in this project went out
   with Drive links instead of files. If the OAuth app is in "Testing"
   mode the refresh token dies after 7 days; re-run `--auth-only`.
+  Verified end to end on 2026-09-17: first run without `--auth-only`
+  does consent and send in one go (the consent branch also fires when no
+  token file exists), and the Gmail API is enabled on the same Google
+  Cloud project that serves `gdrive_upload`. Write the body to a file
+  and pass `--body-file`; there is deliberately no inline `--body` flag
+  so multi-line text never has to survive shell quoting.
 - `customs_docs.rs` — **gitignored on purpose, never promote.** Renders
   bilingual ES/EN "DUA de exportación / factura proforma" PDFs for Swiss
   Post parcels stuck in Spanish (Correos) customs, one per tracking
@@ -1098,6 +1104,16 @@ drift):
   downloadable "Email Petición Documentación" PDF — read that before
   guessing what is missing. Outputs are
   `Factura-consumo-<tracking>.pdf`.
+  (8) **Correos has no lookup by recipient name or address** — neither
+  the website nor the tracking API (`searchType=envio` takes shipment
+  codes only). When a sender has lost the tracking number, the routes
+  are: the sender's post.ch "Frachtbrief versandbereit" mail or
+  post.ch account, the counter receipt or the card/Twint payment entry
+  (date + branch lets Swiss Post find the consignment), and on the
+  Spanish side the recipient's "Mis envíos" list, the customs notice
+  Correos sends to the recipient, or a call by the recipient, since
+  Correos staff can search the customs system by tax ID and name. Don't
+  feed a person's name, phone and address into search forms on spec.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed

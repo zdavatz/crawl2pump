@@ -676,6 +676,10 @@ export GMAIL_CLIENT_JSON=~/path/to/oauth-client.json
 ./target/release/gmail_send ... --dry-run        # print the MIME, send nothing
 ```
 
+The first real run performs the consent and the send in one go, so
+`--auth-only` is optional. The body always comes from a file
+(`--body-file`), which keeps multi-line text out of shell quoting.
+
 ### CLI flags
 
 | Flag | Default | Effect |
