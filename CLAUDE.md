@@ -1114,6 +1114,25 @@ drift):
   Correos sends to the recipient, or a call by the recipient, since
   Correos staff can search the customs system by tax ID and name. Don't
   feed a person's name, phone and address into search forms on spec.
+  (9) **"Sent without tracking" is a different product, not a lost
+  number.** A tracked PostPac parcel CH → ES costs around CHF 40; a
+  price in the CHF 10–20 range means Swiss Post's small-goods letter
+  rate (letter post with goods, up to 2 kg), which has no tracking
+  events and no search request. Two things still hold: since July 2021
+  every goods item from outside the EU goes through Spanish customs,
+  tracked or not, and Swiss Post must transmit the customs data
+  electronically, so the item normally carries a barcode that Correos
+  customs uses as its reference. The sender can recover that code from
+  the counter transaction (branch + date + time window + exact amount
+  + payment method identify it). For untracked mail Correos notifies
+  the recipient by paper letter only, so an informal address line
+  ("abajo de la tienda …") easily means the notice never arrives and
+  the parcel sits until it is returned. The recipient's routes are the
+  local post office with ID and a written enquiry to Correos customs
+  naming recipient, tax ID, sender, posting date/branch and contents,
+  ideally citing other tracking numbers already on their file. The
+  second `gmail_send` run (no consent step, cached token) was verified
+  with exactly such a message.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed

@@ -643,6 +643,12 @@ CHF 100). An earlier version described the goods as "returned for
 repair"; Correos classifies that as a temporary import, which it does
 not handle, and bounces the shipment to an external customs agent.
 
+Items posted without tracking (Swiss Post small-goods letter rate) cannot
+be looked up at all; they still pass Spanish customs and usually carry a
+customs barcode the sender can recover from the counter transaction. The
+recipient has to ask Correos in person or in writing. CLAUDE.md lists the
+routes.
+
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 
 Gitignored one-off (`src/bin/gdrive_upload.rs`) that pushes a local file
