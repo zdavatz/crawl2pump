@@ -1028,11 +1028,34 @@ drift):
   this machine work (there is no dedicated one; Drive API is enabled on
   the project that was used). Note that Claude Code's permission
   classifier may refuse to run a command that references an OAuth
-  client-secret file — in that case the user runs the first (consent)
-  invocation themselves. After the first consent the cached token file
-  is enough and the client secret is never touched again.
+  client-secret file — in that case the user runs it themselves.
+  The cached token only removes the browser consent step: every run
+  still needs the client JSON, because refreshing an access token
+  requires `client_id` + `client_secret`. (An earlier version of this
+  note claimed the secret was never needed again — that was wrong.)
   Files are uploaded as-is (DOCX stays DOCX; Drive opens it in Office
   compatibility mode) — pass `--mime` to override the extension guess.
+  `--share-with <email>` adds a reader permission for exactly that
+  address after the upload (`permissions.create`, first with
+  `sendNotificationEmail=false`, falling back to `true` because Google
+  refuses a silent share to non-Google addresses). `drive.file` scope is
+  enough since the tool owns the file. Don't use "anyone with the link"
+  for documents with personal data.
+- `gmail_send.rs` — plain **Gmail REST sender**
+  (`users.messages.send`), sibling of `gdrive_upload`: same loopback
+  OAuth, scope `gmail.send` only (cannot read mail), token in
+  `.gmail-token.json` (gitignored, 0600), client JSON via
+  `--client-json` / `$GMAIL_CLIENT_JSON` on every run. Builds a
+  `multipart/mixed` MIME message by hand (base64 body, RFC 2047 encoded
+  subject and filenames, 76-column wrapped attachments), base64url-encodes
+  it into `{"raw": …}`. Flags: `--to` / `--cc` (repeatable), `--subject`,
+  `--body-file`, `--attach` (repeatable), `--auth-only` for the one-time
+  consent, `--dry-run` to print the MIME instead of sending. **The user
+  wants Google services driven through these REST bins, not through the
+  MCP connectors** — the connectors also cannot carry real attachments
+  (inline base64 only), which is why one mail in this project went out
+  with Drive links instead of files. If the OAuth app is in "Testing"
+  mode the refresh token dies after 7 days; re-run `--auth-only`.
 - `customs_docs.rs` — **gitignored on purpose, never promote.** Renders
   bilingual ES/EN "DUA de exportación / factura proforma" PDFs for Swiss
   Post parcels stuck in Spanish (Correos) customs, one per tracking
@@ -1053,6 +1076,28 @@ drift):
   declaration consistent with the annexed waybill; where the real value
   differs from what was typed on the postal form, say so explicitly on
   the declaration instead of silently contradicting the annex.
+  (5) **Never write "returned for repair" / "devolución para
+  reparación" on a document for Correos.** Customs reads that as a
+  temporary import (goods enter and leave again); Correos' customs desk
+  does not offer that regime and answers with an automatic mail telling
+  the consignee to hire an external customs agent or to clear as a
+  normal "importación a consumo" and pay duty + VAT + handling. That
+  first wording cost three weeks. The bin now renders a "Factura
+  proforma — importación a consumo" that names the requested procedure
+  and states that no temporary import / inward processing is requested.
+  Only use it when the consignee really keeps the goods; if they come
+  back, it *is* a temporary import and needs an external agent.
+  (6) A definitive import needs a real taxable value — CHF 0 is not a
+  tax base. `--value` (default `100.00`) sets it; content type is
+  "Goods", matching the box ticked on the Swiss Post waybill. Don't
+  relabel a shipment to a company as a "gift": the EU gift relief is
+  private-to-private up to 45 EUR, and it would contradict the annexed
+  waybill. (7) In the Correos portal the "Levante Mercancía" row is the
+  customs release itself; when Correos does the clearance they produce
+  it, nobody uploads it. What Correos actually wants is written in the
+  downloadable "Email Petición Documentación" PDF — read that before
+  guessing what is missing. Outputs are
+  `Factura-consumo-<tracking>.pdf`.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed

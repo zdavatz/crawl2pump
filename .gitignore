@@ -29,3 +29,4 @@ sqlite/*.db-wal
 /.sensors.env
 .wp.env
 .gdrive-token.json
+.gmail-token.json

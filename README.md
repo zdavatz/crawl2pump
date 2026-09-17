@@ -637,6 +637,12 @@ public JSON API (`api1.correos.es/digital-services/searchengines/api/v1/`);
 the waybill PDFs are recovered from the post.ch "Frachtbrief
 versandbereit" mail attachments, since the confirmation links expire.
 
+The current output is a "Factura proforma — importación a consumo"
+(`Factura-consumo-<tracking>.pdf`, declared value via `--value`, default
+CHF 100). An earlier version described the goods as "returned for
+repair"; Correos classifies that as a temporary import, which it does
+not handle, and bounces the shipment to an external customs agent.
+
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 
 Gitignored one-off (`src/bin/gdrive_upload.rs`) that pushes a local file
@@ -647,7 +653,27 @@ the Google consent page once; later runs are silent.
 
 ```bash
 ./target/release/gdrive_upload --client-json ~/path/to/oauth-client.json file.docx
-./target/release/gdrive_upload file.pdf          # token already cached
+./target/release/gdrive_upload file.pdf          # token cached, no browser step
+./target/release/gdrive_upload --share-with someone@example.com file.pdf
+```
+
+The client JSON is needed on every run (token refresh uses the client
+secret); set `$GDRIVE_CLIENT_JSON` once. `--share-with` grants read
+access to exactly one address.
+
+### Scratch: `gmail_send` — Gmail REST sender
+
+Gitignored sibling of `gdrive_upload` (`src/bin/gmail_send.rs`): sends a
+mail from your Gmail account through the plain Gmail REST API, with real
+file attachments. Scope `gmail.send` only, token in the gitignored
+`.gmail-token.json`.
+
+```bash
+export GMAIL_CLIENT_JSON=~/path/to/oauth-client.json
+./target/release/gmail_send --auth-only          # one-time browser consent
+./target/release/gmail_send --to a@b.ch --subject "Hi" \
+    --body-file body.txt --attach one.pdf --attach two.pdf
+./target/release/gmail_send ... --dry-run        # print the MIME, send nothing
 ```
 
 ### CLI flags
