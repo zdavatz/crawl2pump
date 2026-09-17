@@ -49,6 +49,10 @@ path = "src/bin/magnetswitch_rfq.rs"
 name = "pumpfoil_replik"
 path = "src/bin/pumpfoil_replik.rs"
 
+[[bin]]
+name = "pumpfoil_rechtsweg"
+path = "src/bin/pumpfoil_rechtsweg.rs"
+
 [lib]
 name = "crawl2pump"
 path = "src/lib.rs"

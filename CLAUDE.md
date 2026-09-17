@@ -74,6 +74,10 @@ Whitelisted promotions:
   answer on GR Nr. 2026/250 (pumpfoil training spots). Static content
   + appends the original Stadtrat PDF. See "Convenience binary
   `pumpfoil_replik`" below.
+- **`pumpfoil_rechtsweg.rs`** — follow-up memo to the Replik: how
+  permitted pumpfoil training inside the yellow bathing zones could be
+  legalised and which procedural route to take. Static content, no
+  network. See "Convenience binary `pumpfoil_rechtsweg`" below.
 
 ## Convenience binary `pumpfoil_report`
 
@@ -863,6 +867,45 @@ Things worth knowing before editing it:
   were one-off curl calls.
 - Committed snapshot: `PDF/pumpfoil-replik-gr-2026-250.pdf` (force-added
   past `/PDF/` in `.gitignore`).
+
+## Convenience binary `pumpfoil_rechtsweg`
+
+`src/bin/pumpfoil_rechtsweg.rs` renders the four-page German memo
+"Pumpfoilen in der gelben Zone mit Bewilligung". Same static-HTML →
+headless-Chrome pipeline as `pumpfoil_replik`, but with no download or
+merge step; only flag is `-o/--output`.
+
+Things worth knowing before editing it:
+
+- **The legal argument rests on three verified BSV passages** (checked
+  against the consolidated text, see the Fedlex notes under
+  `pumpfoil_replik`): Art. 165 Abs. 1bis (cantons issue their
+  restrictions "in Anwendung von Artikel 3 Absatz 2 BSG", so the yellow
+  zone is a cantonal order, not a federal rule), Art. 163 Abs. 1 (the
+  closed list of exceptions, which does not mention closed water areas —
+  the likely basis for the AWEL's "nicht vorgesehen"), and Art. 72 Abs. 1
+  and 3 (permit plus exceptions for "sonstige Veranstaltungen"; no
+  competition required). Keep the memo honest about Art. 163 — it is the
+  counter-argument and is deliberately quoted, not hidden.
+- **Unverified parts are labelled as such in the PDF footer**: the
+  Zürich appeal path (Rekurs → Verwaltungsgericht) and the 60-vote
+  threshold for a cantonal Einzelinitiative were not checked against
+  cantonal procedural law, and the BSV quotes come from the 2022
+  consolidated file. Don't remove that footer or the "Arbeitspapier,
+  keine Rechtsberatung" status without actually verifying them.
+- **The three wording proposals** (cantonal ordinance sentence,
+  supplementary sign text, new letter for Art. 163 Abs. 1 BSV) are
+  drafts by us, styled as green dashed `.draft` boxes so they cannot be
+  mistaken for quotes (blue `blockquote`).
+- **Page breaks**: `.step` boxes are `break-inside: auto` (with
+  `avoid` a half-empty page appeared before stage 2); `.draft`,
+  `blockquote`, `li` and table rows stay `avoid`.
+- Related deliverable outside the repo: the Postulat draft
+  `P_StegPumpfoil_v2.docx` (raft rental for training, no competitions,
+  cantonal competence) was produced with pandoc from markdown using the
+  v1 DOCX as `--reference-doc`. The DOCX files are not committed.
+- Committed snapshot: `PDF/pumpfoil-gelbe-zone-rechtsweg.pdf`
+  (force-added past `/PDF/` in `.gitignore`).
 
 ## SQLite persistence (`src/db.rs`)
 

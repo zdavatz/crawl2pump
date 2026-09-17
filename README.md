@@ -606,6 +606,25 @@ cargo run --release --bin pumpfoil_replik -- -o /tmp/replik.pdf --no-append
 Published at <https://pump.zuerich/2026/09/03/replik-zur-antwort-des-stadtrats-betreffend-pumpfoiling-am-zurichsee/>;
 snapshot at `PDF/pumpfoil-replik-gr-2026-250.pdf`.
 
+### `pumpfoil_rechtsweg` — Memo "Pumpfoilen in der gelben Zone"
+
+Follow-up to `pumpfoil_replik`: a four-page German working paper on how
+permitted pumpfoil training inside the yellow-buoy bathing zones could be
+made legal, and which procedural route to take. Static content: legal
+situation with verbatim BSV quotes (Art. 165 Abs. 1bis, Art. 163, Art. 72
+Abs. 1 and 3), a three-stage route (formal application with an
+appealable decision, adapting the cantonal closure, BSV revision), three
+wording proposals, an overview table and sources. Same headless-Chrome
+pipeline, no network step.
+
+```bash
+cargo run --release --bin pumpfoil_rechtsweg
+# → ~/Downloads/Pumpfoil-gelbe-Zone-Rechtsweg.pdf (+ .html)
+```
+
+Snapshot at `PDF/pumpfoil-gelbe-zone-rechtsweg.pdf`. Marked as a working
+paper, not legal advice.
+
 ### Scratch: `customs_docs` — export declarations for parcels stuck in Spanish customs
 
 A gitignored one-off (`src/bin/customs_docs.rs`, not shipped — it hardcodes
