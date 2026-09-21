@@ -653,6 +653,14 @@ the local branch), which is how to reach the delivering post office
 directly. `customs_docs --fuselage [--reference <code>]` renders the
 invoice variant for a third-party sender without tracking number.
 
+Two Correos-portal rules that cost a week each: the recipient's
+"Datos para la tramitación" form must be signed *and* have exactly one
+box ticked in section 2 ("Tipo de envío"), otherwise it is invalid and
+never reviewed; and a company consignee should file as "persona
+jurídica" with its CIF, which the invoices now carry as well. Untracked
+WebStamp letters do have a `UA…CH` code the Correos API resolves —
+photograph the label before declaring a parcel lost.
+
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 
 Gitignored one-off (`src/bin/gdrive_upload.rs`) that pushes a local file

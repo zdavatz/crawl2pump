@@ -1159,6 +1159,36 @@ drift):
   information if useful, but have the sender see and sign it before the
   recipient uploads it to the customs portal. `gmail_send --attach` was
   verified with this PDF (real attachment, ~180 KB).
+  (12) **Read the recipient's Correos form, not just ours.** The
+  portal generates a "Datos para la tramitación de importación con
+  Correos" PDF that the recipient must print, sign and upload. Two
+  validity rules printed on the form itself: it must be signed (section
+  7), and **exactly one box in section 2 "Tipo de envío" must be
+  ticked** — an otherwise complete, signed form with section 2 empty
+  is invalid and simply sits unreviewed (that, not the invoice, was the
+  cause of a further week of silence here). For a "used sample sent to
+  the manufacturer, no sale" shipment the honest option is e) "Muestras
+  comerciales"; a) / b) declare a purchase, d) a private gift. If the
+  consignee is a Spanish company, file with "Persona jurídica: SÍ" and
+  its CIF (letter B = sociedad limitada) and put the same CIF on the
+  invoice — the bin now prints it in the consignee block and in the
+  tax-ID row (`party_html` adds it for the ONIX party). The form also
+  shows Correos' "Declaración Sumaria" reference (`26ES…/00001`), the
+  customs manifest entry that exists *before* any import declaration.
+  (13) **An untracked small-goods letter can still have Correos
+  tracking.** Kai's item carried a `UA…CH` WebStamp code; the Correos
+  API returned its full history: customs cleared in 10 days at CHF 10
+  with no documents, then "no reclamado" and returned — i.e. the failure
+  was delivery/collection, not customs. Ask the sender for a photo of
+  the label before assuming a parcel is lost: the S10 code, the CN22
+  content/value and the pink CN15 return sticker (tick = reason) are all
+  on it. `magick -crop … -rotate 90` on the photo makes the small
+  stickers readable. Lesson for resends: recipient phone + e-mail in
+  the WebStamp fields, delivery hint as its own address line, CN22
+  category "Merchandise" (not "Returns"), and the recipient collects at
+  the branch as soon as the tracking says "pending delivery" instead of
+  waiting for the doorstep attempt. Tracked PostPac waybills should have
+  "Return to sender" ticked (both of ours do), never "abandon".
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed
