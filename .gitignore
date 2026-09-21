@@ -30,3 +30,4 @@ sqlite/*.db-wal
 .wp.env
 .gdrive-token.json
 .gmail-token.json
+.correos.env

@@ -667,6 +667,8 @@ and there is no final submit step: an upload goes straight to Correos'
 review queue. "Retorno de mercancía" is only worth choosing with the
 original EU export proof in hand; otherwise "Compra destinada a otros
 usos" plus VAT is the honest route.
+The portal login is kept in the gitignored `.correos.env`
+(`CORREOS_USER` / `CORREOS_PASSWORD`).
 
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 

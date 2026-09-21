@@ -1212,6 +1212,10 @@ drift):
   description and pay VAT. The claude-in-chrome `file_upload` tool only
   accepts files under the session scratchpad — copy the PDF there
   first. Never type the recipient's portal password; the user logs in.
+  Portal credentials live in the gitignored `.correos.env`
+  (`CORREOS_USER`, `CORREOS_PASSWORD`, mode 0600) for the user's own
+  use; the assistant reads the logged-in session but never types the
+  password into the login form.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed
