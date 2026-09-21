@@ -661,6 +661,13 @@ jurídica" with its CIF, which the invoices now carry as well. Untracked
 WebStamp letters do have a `UA…CH` code the Correos API resolves —
 photograph the label before declaring a parcel lost.
 
+Re-filing in the portal works per document row (signed form and
+invoice each have their own upload), a drawn PDF signature is accepted,
+and there is no final submit step: an upload goes straight to Correos'
+review queue. "Retorno de mercancía" is only worth choosing with the
+original EU export proof in hand; otherwise "Compra destinada a otros
+usos" plus VAT is the honest route.
+
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 
 Gitignored one-off (`src/bin/gdrive_upload.rs`) that pushes a local file

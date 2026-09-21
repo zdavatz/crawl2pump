@@ -1189,6 +1189,29 @@ drift):
   the branch as soon as the tracking says "pending delivery" instead of
   waiting for the doorstep attempt. Tracked PostPac waybills should have
   "Return to sender" ticked (both of ours do), never "abandon".
+  (14) **Re-filing a rejected shipment in the Correos portal, end to
+  end (verified 2026-09-21).** The portal lets the recipient edit the
+  importer (company name + CIF, "Persona jurídica" is *not* a profile
+  setting — it is derived, and printed NO on the regenerated form; the
+  signer ticks SÍ by hand), the transaction type and the contents; each
+  edit regenerates the "Datos para la tramitación" PDF (download icon in
+  the form row). Uploads go per document *row*: the signed form into
+  "Documento de tramitación con Correos", the invoice into "Factura o
+  justificante de compra" (add-file icon → attach page with a real
+  `<input type=file>` → modal → "Adjuntar documento" → green banner "Se
+  ha subido correctamente"). **There is no final submit button** — an
+  upload lands straight in "Pendiente Revisión por ADT". A signature
+  drawn in a PDF editor is accepted (the portal itself recommends Adobe
+  Fill & Sign); a typed name is not. The form says "firma *o* sello",
+  so a company signature with the CIF next to it is valid even without
+  a stamp, but Correos' request mail asked for a stamp — expect a
+  possible second round. Transaction type "Retorno de mercancía" is the
+  returned-goods regime (duty- and VAT-free if the goods were exported
+  from the EU within 3 years by the same party) and needs the original
+  export proof; without it, file "Compra destinada a otros usos" with a
+  description and pay VAT. The claude-in-chrome `file_upload` tool only
+  accepts files under the session scratchpad — copy the PDF there
+  first. Never type the recipient's portal password; the user logs in.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed
