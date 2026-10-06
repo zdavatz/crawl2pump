@@ -1062,6 +1062,22 @@ drift):
   Cloud project that serves `gdrive_upload`. Write the body to a file
   and pass `--body-file`; there is deliberately no inline `--body` flag
   so multi-line text never has to survive shell quoting.
+- `gmail_read.rs` — plain **Gmail REST reader**, third sibling of
+  `gdrive_upload` / `gmail_send`: `users.messages.list` + `get`, scope
+  `gmail.readonly`, own consent and own token file
+  `.gmail-read-token.json` (gitignored, 0600), client JSON via
+  `--client-json` / `$GMAIL_CLIENT_JSON` on every run. `--query` takes
+  Gmail search syntax and lists id, date, sender, subject and snippet;
+  `--id <msg> --show-body` prints one message, `--save-attachments
+  <dir>` writes its attachments (fetched through
+  `messages/<id>/attachments/<attachmentId>`, base64url). This replaces
+  the "fetch RAW through the connector and walk the MIME in Python"
+  workaround from customs lesson 2. The Google project is in "Testing"
+  mode, so the refresh token dies after 7 days and the next run fails
+  with a bare `400 Bad Request` from the token endpoint — delete the
+  token file and run again at the machine to redo the browser consent;
+  it cannot be renewed remotely. The same expiry applies to the
+  `gmail_send` and `gdrive_upload` tokens.
 - `customs_docs.rs` — **gitignored on purpose, never promote.** Renders
   bilingual ES/EN "DUA de exportación / factura proforma" PDFs for Swiss
   Post parcels stuck in Spanish (Correos) customs, one per tracking
@@ -1216,6 +1232,45 @@ drift):
   (`CORREOS_USER`, `CORREOS_PASSWORD`, mode 0600) for the user's own
   use; the assistant reads the logged-in session but never types the
   password into the login form.
+  (15) **The public Correos tracking API stopped answering
+  anonymously (seen 2026-10-05).** The `api1.correos.es/…/searchengines`
+  call from point 1 now returns HTTP 401 `{"error": "Authentication
+  denied."}`. Fallback that needs no login: the public tracking page
+  `www.correos.es/es/es/herramientas/localizador/envios/detalle?tracking-number=<code>`
+  in the real browser. It is a slow JS app — `get_page_text` comes back
+  empty for the first ~10 s; wait, scroll, then use `find` or a
+  screenshot. Probe the API again before assuming it is gone for good.
+  (16) **Portal status sequence for a Correos-cleared parcel, as
+  observed:** "Pendiente revisión documentación por ADT" → "Documentación
+  completa" → "La documentación y datos aportados son correctos, se
+  inicia la declaración de importación" → "En proceso en ADT" → payment
+  request → "Envío liberado" (public tracking then shows "Entregado").
+  The public tracking stays on "pending customs processing" through all
+  of the portal stages, so it says nothing about progress until release.
+  The portal session expires within hours; every check needs a fresh
+  login by the user. On a phone the document table hides the state and
+  date columns — expand a row with its plus icon, or use a desktop
+  browser.
+  (17) **Expect a second, unrelated document request after the first
+  one is approved.** For "other merchandise" Correos asks for a signed
+  formal declaration on whether the goods contain or need
+  ozone-depleting substances or fluorinated gases (EU regulations
+  2024/590 and 2024/573). It arrives as a new "Email Petición
+  Documentación" (the row's date changes — that date is the tell) and is
+  answered by uploading a signed one-line declaration into a new row
+  "Otros Documentos". It cost one parcel a week against its twin. For
+  the next shipment, upload that declaration together with the invoice
+  up front.
+  (18) **A cancelled FedEx/TNT label still triggers Spanish customs
+  pre-clearance.** A test booking that was cancelled before pickup had
+  already transmitted its customs data, so FedEx Spain mailed the
+  consignee a request for an "Autorización de despacho y representación"
+  for a parcel that does not exist. The consignee answers
+  aduanas@fedex.com that the shipment was cancelled; nothing needs
+  signing. Don't attach a real invoice to a test booking. The FedEx REST
+  API (developer.fedex.com, OAuth client credentials, key + secret from
+  the developer portal, never the website login) has Track / Ship /
+  Rates; its sandbox only returns test data.
 - `used_pdf.rs` — render a used-gear PDF combining the existing
   `crawl2pump --condition used --format json` dump (Tutti/Anibis,
   which already work via FlareSolverr) with a Ricardo crawl routed

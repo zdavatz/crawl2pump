@@ -670,6 +670,14 @@ usos" plus VAT is the honest route.
 The portal login is kept in the gitignored `.correos.env`
 (`CORREOS_USER` / `CORREOS_PASSWORD`).
 
+Since October 2026 the public tracking API answers 401 without
+credentials; the public tracking page in a real browser is the fallback.
+The public tracking does not move while customs works, only the portal
+status does. After the form and invoice are approved, Correos typically
+asks once more for a signed declaration that the goods contain no
+ozone-depleting or fluorinated gases (uploaded as "Otros Documentos");
+send it up front next time.
+
 ### Scratch: `gdrive_upload` — Google Drive REST uploader
 
 Gitignored one-off (`src/bin/gdrive_upload.rs`) that pushes a local file
@@ -706,6 +714,23 @@ export GMAIL_CLIENT_JSON=~/path/to/oauth-client.json
 The first real run performs the consent and the send in one go, so
 `--auth-only` is optional. The body always comes from a file
 (`--body-file`), which keeps multi-line text out of shell quoting.
+
+### Scratch: `gmail_read` — Gmail REST reader
+
+Gitignored third sibling (`src/bin/gmail_read.rs`): lists and reads mail
+through the plain Gmail REST API with scope `gmail.readonly`, token in
+the gitignored `.gmail-read-token.json`.
+
+```bash
+export GMAIL_CLIENT_JSON=~/path/to/oauth-client.json
+./target/release/gmail_read --query "from:someone newer_than:7d" --limit 10
+./target/release/gmail_read --id <message-id> --show-body
+./target/release/gmail_read --id <message-id> --save-attachments /tmp/out
+```
+
+While the Google OAuth app is in "Testing" mode the tokens of all three
+bins expire after seven days; delete the token file and run again to
+repeat the browser consent.
 
 ### CLI flags
 

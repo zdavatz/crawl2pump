@@ -31,3 +31,4 @@ sqlite/*.db-wal
 .gdrive-token.json
 .gmail-token.json
 .correos.env
+.gmail-read-token.json
