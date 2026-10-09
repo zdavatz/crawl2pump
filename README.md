@@ -19,7 +19,7 @@ pass, normalises the results, and prints them as a table / JSON / CSV.
 | Takuma | World | **URL unverified — stub** | — |
 | Indiana (indiana-sup.ch) | Switzerland | Magento (sitemap + JSON-LD) | sitemap URL **and** `<image:title>` matched for pumpfoil / front-wing / stabilizer keywords (catches SKU-only URLs like `3569sr-3569sr.html`) |
 | AlpineFoil | France | Custom (sitemap + JSON-LD) | `/kitefoil-windfoil-shop/.../*.html` for pumpfoil + front-wing keywords |
-| Ketos | France | WordPress / WooCommerce | English shop only, pumpfoil + front-wing keywords. Per-product page `data-product_variations` JSON + `<table>` spec rows are parsed to emit one `Listing` per size variant (Kobun: 4 sizes; Split: 5 CORE/TIPS kit options) — capped at 8 variants/product to avoid board-configurator explosions |
+| Ketos | France | WordPress / WooCommerce | English shop only, pumpfoil + front-wing keywords. Per-product page `data-product_variations` JSON + `<table>` spec rows are parsed to emit one `Listing` per size variant (Kobun: 4 sizes; Split: 5 CORE/TIPS kit options) — capped at 8 variants/product to avoid board-configurator explosions. **Currently broken:** Ketos moved its shop to Odoo in 2026 (`/shop/<slug>-<id>`, new `sitemap.xml`); the source still targets the old site and returns nothing |
 | Onix | France | Shopify | `combo-packs` + `foil-full-pack` + `front-wings` collections |
 | Takoon | France | Shopify | `pack-foil-pump` + `foil-pump` collections + global `pump` title-filter |
 | Code Foils | USA | WordPress (no per-product sitemap) | scrape `/products/` index page; no retail prices (dealer-only) |
@@ -731,6 +731,9 @@ export GMAIL_CLIENT_JSON=~/path/to/oauth-client.json
 While the Google OAuth app is in "Testing" mode the tokens of all three
 bins expire after seven days; delete the token file and run again to
 repeat the browser consent.
+The consent can be completed from another device: open the printed
+Google link anywhere, approve, and feed the `http://127.0.0.1:<port>/?…`
+address it ends on to the still-running bin with a local `curl`.
 
 ### CLI flags
 

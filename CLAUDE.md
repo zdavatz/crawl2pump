@@ -1076,8 +1076,24 @@ drift):
   mode, so the refresh token dies after 7 days and the next run fails
   with a bare `400 Bad Request` from the token endpoint — delete the
   token file and run again at the machine to redo the browser consent;
-  it cannot be renewed remotely. The same expiry applies to the
+  the consent needs a browser. The same expiry applies to the
   `gmail_send` and `gdrive_upload` tokens.
+  **Renewing consent when the user is not at the machine (verified
+  2026-10-09):** `xdg-open` finds no browser from an agent session, so
+  the bin just sits on its loopback listener until it times out. Start
+  the bin in the background with its output in a log file, read the
+  `accounts.google.com` URL from the log and give it to the user. They
+  approve it on any device; the redirect to `http://127.0.0.1:<port>/?…
+  code=…` fails there, they paste that address back, and a local
+  `curl '<pasted address>'` delivers the code to the waiting process,
+  which then stores the token and finishes the job. The listener port
+  is random per run, so link and pasted address must belong to the same
+  still-running process — give it a long timeout (~10 min). The bins
+  take the `code` value verbatim (no URL-decoding), which is right for
+  an address copied from the browser bar (`4/0A…` with a literal slash).
+  A pasted two-line command loses `GMAIL_CLIENT_JSON=…` (the assignment
+  runs as its own statement); pass `--client-json` or keep it on one
+  line.
 - `customs_docs.rs` — **gitignored on purpose, never promote.** Renders
   bilingual ES/EN "DUA de exportación / factura proforma" PDFs for Swiss
   Post parcels stuck in Spanish (Correos) customs, one per tracking
@@ -1621,6 +1637,27 @@ Lessons from chasing wrong values across brands — change carefully:
 
 ## Known caveats (read before debugging)
 
+- **Ketos moved off WordPress/WooCommerce to Odoo (seen 2026-10-09).**
+  `ketos-foil.com/product-sitemap.xml` and every old
+  `/en/<category>/<slug>/` product URL now return the shop's 404 page
+  (HTTP 404, ~85 KB of HTML — a body-size check alone would not notice).
+  The live catalog is `ketos-foil.com/sitemap.xml` with product pages
+  at `/shop/<slug>-<id>` and categories at `/shop/category/<slug>-<id>`
+  (pump boards: `pump-foil-boards-27`). `brands/ketos.rs` and the whole
+  "WooCommerce variant explosion (Ketos)" section below describe the old
+  site and need a rewrite; until then the Ketos rows in the DB are stale
+  (last scan May 2026). On the new pages the price sits in
+  `<span class="oe_currency_value">` (first hit = base price, later hits
+  = option surcharges), JSON-LD `Product` is present on some pages only,
+  and the displayed prices are unlabelled but each equals a round figure
+  divided by 1.2, i.e. excluding French VAT. Specs ("Dimensions: 90 × 40
+  cm … Weight: 1,6 kg") are free text in the description.
+- **Board weights and dimensions are in the shop text, not in the DB.**
+  For a one-off comparison fetch the live product pages: Indiana prints
+  a "Specs" block (`Product weight: 2,2 kg`, `Volumen L`, `Breite CM`),
+  Alpinefoil puts the weight in the title/teaser and shows both
+  `€ TTC` and `€ HT`, Ketos see above. The DB prices can be months old
+  (Indiana's were ~10 % higher in the May scan than live in October).
 - **Takuma URL is unverified.** `takumafoils.com` is NXDOMAIN; the
   module intentionally errors at runtime. Fix by setting `BASE` in
   `src/sources/brands/takuma.rs` once the real storefront is known.
